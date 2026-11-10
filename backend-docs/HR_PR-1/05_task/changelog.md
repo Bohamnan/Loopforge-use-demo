@@ -334,3 +334,30 @@ TestClient 来自 fastapi.testclient，运行时有 StarletteDeprecationWarning�
 
 ---
 
+## 存储加固（第四批审查 SUGGEST-1、SUGGEST-2、SUGGEST-3）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+**依据**：`backend-docs/HR_PR-1/10_review/code_review.md` 及 Dev Lead 裁决（第四批）；须在 2.4 之前完成
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/repositories/draft_file_store.py | 修改 | SUGGEST-1：`resolve/read/delete` 用 `os.lstat` 拒绝任何符号链接（含指向目录内另一文件的链接）；`read` 用 `O_NOFOLLOW` 打开作纵深防御（链接在检查后被替换也不跟随，ELOOP 转 `ValueError`）；`list_files` 用 `lstat` 只列普通文件 |
+| codes/hr-collection-agent-backend/src/app/repositories/archive_file_store.py | 修改 | SUGGEST-3：`promote` 前若终态名已存在（含符号链接/悬空链接）抛 `FileExistsError`，不覆盖，tmp 保留供对账 |
+| codes/hr-collection-agent-backend/src/app/core/db.py | 修改 | SUGGEST-2：新增 `MIN_SQLITE_VERSION = (3, 35, 0)`，`init_drafts_db/init_resumes_db` 在创建任何文件前检查 `sqlite3.sqlite_version_info`，不满足抛 `RuntimeError("SQLite >= 3.35 is required ...")` |
+| codes/hr-collection-agent-backend/AGENTS.md | 修改 | 写明 SQLite ≥ 3.35 要求、沿用 Python 自带 SQLite（本机部署，DL 决定）、启动检查；追加变更履历 |
+| codes/hr-collection-agent-backend/tests/repositories/test_draft_file_store.py | 修改 | 新增 5 个用例：复现审查场景 a.pdf→b.pdf（read 拒绝；delete 拒绝且 b 不被删、链接保留）、resolve 拒绝、`list_files` 跳过符号链接与悬空链接、绕过检查时 `O_NOFOLLOW` 仍拒绝、普通文件不受影响 |
+| codes/hr-collection-agent-backend/tests/repositories/test_archive_file_store.py | 修改 | 新增 2 个用例：已有终态文件时 promote 抛错且内容不变、tmp 保留；终态名为符号链接时抛错且外部文件不变 |
+| codes/hr-collection-agent-backend/tests/core/test_db.py | 修改 | 新增 10 个用例：版本常量；2 个初始化函数 × 3 个过低版本（3.34.1、3.8.0、2.99.0）均启动失败且不创建文件；3 个受支持版本（3.35.0、3.50.4、4.0.0）正常 |
+
+### 偏差说明
+- 红灯验证：去掉 `src/app/repositories` 的修复后 6 个新用例失败（其余为既有行为的回归保护），恢复后通过。
+- 其余第四批 SUGGEST（4/5/6/7）按 DL 裁决记为跟踪项，未处理。
+
+### 遗留风险
+- `lstat` 检查与后续 `unlink`/`open` 之间仍存在极小 TOCTOU 窗口（`read` 已用 `O_NOFOLLOW` 关闭，`delete` 未用）；目录由服务端独占，POC 可接受。
+- `promote` 为“检查后替换”，不是原子的不覆盖语义；文件名含新生成 UUID，正常路径不会冲突。
+
+---
+
