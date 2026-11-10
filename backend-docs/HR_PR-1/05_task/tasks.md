@@ -155,7 +155,7 @@
 
 ---
 
-### Task 1.7：api 基础：应用工厂、中间件、异常处理、Cookie、依赖装配
+### Task 1.7：api 基础：应用工厂、中间件、异常处理、Cookie、依赖装配 ✅
 - **关联：** REQ-BE-05.2、06.3、06.4；D§3.7（`main.py`、`deps.py`、`cookies.py`、`error_handlers.py`、`middleware.py`）、D§7.3、D§1“Cookie 构造”
 - **内容：** `app/main.py` 的 `create_app()`（路由/中间件/异常处理装配，lifespan 钩子留待 2.7）；`api/middleware.py`（`request_id` 生成并写入日志上下文与响应）；`api/error_handlers.py`（`AppError`、请求校验异常、未捕获异常 → `{code, message, request_id[, details]}`，丢弃校验异常的 `input`）；`api/cookies.py`（设置/续期/清除 `draft_token`，属性固定 `HttpOnly; SameSite=Lax; Path=/`，`Secure` 由配置控制）；`api/deps.py`（Settings、Cookie 令牌解析，缺失传 `None`；各 Repository/Service 的装配函数随后续切片补入）。
 - **测试：** 使用 `TestClient` 与临时测试路由：`AppError` → 对应 HTTP 与错误体；错误体含 `request_id` 且不含请求输入值；Pydantic 校验异常 → `validation_failed`，`details` 的 `field`/`reason` 映射正确且无 `input`；未捕获异常 → `internal_error` 固定文案，日志不含异常消息；`Set-Cookie` 属性（`HttpOnly`、`SameSite=Lax`、`Path=/`、`Max-Age=604800`、默认无 `Secure`）；清除为 `Max-Age=0`；Cookie 缺失 → `None`。
@@ -164,11 +164,11 @@
 
 #### 子任务
 
-- [ ] `create_app()` 与 request_id 中间件
-- [ ] 统一异常处理器（含 multipart 解析失败 → `file_missing` 的挂点）
-- [ ] `cookies.py` 单点定义属性
-- [ ] `deps.py` 令牌解析与装配骨架
-- [ ] 对应单元/接口测试
+- [x] `create_app()` 与 request_id 中间件
+- [x] 统一异常处理器（含 multipart 解析失败 → `file_missing` 的挂点）
+- [x] `cookies.py` 单点定义属性
+- [x] `deps.py` 令牌解析与装配骨架
+- [x] 对应单元/接口测试
 
 ---
 

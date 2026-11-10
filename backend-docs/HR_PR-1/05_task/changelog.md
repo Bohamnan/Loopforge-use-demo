@@ -136,3 +136,27 @@ ResumeFieldsUpdate 的 phone/email 格式依赖 1.6 的 field_validation 才完�
 
 ---
 
+## Task-1.7：api 基础：应用工厂、中间件、异常处理、Cookie、依赖装配
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/main.py | 新增 | create_app（日志、请求 ID 中间件、异常处理、settings 挂载；docs UI 关闭） |
+| codes/hr-collection-agent-backend/src/app/api/middleware.py | 新增 | 纯 ASGI RequestIdMiddleware（服务端生成 req_xxx，不信任客户端，回写 X-Request-ID） |
+| codes/hr-collection-agent-backend/src/app/api/error_handlers.py | 新增 | AppError/校验异常/HTTPException/未捕获异常→统一错误体；上传缺 file→file_missing；POST /resumes 缺 confirmed→confirmation_required |
+| codes/hr-collection-agent-backend/src/app/api/cookies.py | 新增 | draft_token 的 set/renew/clear 单点构造 |
+| codes/hr-collection-agent-backend/src/app/api/deps.py | 新增 | get_settings、get_draft_token |
+| codes/hr-collection-agent-backend/tests/api/*.py | 新增 | 错误体/脱敏/request_id/Cookie 属性/令牌读取/工厂（25 个用例） |
+| codes/hr-collection-agent-backend/pyproject.toml | 修改 | ruff bugbear 允许 Depends/Cookie 作默认值 |
+
+### 偏差说明
+补充/偏差：(1) 未知路由或不允许的方法（Starlette HTTPException）返回原状态码，业务码用 internal_error（契约未定义 not_found/method_not_allowed 码，且这些路径不属于四个接口）；(2) Set-Cookie 手工拼接以精确控制属性（空值清除为 draft_token=; ...Max-Age=0，与 OpenAPI 描述一致），Max-Age 取 DRAFT_TTL_DAYS*86400（默认 604800）；(3) 已按 AGENTS.md 命令实跑 uvicorn --app-dir src app.main:create_app --factory，进程启动并返回统一错误体（路由未挂载）。deps.py 的 Repository/Service 装配留待后续切片。
+
+### 遗留风险
+TestClient 来自 fastapi.testclient，运行时有 StarletteDeprecationWarning（建议改用 httpx2），不影响结果，暂不升级以免引入清单外依赖。
+
+---
+
