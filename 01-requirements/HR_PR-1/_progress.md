@@ -23,7 +23,7 @@
 | Workbench | 负责人 | 状态 | 产出文件 | 待澄清问题数 | 完成时间 |
 |---|-------|------|---------|:-----------:|---------|
 | backend | Yin Yang | ✅ 影响分析完成 | `backend-docs/HR_PR-1/00_impact_analysis.md` | 8（另 2 条已由 Dev Lead 答复） | 2026-11-10 |
-| frontend | 待分配 | ⏸️ 待影响分析 | `frontend-docs/HR_PR-1/01_requirements/requirements_plan.md` | — | — |
+| frontend | Yin Yang | ✅ 影响分析完成 | `frontend-docs/HR_PR-1/01_requirements/requirements_plan.md`；`frontend-docs/HR_PR-1/00_impact_analysis.md` | 9 | 2026-11-10 |
 
 **阻断条件**：
 - `requirements-analyst（汇总）`：所有参与 Workbench 状态必须为 ✅。
@@ -46,7 +46,7 @@
 | 需求启动（Workbench 检测+业务澄清+派活） | requirement-kickoff | Dev Lead | ✅ | 2026-11-10 | `01-requirements/HR_PR-1/` |
 | 解决方案设计 HLD（大型新需求） | solution-designer | Dev Lead | ✅ 已批准 | 2026-11-10 | `01-requirements/HR_PR-1/solution-design.md` |
 | 仓库约定初稿与确认（仅新项目 Workbench） | solution-designer（Step 7） | Dev Lead | ✅ 已确认；未推送（代码目录尚未初始化 Git） | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
-| Workbench 影响分析（各 Workbench 并行） | impact-analyzer | 各 Workbench 工程师 | 🔄 backend ✅ / frontend ⏸️ | backend 2026-11-10 | `backend-docs/HR_PR-1/00_impact_analysis.md` |
+| Workbench 影响分析（各 Workbench 并行） | impact-analyzer | 各 Workbench 工程师 | ✅ backend ✅ / frontend ✅ | 2026-11-10 | `backend-docs/HR_PR-1/00_impact_analysis.md`；`frontend-docs/HR_PR-1/00_impact_analysis.md` |
 | 跨 Workbench 一致性 review（仅跨 Workbench 需求） | cross-workbench-reviewer | Dev Lead | ⏸️ 待影响分析 | — | `01-requirements/HR_PR-1/cross-workbench-review.md` |
 | 需求汇总（第二轮技术 Q&A + requirements.md） | requirements-analyst | Dev Lead/BA | ⏸️ 待影响分析与 review | — | — |
 | 架构设计（Schema+接口） | architecture-advisor | 各 Workbench 工程师 | — | — | — |
@@ -70,7 +70,7 @@
 | HLD 必要性评估 | requirement-kickoff | ✅ | 两个目标仓库为新项目，必须走 HLD | 2026-11-10 |
 | 整体 HLD 审批 | solution-designer | ✅ | HLD 与 ADR-001..003 已批准/接受 | 2026-11-10 |
 | 仓库约定确认（仅新项目） | solution-designer | ✅ | backend/frontend `AGENTS.md` 已批准；未推送，代码目录未初始化 Git | 2026-11-10 |
-| 所有 Workbench 影响分析完成 | impact-analyzer | ⏸️ | backend、frontend 工程师提交 ✅ | — |
+| 所有 Workbench 影响分析完成 | impact-analyzer | ✅ | backend、frontend 均已 ✅ | 2026-11-10 |
 | 跨 Workbench 一致性确认 | cross-workbench-reviewer | ⏸️ | Dev Lead 完成跨 Workbench Review | — |
 | 第二轮技术 Q&A 裁决 | requirements-analyst | — | 等待 impact-analyzer 及跨 Workbench review | — |
 
@@ -85,6 +85,8 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | solution-designer | 批准 HLD 与 ADR-001..003；生成 backend/frontend 仓库约定初稿，等待复核 |
 | 2026-11-10 | Yin Yang（Dev Lead） | solution-designer | 复核并批准 backend/frontend AGENTS.md；代码目录未初始化 Git，未推送 |
 | 2026-11-10 | Yin Yang（backend） | impact-analyzer | 完成 backend 影响分析（新项目，全部为新增），登记待澄清问题 10 条；Dev Lead 答复 Q01/Q05，项目定位 local POC，剩余 8 条 |
+| 2026-11-10 | Yin Yang（frontend） | impact-analyzer | 完成 frontend 影响分析（新项目，全部为新增）；登记 9 条待澄清问题 |
+| 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 feature-backend、feature-frontend 到 feature，解决 `_progress.md` 冲突，两 Workbench 影响分析均 ✅ |
 
 ---
 
@@ -116,5 +118,5 @@
 
 | Workbench | 负责人 | 输出目录 |
 |----|-------|---------|
-| backend | 待分配 | `backend-docs/HR_PR-1/` |
-| frontend | 待分配 | `frontend-docs/HR_PR-1/` |
+| backend | Yin Yang | `backend-docs/HR_PR-1/` |
+| frontend | Yin Yang | `frontend-docs/HR_PR-1/` |
