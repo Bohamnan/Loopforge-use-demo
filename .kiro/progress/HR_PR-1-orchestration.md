@@ -3,7 +3,7 @@
 | 项 | 内容 |
 |---|---|
 | 当前级别 | L3（新项目、跨前后端、外部模型对接） |
-| 状态 | ▶ 进行中：2.6/2.7 审查通过并标 ✅（第九批，pytest 876 passed）；已 send backend worker（ctx_24af353d47ec）做文档注记 + 3.1–3.3；审查 worker ctx_962f562724ce 保留空闲；下一步：3.x 合并复验 → 第十批审查 → 前后端联调（含窄屏实机）→ 交 DL 最终 Review |
+| 状态 | ▶ 进行中：backend 20 个任务全部 ✅（第十批审查通过，pytest 1001 passed、CRAP 最大 9.0、覆盖率 99%）；已 send backend worker（ctx_df805c941f72）做 uvicorn 真实进程演练 + 真实 DeepSeek spike（仅合成简历，验证 1 MB 缩图后识别率）；之后前后端联调 + 窄屏实机，再交 DL 最终 Review。注：主 agent 的工具会拦截前台启动服务，服务的真实启动交给 worker 终端做 |
 | 最后更新 | 2026-11-10，feature `505d02d` |
 | 权威进度 | `01-requirements/HR_PR-1/_progress.md`（流程表、贡献记录、末尾「暂停恢复清单」） |
 
