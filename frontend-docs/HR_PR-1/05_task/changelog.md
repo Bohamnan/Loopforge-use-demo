@@ -309,7 +309,7 @@ React 在开发模式下自身会向 console 输出异常信息（含 message）
 
 ### 遗留风险
 - HIGH_RISK：请人类审查 F-03 路径——`SavedResultCard` 的唯一入口（`reducer CONFIRM_SUCCEEDED`）、`draft_not_found` 与各类失败不会进入成功态。
-- 超时 / 网络失败后“结果未知”的文案依赖 backend 确认接口幂等（ADR-004）；已保存但响应丢失的情形，重试会得到 `already_saved=true`，界面显示“该简历已保存过”。
+- 超时 / 网络失败后“结果未知”。（2026-11-10 更正，第三批审查 SUGGEST-1）如果首次请求其实已经保存、只是响应丢了，backend 已删除草稿并使令牌失效（C-11），重试会得到 **404 `draft_not_found`**，界面显示“可能已保存，请重新上传核实”（D-01），不会得到 `already_saved=true`；`already_saved=true` 只出现在同一个人此前已保存、而本次仍持有有效草稿的情形（ADR-004）。原先写“重试会得到 `already_saved=true`”是错误的。
 - “＋ 新对话”仍待 2.7；`saved` 与 `empty` 阶段点击该按钮暂无反应，使用“上传下一份”即可。
 
 ## Fix-2.6a：保存响应形状校验，防误报“已保存”（第三批审查 SUGGEST-2，F-03 加固）

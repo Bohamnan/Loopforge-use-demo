@@ -319,6 +319,41 @@ describe('REQ-FE-04.6 超时 / 网络失败：不提示成功，可直接重试�
   });
 });
 
+describe('REQ-FE-04.6 超时后其实已保存：重试得到 404 → 可能已保存（D-01、C-11）', () => {
+  it('first attempt times out, the retry finds the draft gone and says "maybe saved", never "saved"', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    let attempt = 0;
+    const mock = stubFetch((url, init) => {
+      if (url !== '/api/v1/resumes') return jsonResponse(200, allConfirmed());
+      attempt += 1;
+      // 1st: the save went through on the server but the answer never arrives; 2nd: the draft is already gone
+      return attempt === 1
+        ? (new Promise<Response>((_res, rej) => init.signal?.addEventListener('abort', () => rej(new DOMException('a', 'AbortError')))) as unknown as Response)
+        : errorResponse(404, { code: 'draft_not_found' });
+    });
+    renderPage();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    fireEvent.click(submit());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent('未收到保存结果');
+    noSuccessShown();
+    fireEvent.click(submit());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.getByText('可能已保存，请重新上传核实')).toBeInTheDocument();
+    noSuccessShown();
+    expect(screen.queryByText('该简历已保存过')).not.toBeInTheDocument();
+    expect(document.querySelectorAll('[data-field]')).toHaveLength(0);
+    expect(posts(mock)).toHaveLength(2);
+  });
+});
+
 describe('REQ-FE-04.7 草稿不存在：可能已保存，请重新上传核实（D-01）', () => {
   it('shows the check hint in the empty state and never a success', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
