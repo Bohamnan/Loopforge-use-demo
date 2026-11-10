@@ -151,6 +151,7 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 backend 存储加固（6295fe5）与 2.1–2.3（fb1210f、bac0405、71785cc）：复跑 pytest 721 passed、ruff 通过、无密钥；交审查 agent 做第六批审查 |
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent | DL 要求暂停：worker-stop 停止 frontend（ctx_1e6c6f4f8173）与审查 agent（ctx_7a4bf2974859），进程已关闭，已提交工作不受影响；backend worker 空闲未动。恢复清单见下方「暂停恢复清单」 |
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent | 按 DL 指出补关 backend worker（worker-release ctx_215fa78784b1）；核对三个 worktree 均无运行中的 agent、无终端，worker-list 无 live |
+| 2026-11-10 | Yin Yang（Dev Lead） | 主 agent | 恢复编排：第六批审查 PASS_WITH_SUGGESTIONS（0e92cb4），DL 接受 4 个偏差（本地运行，大小前置限制登记跟踪项）；合并 frontend 跟踪项与 3.1（195ba1d），复跑 643 例通过、lint 0、build 通过；DL 指出 LLM 请求体上限 1 MB，批准新增 Pillow，新增 Task 2.3a（图像预处理 + SUGGEST-1/2），下发 backend worker ctx_6cac87d0c5c6 |
 
 ---
 

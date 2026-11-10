@@ -3,7 +3,7 @@
 | 项 | 内容 |
 |---|---|
 | 当前级别 | L3（新项目、跨前后端、外部模型对接） |
-| 状态 | ▶ **已恢复**（2026-11-10，DL 唤醒）：审查 worker `ctx_e5631b244e6b`（Task task_b6e2f0fb7ed7，第六批审查）与 frontend worker `ctx_35baa4f3c420`（Task task_adf5f4bbc6f4，续 3.1）运行中；backend worker 仍关闭，待审查通过 + DL 裁决后启动 2.4 |
+| 状态 | ▶ **已恢复**（2026-11-10，DL 唤醒）：审查 worker `ctx_e5631b244e6b`（Task task_b6e2f0fb7ed7，第六批审查）与 frontend worker `ctx_35baa4f3c420`（Task task_adf5f4bbc6f4，续 3.1）运行中；审查与 frontend 3.1 已完成并合并（195ba1d）；backend worker `ctx_6cac87d0c5c6`（Task task_5c4d19fd82d9）正做 Task 2.3a（LLM 请求体 ≤ 1 MB，Pillow 已批准）；2.3a 合并复验后再启动 2.4 |
 | 最后更新 | 2026-11-10，feature `505d02d` |
 | 权威进度 | `01-requirements/HR_PR-1/_progress.md`（流程表、贡献记录、末尾「暂停恢复清单」） |
 
