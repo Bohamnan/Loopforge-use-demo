@@ -378,3 +378,16 @@ body {
 .app-header-action {
   margin-left: auto;
 }
+
+/* Phone width (360–599px): give editable values the whole row (integration drill SUGGEST-2). */
+@media (max-width: 599px) {
+  .field-edit {
+    flex-wrap: wrap;
+  }
+  .field-edit .field-label {
+    width: 100%;
+  }
+  .field-edit .field-value {
+    flex: 1 1 180px;
+  }
+}
