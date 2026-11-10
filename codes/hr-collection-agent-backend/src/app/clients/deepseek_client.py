@@ -64,6 +64,47 @@ def _body_size(blocks: list[dict[str, Any]]) -> int:
     return len(json.dumps(_build_payload(blocks), ensure_ascii=False).encode("utf-8"))
 
 
+# One piece of the document: (text block or None, image bytes or None). A PDF text page is
+# text only, a scanned PDF page is caption + image, a photo upload is image only.
+_Item = tuple[dict[str, Any] | None, bytes | None]
+
+
+def _pdf_item(part: Any) -> _Item:
+    if isinstance(part, ImagePart):
+        return {"type": "text", "text": f"[Page {part.page} is an image]"}, part.png
+    text = f"[Page {part.page} text layer]\n{neutralize_markers(part.text)}"
+    return {"type": "text", "text": text}, None
+
+
+def _collect_items(content: bytes, content_type: str) -> list[_Item]:
+    """Split the upload into items; PDFs are converted locally first."""
+    if content_type in IMAGE_TYPES:
+        return [(None, content)]
+    if content_type == "application/pdf":
+        return [_pdf_item(part) for part in render_pdf(content).parts]
+    raise ValueError(f"unsupported content type: {content_type}")
+
+
+def _assemble(
+    items: list[_Item], head: dict[str, Any], tail: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Order: head, then per item its text and its re-encoded image, then tail.
+
+    Every image is re-encoded as JPEG so that the whole body fits the request budget.
+    """
+    texts = [text for text, _ in items if text is not None]
+    images = [image for _, image in items if image is not None]
+    jpegs = iter(image_prep.fit_images(images, _body_size([head, *texts, *tail])))
+    blocks: list[dict[str, Any]] = [head]
+    for text, image in items:
+        if text is not None:
+            blocks.append(text)
+        if image is not None:
+            blocks.append(_image_block(next(jpegs), "image/jpeg"))
+    blocks.extend(tail)
+    return blocks
+
+
 def build_user_blocks(content: bytes, content_type: str) -> list[dict[str, Any]]:
     """Content blocks for the user message. PDFs are converted locally first.
 
@@ -71,45 +112,9 @@ def build_user_blocks(content: bytes, content_type: str) -> list[dict[str, Any]]
     ``image_prep.MAX_REQUEST_BYTES``; if that is impossible ParseFailedError is raised, before
     anything is sent.
     """
-    if content_type in IMAGE_TYPES:
-        items: list[Any] = [content]
-    elif content_type == "application/pdf":
-        items = []
-        for part in render_pdf(content).parts:
-            if isinstance(part, ImagePart):
-                items.append(
-                    ({"type": "text", "text": f"[Page {part.page} is an image]"}, part.png)
-                )
-            else:
-                items.append(
-                    {
-                        "type": "text",
-                        "text": f"[Page {part.page} text layer]\n{neutralize_markers(part.text)}",
-                    }
-                )
-    else:
-        raise ValueError(f"unsupported content type: {content_type}")
-
     head = {"type": "text", "text": DOC_BEGIN}
     tail = [{"type": "text", "text": DOC_END}, {"type": "text", "text": USER_INSTRUCTION}]
-    text_only: list[dict[str, Any]] = [head]
-    for item in items:
-        if isinstance(item, tuple):
-            text_only.append(item[0])
-        elif isinstance(item, dict):
-            text_only.append(item)
-    images = [i[1] if isinstance(i, tuple) else i for i in items if not isinstance(i, dict)]
-    jpegs = iter(image_prep.fit_images(images, _body_size(text_only + tail)))
-
-    blocks: list[dict[str, Any]] = [head]
-    for item in items:
-        if isinstance(item, dict):
-            blocks.append(item)
-        else:
-            if isinstance(item, tuple):
-                blocks.append(item[0])
-            blocks.append(_image_block(next(jpegs), "image/jpeg"))
-    blocks.extend(tail)
+    blocks = _assemble(_collect_items(content, content_type), head, tail)
     if _body_size(blocks) > image_prep.MAX_REQUEST_BYTES:
         raise ParseFailedError()
     return blocks

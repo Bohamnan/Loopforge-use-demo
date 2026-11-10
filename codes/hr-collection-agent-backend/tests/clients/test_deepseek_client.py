@@ -121,6 +121,39 @@ def test_scanned_pdf_is_sent_as_rendered_jpeg() -> None:
     assert base64.b64decode(url.split(",", 1)[1])[:3] == b"\xff\xd8\xff"
 
 
+def test_blocks_keep_document_order_and_budget_counts_every_text_block(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Mixed pages: caption precedes its image, text pages stay in place, and the image budget
+    is the size of everything except the images."""
+    from app.clients import deepseek_client as module
+    from app.clients import image_prep
+
+    seen: list[int] = []
+    real = image_prep.fit_images
+
+    def spy(images: list[bytes], overhead: int) -> list[bytes]:
+        seen.append(overhead)
+        return real(images, overhead)
+
+    monkeypatch.setattr(image_prep, "fit_images", spy)
+    jpeg = make_real_jpeg_bytes()
+    head = {"type": "text", "text": "HEAD"}
+    tail = [{"type": "text", "text": "TAIL"}]
+    items = [
+        ({"type": "text", "text": "caption 1"}, jpeg),
+        ({"type": "text", "text": "page 2 text"}, None),
+        (None, jpeg),
+    ]
+
+    blocks = module._assemble(items, head, tail)
+
+    kinds = [b["text"] if b["type"] == "text" else "IMAGE" for b in blocks]
+    assert kinds == ["HEAD", "caption 1", "IMAGE", "page 2 text", "IMAGE", "TAIL"]
+    without_images = [b for b in blocks if b["type"] == "text"]
+    assert seen == [module._body_size(without_images)]
+
+
 def test_pdf_pages_are_limited_to_five() -> None:
     client, rec = make_client()
     client.parse(syn.build_text_pdf([syn.RESUME_LINES] * 8), "application/pdf")

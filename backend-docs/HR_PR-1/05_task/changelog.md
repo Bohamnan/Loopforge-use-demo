@@ -695,3 +695,20 @@ OpenAPI 0.1.1 未改动；无新增依赖；无数据库结构变更（无）。
 - pytest 999 passed；覆盖率（pytest-cov，行+分支）总计 99%，services 97.8% / repositories 98.9% / clients 99.1% / core 99.4%；ruff check/format 通过。
 - `~/tools/dryer`：无重复候选。`~/tools/crapper`：198 个函数中 1 个超标（`build_user_blocks` CRAP 14.0 > 10，覆盖率 100%，需降低复杂度），未修改代码，待裁决。
 - 未做项（uvicorn 真实进程演练、真实 DeepSeek、并发容量、mutator）已在报告 §8 列明，未声称达标。
+
+---
+
+## 重构：降低 CRAP（`build_user_blocks` 等），DL 裁决纳入 3.3
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/clients/deepseek_client.py | 修改 | `build_user_blocks` 拆为 `_collect_items`、`_pdf_item`、`_assemble`；外发请求体与旧实现逐字节一致，预算逻辑与常量未改 |
+| codes/hr-collection-agent-backend/src/app/services/parse_normalizer.py | 修改 | `_string_items` 拆出 `_list_item`，`_entry` 拆出 `_entry_value`；行为不变 |
+| codes/hr-collection-agent-backend/tests/clients/test_deepseek_client.py | 修改 | 新增块顺序与预算扣除文本块的用例 |
+| codes/hr-collection-agent-backend/tests/services/test_parse_normalizer.py | 修改 | 新增列表垃圾项降级用例 |
+| backend-docs/HR_PR-1/05_task/quality_report.md | 修改 | CRAP 复测：198→203 个函数，超标 14.0→0 个，最大 9.0；用例 999→1001 |
+
+调用方影响：`build_user_blocks` 唯一调用方为 `DeepSeekClient.parse`，签名与返回不变；`_entry`/`_string_items` 仅在 `parse_normalizer` 内部使用。

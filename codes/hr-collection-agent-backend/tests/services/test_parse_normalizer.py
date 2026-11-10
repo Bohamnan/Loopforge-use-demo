@@ -174,6 +174,13 @@ def test_list_items_of_wrong_type_are_dropped_and_uncertain() -> None:
     assert status(result, "skills") is FieldStatus.UNCERTAIN
 
 
+def test_a_junk_item_alone_makes_the_list_uncertain_but_none_does_not() -> None:
+    junk = run(name=node("A"), skills=node(["Python", {"x": 1}]))
+    assert (value(junk, "skills"), status(junk, "skills")) == (["Python"], FieldStatus.UNCERTAIN)
+    blank = run(name=node("A"), skills=node(["Python", None, ""]))
+    assert (value(blank, "skills"), status(blank, "skills")) == (["Python"], FieldStatus.RECOGNIZED)
+
+
 def test_clean_list_stays_recognized() -> None:
     result = run(name=node("A"), skills=node(["Python", "SQL"]))
     assert (value(result, "skills"), status(result, "skills")) == (

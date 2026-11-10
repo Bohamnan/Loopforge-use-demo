@@ -66,6 +66,14 @@ def _text(value: Any, limit: int) -> tuple[str, bool]:
     return text, degraded
 
 
+def _list_item(item: Any, item_limit: int) -> tuple[str | None, bool]:
+    """One list element: (text or None when dropped, degraded)."""
+    if isinstance(item, str | int | float) and not isinstance(item, bool):
+        text, degraded = _text(item, item_limit)
+        return (text or None), degraded
+    return None, item is not None  # an object or other junk inside a list of strings
+
+
 def _string_items(value: Any, item_limit: int, max_items: int) -> tuple[list[str], bool]:
     """Clean a list of strings; returns (items, degraded)."""
     degraded = False
@@ -74,14 +82,11 @@ def _string_items(value: Any, item_limit: int, max_items: int) -> tuple[list[str
     if not isinstance(value, list):
         return [], False
     items: list[str] = []
-    for item in value:
-        if isinstance(item, str | int | float) and not isinstance(item, bool):
-            text, item_degraded = _text(item, item_limit)
-            degraded = degraded or item_degraded
-            if text:
-                items.append(text)
-        elif item is not None:
-            degraded = True  # an object or other junk inside a list of strings
+    for raw in value:
+        text, item_degraded = _list_item(raw, item_limit)
+        degraded = degraded or item_degraded
+        if text:
+            items.append(text)
     if len(items) > max_items:
         items, degraded = items[:max_items], True
     return items, degraded
@@ -113,22 +118,23 @@ def _text_list(raw_node: Any) -> StringListField:
     return StringListField(value=items, status=_status(claimed, degraded))
 
 
+def _entry_value(name: str, value: Any) -> tuple[Any, bool]:
+    """One entry attribute: (cleaned value, degraded)."""
+    if name in _ENTRY_LIST_KEYS:
+        return _string_items(value, L.ENTRY_STRING_MAX, L.ENTRY_LIST_MAX_ITEMS)
+    text, bad = _text(value, L.ENTRY_STRING_MAX)
+    if value is not None and not text and not isinstance(value, str):
+        bad = True  # an unusable type was dropped
+    return (text or None), bad
+
+
 def _entry(cls: type, raw_entry: dict[str, Any]) -> tuple[Any | None, bool]:
     """Build one block entry; unknown keys are ignored. Returns (entry|None, degraded)."""
     data: dict[str, Any] = {}
     degraded = False
     for name in cls.model_fields:  # type: ignore[attr-defined]
-        value = raw_entry.get(name)
-        if name in _ENTRY_LIST_KEYS:
-            items, bad = _string_items(value, L.ENTRY_STRING_MAX, L.ENTRY_LIST_MAX_ITEMS)
-            data[name] = items
-            degraded = degraded or bad
-        else:
-            text, bad = _text(value, L.ENTRY_STRING_MAX)
-            if value is not None and not text and not isinstance(value, str):
-                bad = True  # an unusable type was dropped
-            data[name] = text or None
-            degraded = degraded or bad
+        data[name], bad = _entry_value(name, raw_entry.get(name))
+        degraded = degraded or bad
     if not any(data.values()):
         return None, degraded
     return cls(**data), degraded
