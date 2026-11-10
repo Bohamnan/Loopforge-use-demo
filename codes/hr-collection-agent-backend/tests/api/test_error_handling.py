@@ -75,9 +75,9 @@ def test_confirmed_missing_is_confirmation_required(client: TestClient) -> None:
         assert "details" not in r.json()
 
 
-def test_confirmed_wrong_type_stays_validation_failed(client: TestClient) -> None:
+def test_confirmed_wrong_type_is_confirmation_required(client: TestClient) -> None:
     r = client.post("/api/v1/resumes", json={"confirmed": "ZZ-yes-maybe"})
-    assert r.json()["code"] == "validation_failed"
+    assert r.status_code == 422 and r.json()["code"] == "confirmation_required"
     assert "ZZ" not in r.text
 
 
