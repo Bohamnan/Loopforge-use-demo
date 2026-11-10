@@ -3,7 +3,7 @@
 | 项 | 内容 |
 |---|---|
 | 当前级别 | L3（新项目、跨前后端、外部模型对接） |
-| 状态 | ▶ 进行中：2.4 复审通过（7093e1e），tasks.md 已标 ✅；backend worker 正做 2.5（HIGH_RISK，完成后不标 ✅，先审查）；审查 worker `ctx_a5c820bc77c6` 保留空闲供下批复用；frontend 暂无任务 |
+| 状态 | ▶ 进行中：2.5 已合并复验（e3bd9ac，pytest 839 passed、ruff 通过），第八批审查已 send 给复用的审查 worker（ctx_962f562724ce）；backend worker `ctx_24af353d47ec` 保留空闲，审查通过后复用做 2.6、2.7、3.x；2.5 暂未标 ✅ |
 | 最后更新 | 2026-11-10，feature `505d02d` |
 | 权威进度 | `01-requirements/HR_PR-1/_progress.md`（流程表、贡献记录、末尾「暂停恢复清单」） |
 
