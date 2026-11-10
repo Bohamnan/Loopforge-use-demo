@@ -1,4 +1,4 @@
-import { Button, Spin } from 'antd';
+import { Spin } from 'antd';
 import { useRef } from 'react';
 import type { ApiError } from '../api/ApiError';
 import AppShell from '../components/AppShell';
@@ -8,14 +8,17 @@ import ComposerBar, { type ComposerBarHandle } from '../components/ComposerBar';
 import ConfirmDialog from '../components/ConfirmDialog';
 import ErrorAlert from '../components/ErrorAlert';
 import FileCard from '../components/FileCard';
+import FinalReviewCard from '../components/FinalReviewCard';
 import NoticeBanner from '../components/NoticeBanner';
 import QuickReplyChips from '../components/QuickReplyChips';
 import ReviewSummary from '../components/ReviewSummary';
+import SavedResultCard from '../components/SavedResultCard';
 import SectionCard from '../components/SectionCard';
 import UploadProgressNotice from '../components/UploadProgressNotice';
 import WelcomePanel from '../components/WelcomePanel';
 import { getSection, SECTIONS } from '../hooks/model/SectionConfig';
-import { sectionConfirmBlock, sectionStatus } from '../hooks/model/SectionView';
+import { coreReady, sectionConfirmBlock, sectionStatus, unconfirmedCount } from '../hooks/model/SectionView';
+import { usePreventFileDropNavigation } from '../hooks/usePreventFileDropNavigation';
 import { useResumeSession } from '../hooks/useResumeSession';
 
 const UPLOAD_TIMEOUT_TEXT = '识别时间过长，请重新上传。';
@@ -32,17 +35,22 @@ export default function ResumeCollectionPage() {
     goFinal,
     discardEditsAndGoFinal,
     backToSections,
+    confirmResume,
+    proceedUnconfirmed,
+    uploadNext,
     dismissDialog,
     requestUpload,
     confirmOverwrite,
     cancelOverwrite,
     selectionNotice,
   } = useResumeSession();
+  usePreventFileDropNavigation(); // also covers phases without a composer
   const composerRef = useRef<ComposerBarHandle>(null);
   const busy = state.busy !== null;
   const uploading = state.busy === 'upload';
   const uploadError = state.error?.scope === 'upload' ? state.error.cause : null;
   const sectionError = state.error?.scope === 'section' ? state.error.cause : null;
+  const confirmError = state.error?.scope === 'confirm' ? state.error.cause : null;
   const inSections = state.phase === 'reviewing' && state.view === 'sections' && state.draft !== null;
 
   const pending =
@@ -86,9 +94,9 @@ export default function ResumeCollectionPage() {
           {state.draft && state.view === 'sections' ? (
             <ReviewSummary fields={state.draft.fields} onJump={selectSection} />
           ) : null}
-          {state.draft
+          {state.draft && state.view === 'sections'
             ? SECTIONS.map((section) => {
-                const active = state.view === 'sections' && state.activeSection === section.key;
+                const active = state.activeSection === section.key;
                 return (
                   <SectionCard
                     key={section.key}
@@ -96,7 +104,7 @@ export default function ResumeCollectionPage() {
                     fields={state.draft!.fields}
                     buffer={state.editBuffer}
                     active={active}
-                    onSelect={state.view === 'sections' ? () => selectSection(section.key) : undefined}
+                    onSelect={() => selectSection(section.key)}
                     onEdit={active ? editField : undefined}
                     onConfirm={active ? () => confirmSection(section.key) : undefined}
                     fieldErrors={state.fieldErrors}
@@ -107,11 +115,25 @@ export default function ResumeCollectionPage() {
               })
             : null}
           {state.draft && state.view === 'final' ? (
-            // Interim final view; replaced by the final confirmation card in task 2.6.
-            <Button onClick={backToSections}>我还要修改</Button>
+            <FinalReviewCard
+              fields={state.draft.fields}
+              buffer={state.editBuffer}
+              unconfirmedCount={unconfirmedCount(state.draft.fields)}
+              coreReady={coreReady(state.draft.fields, state.editBuffer)}
+              busy={state.busy === 'confirm'}
+              error={confirmError}
+              onConfirm={confirmResume}
+              onBack={() => backToSections()}
+              onEditCore={() => backToSections('basic')}
+            />
           ) : null}
           {pending}
         </>
+      );
+      break;
+    case 'saved':
+      content = (
+        <SavedResultCard summary={state.savedSummary} alreadySaved={state.notice === 'already_saved'} onUploadNext={uploadNext} />
       );
       break;
     default:
@@ -163,6 +185,15 @@ export default function ResumeCollectionPage() {
         okText="继续上传"
         onOk={confirmOverwrite}
         onCancel={cancelOverwrite}
+      />
+      <ConfirmDialog
+        open={state.dialog === 'unconfirmed'}
+        title="还有字段未确认"
+        content={`还有 ${state.draft ? unconfirmedCount(state.draft.fields) : 0} 项字段未确认，继续将视为确认当前显示的全部内容。`}
+        okText="继续确认"
+        cancelText="返回检查"
+        onOk={proceedUnconfirmed}
+        onCancel={dismissDialog}
       />
       <ConfirmDialog
         open={state.dialog === 'unsubmitted_edits'}

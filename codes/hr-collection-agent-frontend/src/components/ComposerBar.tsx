@@ -29,12 +29,13 @@ const ComposerBar = forwardRef<ComposerBarHandle, ComposerBarProps>(function Com
 
   useImperativeHandle(ref, () => ({ openPicker: () => inputRef.current?.click() }), []);
 
+  // The page-wide listeners stay attached even while disabled: a drop must always be cancelled, otherwise the
+  // browser opens the file and leaves the page, losing unsubmitted edits. Files are only used when enabled.
   useEffect(() => {
-    if (disabled) return;
     const onDrop = (event: DragEvent) => {
       event.preventDefault();
       const files = event.dataTransfer?.files;
-      if (files && files.length > 0) {
+      if (!disabled && files && files.length > 0) {
         onFiles(Array.from(files));
       }
     };

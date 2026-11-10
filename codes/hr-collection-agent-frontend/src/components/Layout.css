@@ -325,3 +325,48 @@ body {
   flex: 1;
   min-width: 0;
 }
+
+/* Final review and result */
+.final-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.final-card h2 {
+  margin: 0;
+  color: var(--navy);
+}
+.final-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.final-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.saved-card {
+  border: 1px solid #bfe3cd;
+  background: var(--ok-bg);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+.saved-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ok);
+}
+.saved-row {
+  display: flex;
+  gap: 12px;
+}
+.saved-row > span:first-child {
+  width: 80px;
+  color: var(--muted);
+}

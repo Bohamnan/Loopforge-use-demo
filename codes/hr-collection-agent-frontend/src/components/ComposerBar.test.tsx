@@ -61,6 +61,14 @@ describe('ComposerBar', () => {
     expect((container.querySelector('input[type="file"]') as HTMLInputElement).disabled).toBe(true);
   });
 
+  it('still cancels the browser default for drops while disabled, so an unsaved page is never left (review SUGGEST)', () => {
+    const onFiles = vi.fn();
+    render(<ComposerBar onFiles={onFiles} disabled />);
+    expect(fireEvent.drop(document, { dataTransfer: { files: [pdf()] } })).toBe(false);
+    expect(fireEvent.dragOver(document, { dataTransfer: { files: [pdf()] } })).toBe(false);
+    expect(onFiles).not.toHaveBeenCalled();
+  });
+
   it('shows a notice when given one (e.g. several files dropped)', () => {
     render(<ComposerBar onFiles={() => undefined} notice="一次只能上传一个文件，已选择第一个。" />);
     expect(screen.getByText('一次只能上传一个文件，已选择第一个。')).toBeInTheDocument();
@@ -72,5 +80,13 @@ describe('ComposerBar', () => {
     unmount();
     fireEvent.drop(document, { dataTransfer: { files: [pdf()] } });
     expect(onFiles).not.toHaveBeenCalled();
+  });
+
+  it('resumes accepting files as soon as it is enabled again', () => {
+    const onFiles = vi.fn();
+    const { rerender } = render(<ComposerBar onFiles={onFiles} disabled />);
+    rerender(<ComposerBar onFiles={onFiles} />);
+    fireEvent.drop(document, { dataTransfer: { files: [pdf()] } });
+    expect(onFiles).toHaveBeenCalledTimes(1);
   });
 });
