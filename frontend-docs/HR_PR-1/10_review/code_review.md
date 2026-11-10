@@ -149,3 +149,16 @@
 - ESLint 同时用 `no-restricted-globals` 与 `no-restricted-properties` 覆盖 `window.xxx` / `globalThis.xxx` 写法，并以永久用例验证，且 `--max-warnings 0`。
 - 依赖全部精确版本、lockfile 无镜像域名、`.npmrc` 无凭证，供应链基础规范。
 - 变更记录（偏差说明、遗留风险）如实，TypeScript 版本与 Node 版本问题都是 worker 主动披露的。
+
+---
+
+## Dev Lead 裁决（2026-11-10）
+
+| 项 | 裁决 |
+|---|---|
+| QUESTION-1 | 保持 `engines.node >=24` 不改；本机 Node 25 的 EBADENGINE 警告记为已知风险（测试与构建实测通过） |
+| QUESTION-2 | 追认 6 个配套依赖；以后新增依赖须先用 ask 申请 |
+| SUGGEST-1 | 在任务 2.2（上传）中处理：响应体读取阶段的超时归为 `client_timeout` |
+| 其余 SUGGEST | 记为跟踪项，在后续相关任务中顺带处理 |
+| 自报偏差 | 按审查建议全部接受（TS 6.0.3、npm audit 10 项 dev 中危记为已知风险） |
+| 结论 | frontend 第一批通过 |

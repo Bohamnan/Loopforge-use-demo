@@ -152,3 +152,15 @@
 - 契约测试直接读取冻结的 `openapi.yaml`：13 个业务码、文案、22 键顺序、各上限均与契约比对。
 - 禁网夹具、`SecretStr`、精确版本锁定（`==`，有测试）、`.env.example` 仅占位符，B-01 / B-06 基础扎实。
 - `core/db.py` 的 DDL 程序化取自文档，并测试了约束、索引、外键级联、写者串行。
+
+---
+
+## Dev Lead 裁决（2026-11-10）
+
+| 项 | 裁决 |
+|---|---|
+| BLOCK-1 | 必须修复：手机号正则改为只匹配 ASCII 数字（`re.ASCII` 或 `[0-9]`），补 Unicode 数字反例测试；修复后由审查 agent 复审 |
+| QUESTION-1 | 保留与 OpenAPI components 同名的模型名；AGENTS.md 命名条款补例外"与 OpenAPI components 同名的模型不受 Request/Response/Dto 后缀限制" |
+| SUGGEST-3、SUGGEST-5 | 本次随 BLOCK-1 一起处理：`stack` 去掉绝对路径并限制长度；日志白名单新增的 `count`、`stack` 同步到 AGENTS.md 红线 |
+| 其余 SUGGEST | 记为跟踪项，在后续相关任务中顺带处理 |
+| 自报偏差 | 按审查建议全部接受；pattern 移到 field_validation 的条件为：BLOCK-1 已修复，且 2.3/2.4 路由调用并有接口级测试 |
