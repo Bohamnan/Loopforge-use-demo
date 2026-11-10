@@ -27,3 +27,17 @@ def create_resume_draft(
     created = service.create(upload, old_token)
     cookies.set_token(response, created.token, settings)
     return created.response
+
+
+@router.get("/current", response_model=DraftResponse, operation_id="getCurrentResumeDraft")
+def get_current_resume_draft(
+    response: Response,
+    token: str | None = Depends(get_draft_token),
+    service: DraftService = Depends(get_draft_service),
+    settings: Settings = Depends(get_settings),
+) -> DraftResponse:
+    """Read the current draft (page start / restore) and slide the cookie window."""
+    draft = service.get(token)
+    if token is not None:  # always true here: service.get raises DraftNotFoundError otherwise
+        cookies.renew(response, token, settings)
+    return draft

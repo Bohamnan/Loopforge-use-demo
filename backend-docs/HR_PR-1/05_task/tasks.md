@@ -244,7 +244,7 @@
 
 ---
 
-### Task 2.2：接口②：读取当前草稿并滑动续期
+### Task 2.2：接口②：读取当前草稿并滑动续期 ✅
 - **关联：** REQ-BE-03.1、03.5、05.3、05.4；D§3.6（`DraftService.get`）、D§3.7、D§6；A②；O-01、O-12
 - **内容：** `DraftService.get()`：按 `sha256(token)` 取草稿，命中则 `touch()` 刷新 `last_active_at`；任何“找不到”统一抛 `DraftNotFoundError`，不区分原因；`routes/resume_drafts.py` 增加 GET `/api/v1/resume-drafts/current`，成功后 `cookies.renew()`（`Max-Age` 重置为 604800）。
 - **测试：** 200 返回完整 22 键与 `expires_at = 最近活动时间 + 7 天`；刷新 `last_active_at` 与 `Set-Cookie` 续期；令牌缺失/无效/已作废/草稿过期 → 404 `draft_not_found` 且不含任何简历内容；不返回“下一个待确认字段”之类提问信息。**数据验证：** 读取前后 `last_active_at` 变化（`FakeClock`）。
@@ -253,8 +253,8 @@
 
 #### 子任务
 
-- [ ] `DraftService.get` 与测试
-- [ ] 路由 GET 与接口测试
+- [x] `DraftService.get` 与测试
+- [x] 路由 GET 与接口测试
 
 ---
 

@@ -2,10 +2,11 @@
 
 import sqlite3
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from app.clients.resume_parser_client import ResumeParserClient
 from app.core.clock import Clock, format_utc, parse_utc
+from app.core.errors import DraftNotFoundError
 from app.core.ids import IdGenerator, generate_token, hash_token
 from app.core.logging import log_event
 from app.repositories.draft_file_store import DraftFileStore
@@ -95,6 +96,28 @@ class DraftService:
             self._delete_previous(old_token)
         log_event("draft_created", draft_id=draft_id)
         return CreatedDraft(to_response(record, self._ttl_days), token)
+
+    def get(self, token: str | None) -> DraftResponse:
+        """Return the draft for ``token`` and refresh its last activity (sliding window, O-01).
+
+        A missing, unknown or expired token all raise DraftNotFoundError (O-10, O-12); an
+        expired draft is not touched, it is left for the cleanup job.
+        """
+        if not token:
+            raise DraftNotFoundError()
+        token_hash = hash_token(token)
+        now = self._clock.now()
+        record = self._repo.get_by_token_hash(token_hash)
+        if record is None or self._is_expired(record, now):
+            raise DraftNotFoundError()
+        touched = self._repo.touch_and_get(token_hash, format_utc(now))
+        if touched is None:  # deleted between the two statements
+            raise DraftNotFoundError()
+        return to_response(touched, self._ttl_days)
+
+    def _is_expired(self, record: DraftRecord, now: datetime) -> bool:
+        """Same rule as the cleanup job: idle for more than the retention period."""
+        return parse_utc(record.last_active_at) < now - timedelta(days=self._ttl_days)
 
     def _discard_file(self, file_path: str, event: str) -> None:
         try:

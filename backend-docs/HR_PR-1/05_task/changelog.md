@@ -394,3 +394,25 @@ TestClient 来自 fastapi.testclient，运行时有 StarletteDeprecationWarning�
 
 ---
 
+## Task-2.2：接口②：读取当前草稿并滑动续期
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/services/draft_service.py | 修改 | `DraftService.get`：按 `sha256(token)` 取草稿；令牌缺失/空/未知/已过期（空闲超过 7 天，与清理任务同一规则，恰好 7 天仍有效）统一抛 `DraftNotFoundError`；过期草稿不被刷新；命中则用 `UPDATE … RETURNING` 原子刷新 `last_active_at`（`updated_at` 不变）并返回新的 `expires_at` |
+| codes/hr-collection-agent-backend/src/app/api/routes/resume_drafts.py | 修改 | `GET /api/v1/resume-drafts/current`（operationId `getCurrentResumeDraft`）：成功后 `cookies.renew`（同值令牌、`Max-Age=604800`，O-01）；不返回“下一个待确认字段”或提问文案（C-03）；404 不设置 Cookie |
+| codes/hr-collection-agent-backend/tests/services/test_draft_service_get.py | 新增 | 10 个用例：返回与刷新、4 种缺失/未知令牌、过期（+1 秒）不被刷新、恰好 7 天有效、滑动窗口 24 天仍有效、已删除、404 异常无内容 |
+| codes/hr-collection-agent-backend/tests/api/test_resume_drafts_get.py | 新增 | 13 个接口级用例：200 与上传响应一致、无 next_field/question、Cookie 续期（同值、HttpOnly/SameSite=Lax/Path=/、Max-Age=604800、无 Secure）、`expires_at` 与库内 `last_active_at` 刷新且 `updated_at` 不变（数据层断言）、18 天活跃仍存活、404 draft_not_found（无 Cookie/未知/空/过期；无 Set-Cookie、响应只含 code/message/request_id、不含简历内容）、新上传后旧令牌失效、符合 OpenAPI（`DraftResponse`、`ErrorResponse`）、日志不含内容与令牌 |
+
+### 偏差说明
+- 按设计实现。过期判断放在 service（读取时即视为不存在），而不是等待清理任务，以满足 OpenAPI“草稿已过期 → 404 draft_not_found”。
+- 页面打开时 404 属于空态（O-12），前端处理；后端不记错误日志之外的额外信息。
+
+### 遗留风险
+- `get_by_token_hash` 与 `touch_and_get` 是两条语句，在二者之间草稿被清理会返回 404（已处理为 DraftNotFoundError），无数据风险。
+
+---
+
