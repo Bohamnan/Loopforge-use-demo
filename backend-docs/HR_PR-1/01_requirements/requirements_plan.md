@@ -5,6 +5,7 @@
 | 版本 | 日期 | 修改说明 | 作者 |
 |------|------|----------|------|
 | v1.0 | 2026-11-10 | 初始版本 | Dev Lead |
+| v1.1 | 2026-11-10 | 追加第二轮·技术 Q&A（requirements-analyst Step 1） | Dev Lead |
 
 ---
 
@@ -128,14 +129,28 @@
 
 ### 第二轮·技术 Q&A（requirements-analyst）
 
-> 待 backend impact-analyzer 完成后，由 requirements-analyst 汇总技术问题。
+> 来源：`backend-docs/HR_PR-1/00_impact_analysis.md`「待澄清问题」及修订后新增的再确认点。答案引用 Dev Lead 已完成的裁决（C-xx / D-xx）（见 `01-requirements/HR_PR-1/cross-workbench-review.md`）。
+> 若答案实质改变需求范围，标注 `⚠ 范围变更` 并交 DL/BA 裁决。
 
 | 编号 | 来源 Workbench | Question（指向具体代码/场景） | 建议回答人 | Answer | 性质 |
 |------|-------|------------------------------|-----------|--------|------|
-| — | — | 待 impact-analyzer 完成后填写 | — | — | — |
+| TQ-01 | backend | Q-backend-01 `deepseek-flash` 是否原生接受 PDF/图片，输入形式？ | DL | C-01：DL 已实测确认支持 PDF 直接输入，维持 ADR-001；图片用 base64 内联；实现 spike 留存调用证据 | 填空 |
+| TQ-02 | backend | Q-backend-02 未确认草稿存储形态 | DL | C-12：独立 SQLite 文件，与正式库分离 | 填空 |
+| TQ-03 | backend | Q-backend-03 同一手机号/邮箱重复保存的处理 | BA | C-10 + D-02：同一个人不新增记录，返回已有记录并标明"已保存过"；新内容丢弃、临时文件删除 | 填空（新增业务规则，已回写影响分析 v3） |
+| TQ-04 | backend | Q-backend-04 手机号/邮箱校验规则 | BA | C-09：backend 为权威校验；手机号为 11 位大陆号或 `+` 开头的国际号，邮箱只校验格式；格式不合法拒绝保存，不视同缺失 | 填空 |
+| TQ-05 | backend | Q-backend-05 确认接口是否幂等 | DL | C-10：幂等；幂等键 = 姓名 + 手机号 + 邮箱（规范化见 D-02），正式库唯一约束兜底并发 | 填空 |
+| TQ-06 | backend | Q-backend-06 逐项提问由谁驱动 | DL | C-03：frontend 按字段状态驱动；backend 只返回字段值和状态，不维护校对游标 | 填空 |
+| TQ-07 | backend | Q-backend-07 同步解析超时与超时后路径 | DL | C-08：模型调用超时 60s；超时后用户重新上传 | 填空 |
+| TQ-08 | backend | Q-backend-08 部署形态 / 同源 / Cookie | DL | C-06：localhost 同源、单进程；Cookie `HttpOnly; SameSite=Lax; Path=/`，不强制 Secure | 填空 |
+| TQ-09 | backend | Q-backend-09 依赖管理与运行命令 | DL | C-15：uv + `pyproject.toml` + pytest | 填空 |
+| TQ-10 | backend | Q-backend-10 PDF 页数 / 多图 | BA | C-02：单文件 ≤ 10 MB，不设页数上限；照片单图；记录与文件一对一 | 填空 |
+| TQ-11 | backend | Q-backend-11 确认已成功但响应丢失时的重试 | DL | D-01：POC 接受；"草稿不存在 / 令牌无效"返回专门错误码，用户重新上传后由幂等键返回"已保存过" | 填空 |
+| TQ-12 | backend | Q-backend-12 幂等键规范化范围与同键新内容处理 | DL | D-02：手机号去掉空格、连字符和 `+86` / `86` 前缀，姓名合并内部空格，邮箱小写、去首尾空格；同键命中时丢弃新内容 | 填空 |
+| TQ-13 | backend | （跨 Workbench）统一错误体扩展 | DL | D-06：错误体增加可选 `details: [{field, reason}]`，只带字段名和原因，不回显值；同步 `rules/backend/api.md` | 填空（契约变更，OpenAPI 冻结时再审视） |
+| TQ-14 | backend | （跨 Workbench）重新上传的草稿与令牌语义 | DL | C-07 + D-05：重新上传即覆盖，每次上传生成新草稿和新令牌，Cookie 以最新响应为准，旧草稿由 7 天清理兜底 | 填空 |
 
 ---
 
 ## 六、状态
 
-第一轮业务 Q&A 已答复；BA/业务侧答复及 Dev Lead 技术拆分已确认。Backend 需求已完成映射，覆盖 PRD 全部 4 个用户故事。目标 backend 仓库尚不存在，必须先运行 solution-designer 完成 HLD 及仓库约定初稿，再进入 impact-analyzer。
+第二轮技术 Q&A 已汇总，全部有明确答案（引用 2026-11-10 DL 裁决 C-01..C-15、D-01..D-06），未发现 `⚠ 范围变更` 项；待 Dev Lead 确认质量关卡 1 后生成 `requirements.md`。

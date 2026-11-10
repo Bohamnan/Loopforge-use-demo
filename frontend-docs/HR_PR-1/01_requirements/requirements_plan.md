@@ -5,6 +5,7 @@
 | 版本 | 日期 | 修改说明 | 作者 |
 |------|------|----------|------|
 | v1.0 | 2026-11-10 | 初始版本 | Dev Lead |
+| v1.1 | 2026-11-10 | 追加第二轮·技术 Q&A（requirements-analyst Step 1） | Dev Lead |
 
 ---
 
@@ -128,14 +129,27 @@
 
 ### 第二轮·技术 Q&A（requirements-analyst）
 
-> 待 frontend impact-analyzer 与跨 Workbench review 完成后，由 requirements-analyst 汇总技术问题。
+> 来源：`frontend-docs/HR_PR-1/00_impact_analysis.md`「待澄清问题」及修订后新增的再确认点。答案引用 Dev Lead 已完成的裁决（C-xx / D-xx）（见 `01-requirements/HR_PR-1/cross-workbench-review.md`）。
+> 若答案实质改变需求范围，标注 `⚠ 范围变更` 并交 DL/BA 裁决。
 
 | 编号 | 来源 Workbench | Question（指向具体代码/场景） | 建议回答人 | Answer | 性质 |
 |------|-------|------------------------------|-----------|--------|------|
-| — | — | 待 impact-analyzer 完成后填写 | — | — | — |
+| TQ-01 | frontend | Q-frontend-01 OpenAPI 何时提供，路径/字段/状态/错误码 | DL | C-13：architecture-advisor 阶段由 backend 先出 OpenAPI 草稿，经 Review 冻结后再对齐；字段状态见 C-04，错误体见 D-06 | 填空 |
+| TQ-02 | frontend | Q-frontend-02 同步解析的前端超时、等待态与重试 | DL | C-08：前端请求超时 75s，单一加载提示，超时后提示重新上传 | 填空 |
+| TQ-03 | frontend | Q-frontend-03 同源部署、Cookie 与开发环境约定 | DL | C-06：localhost 同源，开发用 Vite dev proxy 转发 `/api`，fetch 用 `same-origin`，无需 CORS credentials | 填空 |
+| TQ-04 | frontend | Q-frontend-04 对话校对的驱动方与回复形态 | BA / DL | C-03：frontend 按字段状态逐项提问，用户以结构化字段编辑回复（不解析自由文本） | 填空 |
+| TQ-05 | frontend | Q-frontend-05 姓名/手机号/邮箱格式校验归属 | DL | C-09：以 backend 校验为准，前端用同一规则即时提示 | 填空 |
+| TQ-06 | frontend | Q-frontend-06 草稿恢复、过期提示与重新上传 | BA | C-07：有草稿则自动恢复；重新上传覆盖当前草稿（前端二次确认）；过期或令牌失效显示空态，引导重新上传；不新增丢弃接口 | 填空 |
+| TQ-07 | frontend | Q-frontend-07 确认保存是否幂等，结果未知时的展示 | DL | C-05 + C-10：幂等；不做保存状态查询，超时后直接重试确认；新增"该简历已保存过"提示态 | 填空 |
+| TQ-08 | frontend | Q-frontend-08 保存成功后的页面终态 | BA | C-11：显示已保存，提供"上传下一份"；已确认记录不可修改 | 填空 |
+| TQ-09 | frontend | Q-frontend-09 测试框架与 lint 选型 | DL | C-15：Vitest + React Testing Library + ESLint | 填空 |
+| TQ-10 | frontend | （v1.1 再确认）R-01 最终确认按钮启用条件 | DL | D-03：姓名、手机号、邮箱齐全、格式合法并已确认即可启用；其余未确认字段给出提示，点最终确认即视为确认当前显示的全部内容 | 填空 |
+| TQ-11 | frontend | （v1.1 再确认）R-02 "已保存过"的展示 | DL | D-04：只显示文字提示，不回显已有记录；响应带 `already_saved` 标识与记录 id | 填空 |
+| TQ-12 | frontend | （v1.1 再确认）R-03 超时后重新上传的草稿与令牌覆盖 | DL | D-05：由 backend 保证每次上传生成新草稿和新令牌，Cookie 以最新响应为准 | 填空 |
+| TQ-13 | frontend | （v1.1 再确认）R-04 格式不合法如何拒绝保存 | DL | D-06：前端即时提示并禁用确认按钮；backend 返回字段级错误 `details: [{field, reason}]` | 填空（契约变更，OpenAPI 冻结时再审视） |
 
 ---
 
 ## 六、状态
 
-第一轮业务 Q&A 已答复；BA/业务侧答复及 Dev Lead 技术拆分已确认。Frontend 需求已完成映射，覆盖 PRD 全部 4 个用户故事。目标 frontend 仓库尚不存在，必须先运行 solution-designer 完成 HLD 及仓库约定初稿，再进入 impact-analyzer。
+第二轮技术 Q&A 已汇总，全部有明确答案（引用 2026-11-10 DL 裁决 C-01..C-15、D-01..D-06），未发现 `⚠ 范围变更` 项；待 Dev Lead 确认质量关卡 1 后生成 `requirements.md`。

@@ -9,9 +9,9 @@
 | 字段 | 内容 |
 |------|------|
 | **PRD** | `01-requirements/HR_PR-1/prd.md` |
-| **当前 Skill** | cross-workbench-reviewer |
-| **当前阶段** | 跨 Workbench 一致性 review 已裁决；待各 Workbench 按裁决修订影响分析，随后进入 requirements-analyst 汇总 |
-| **状态** | ✅ cross-workbench-reviewer 完成（15 项裁决，见 review 文档「复核」节） |
+| **当前 Skill** | requirements-analyst |
+| **当前阶段** | 第二轮技术 Q&A 已汇总（backend TQ-01..14、frontend TQ-01..13）；等待质量关卡 1 确认后生成 requirements.md |
+| **状态** | ⏸ 等待 Dev Lead 确认第二轮技术 Q&A（质量关卡 1） |
 | **最后更新** | 2026-11-10 |
 
 **状态图例**：`🔄 进行中` / `⏸️ 等待人类确认` / `✅ 已完成` / `❌ 阻断`
@@ -48,7 +48,7 @@
 | 仓库约定初稿与确认（仅新项目 Workbench） | solution-designer（Step 7） | Dev Lead | ✅ 已确认；未推送（代码目录尚未初始化 Git） | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
 | Workbench 影响分析（各 Workbench 并行） | impact-analyzer | 各 Workbench 工程师 | ✅ backend ✅ / frontend ✅ | 2026-11-10 | `backend-docs/HR_PR-1/00_impact_analysis.md`；`frontend-docs/HR_PR-1/00_impact_analysis.md` |
 | 跨 Workbench 一致性 review（仅跨 Workbench 需求） | cross-workbench-reviewer | Dev Lead | ✅ 已裁决 | 2026-11-10 | `01-requirements/HR_PR-1/cross-workbench-review.md` |
-| 需求汇总（第二轮技术 Q&A + requirements.md） | requirements-analyst | Dev Lead/BA | ⏸ 待各 Workbench 按裁决修订影响分析 | — | — |
+| 需求汇总（第二轮技术 Q&A + requirements.md） | requirements-analyst | Dev Lead/BA | ⏸ 第二轮技术 Q&A 待确认 | — | `backend-docs/HR_PR-1/01_requirements/requirements_plan.md`；`frontend-docs/HR_PR-1/01_requirements/requirements_plan.md` |
 | 架构设计（Schema+接口） | architecture-advisor | 各 Workbench 工程师 | — | — | — |
 | 技术设计 | architecture-advisor | 各 Workbench 工程师 | — | — | — |
 | 任务拆分 | architecture-advisor | 各 Workbench 工程师 | — | — | — |
@@ -72,7 +72,7 @@
 | 仓库约定确认（仅新项目） | solution-designer | ✅ | backend/frontend `AGENTS.md` 已批准；未推送，代码目录未初始化 Git | 2026-11-10 |
 | 所有 Workbench 影响分析完成 | impact-analyzer | ✅ | backend、frontend 均已 ✅ | 2026-11-10 |
 | 跨 Workbench 一致性确认 | cross-workbench-reviewer | ✅ | Dev Lead 已完成全部裁决 | 2026-11-10 |
-| 第二轮技术 Q&A 裁决 | requirements-analyst | — | 等待 impact-analyzer 及跨 Workbench review | — |
+| 第二轮技术 Q&A 裁决 | requirements-analyst | ⏸ | Dev Lead 确认 TQ 全部为填空型、无范围变更 | — |
 
 ---
 
@@ -104,6 +104,8 @@
 | 2026-11-10 | solution-designer | 未确认草稿可同浏览器恢复，服务端本地暂存 7 天无活动后清理；使用 7 天安全 HttpOnly Cookie 令牌；磁盘加密由受控主机保障。 |
 | 2026-11-10 | solution-designer | 已确认简历正式归档无自动过期删除；用户删除功能不在本次范围，清理由后续运维流程定义。 |
 | 2026-11-10 | solution-designer | Dev Lead 批准 HLD 并接受 ADR-001、ADR-002、ADR-003。 |
+| 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 backend/frontend 按裁决修订的影响分析；第二轮新增 D-01..D-06 已裁决（采纳建议） |
+| 2026-11-10 | Yin Yang（Dev Lead） | requirements-analyst | Step 1：汇总第二轮技术 Q&A 到两份 requirements_plan.md，等待质量关卡 1 |
 
 ---
 
