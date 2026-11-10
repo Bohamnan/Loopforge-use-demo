@@ -164,3 +164,39 @@
 | SUGGEST-3、SUGGEST-5 | 本次随 BLOCK-1 一起处理：`stack` 去掉绝对路径并限制长度；日志白名单新增的 `count`、`stack` 同步到 AGENTS.md 红线 |
 | 其余 SUGGEST | 记为跟踪项，在后续相关任务中顺带处理 |
 | 自报偏差 | 按审查建议全部接受；pattern 移到 field_validation 的条件为：BLOCK-1 已修复，且 2.3/2.4 路由调用并有接口级测试 |
+
+---
+
+## 复审（第一批修复）
+
+- 日期：2026-11-10
+- Reviewer：Yin Yang（dev-lead，审查 agent 代行）
+- 复审范围：仅限 fix 提交 d5afabf（代码与测试）、538a131（AGENTS.md），已合并到 feature（bbfd4ed）；本 worktree 已执行 `git merge feature`。其余内容与「Dev Lead 裁决」一节未改动。
+- 模式：只读审查；除本文件外未修改任何文件。
+
+### 逐项关闭情况
+| 项 | 状态 | 证据 |
+|---|---|---|
+| BLOCK-1 手机号 Unicode `\d` | **已关闭** | `field_validation.py:15` 改为 `re.compile(L.PHONE_PATTERN, re.ASCII)`；`identity_key.py:9` 的 `_MAINLAND_RE` 同样加 `re.ASCII`，所以校验与幂等键去 `+86` 前缀两处都只认 ASCII 数字。`limits.py:15` 的 `PHONE_PATTERN` 字符串未改动，仍与 OpenAPI 原文逐字一致。 |
+| 反例测试是否有效 | **有效** | `tests/services/test_field_validation.py::test_non_ascii_digits_rejected` 6 个参数（`1`+阿拉伯-印度数字、全角数字 11 位、`+`+全角、`+`+天城文、`+`+阿拉伯-印度数字、ASCII 中混入 1 个 `U+0660`），同时断言 `validate_core_fields` 与 `validate_update` 返回 `("phone","invalid_format")`；正向用例 `test_ascii_digits_still_accepted` 保留。`test_identity_key.py::test_non_ascii_digits_do_not_reach_dedup_key_as_mainland_numbers` 断言 `+86`+`1`+10 个非 ASCII 数字不会被去前缀。这些输入在修复前（Unicode `\d`）都会通过，即用例在修复前会失败，不是空转。 |
+| PHONE_PATTERN 与 OpenAPI 一致性测试 | **仍在且通过** | `tests/schemas/test_openapi_alignment.py::test_patterns_match_openapi` 未改动，复跑通过（该文件在复跑中未被跳过）。 |
+| SUGGEST-3 stack 去绝对路径、限长 | **已关闭** | `core/logging.py`：`_display_path` 把路径转成相对 `codes/hr-collection-agent-backend` 的 `src/app/...`，项目外文件只保留文件名；`MAX_STACK_FRAMES=12`（取最内层 12 帧）、`MAX_STACK_CHARS=2000`。新增 `test_stack_has_no_absolute_paths`（不含仓库绝对路径、`/Users/`，不以 `/` 开头）与 `test_stack_is_bounded_to_max_frames_and_chars`（递归 50 层，帧数 ≤12、长度 ≤2000、保留最内层 `recurse`）。仍不含异常消息（原有 `test_exception_logs_class_and_stack_not_message` 通过）。 |
+| SUGGEST-5 / 白名单同步 AGENTS.md | **已关闭** | `AGENTS.md` 红线日志条款已含 `count`、`stack`，并写明 `stack` 只含项目相对路径、行号、函数名，不含异常消息和绝对路径，最多 12 帧、2000 字符，与代码常量一致；“最后更新”行已说明修订内容。 |
+| QUESTION-1 命名例外 | **已关闭** | `AGENTS.md` 命名条款下新增例外：与 OpenAPI components 同名的模型（`ResumeFields`、`WorkExperience`、`ErrorDetail`、`OriginalFileInfo` 等）不受 Request/Response/Dto 后缀限制，符合 DL 裁决。 |
+
+### 复跑验证（merge 后 HEAD）
+| 命令 | 结果 |
+|---|---|
+| `uv sync --frozen` | ✅ 成功（Checked 34 packages） |
+| `uv run python -m compileall -q src` | ✅ 退出码 0；另跑 `compileall -f src` 实际编译 27 个文件 |
+| `uv run pytest -q` | ✅ **223 passed**，1 warning（既有的 `StarletteDeprecationWarning`），0 failed，0 skipped；较首轮 213 个增加 10 个（反例 6+1、identity_key 1、logging 2），与 d5afabf 的新增用例一致 |
+| `uv run ruff check .` | ✅ All checks passed |
+| `uv run ruff format --check .` | ✅ 54 files already formatted |
+
+### 复审中的观察（不阻断）
+- 邮箱正则 `EMAIL_PATTERN` 无 `\d`，`\s` 的语义差异首轮已评估为无影响，本次未改，符合预期。
+- 原 SUGGEST-1、2、4、6、7 仍按 DL 裁决作为跟踪项，不在本次复审范围；原偏差 #1 的条件（2.3 / 2.4 路由调用校验并有接口级测试）仍待这些任务审查时核对。
+
+### 更新后的结论
+- BLOCK：0（BLOCK-1 已关闭）；QUESTION：0（QUESTION-1 已由 DL 裁决并落到 AGENTS.md）；SUGGEST：5 项未处理的跟踪项（SUGGEST-1、2、4、6、7）。
+- **结论：PASS_WITH_SUGGESTIONS**（原 BLOCKED 解除）。
