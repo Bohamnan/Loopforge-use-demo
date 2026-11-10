@@ -140,7 +140,7 @@
 
 ---
 
-### Task 1.6：services：field_validation 与 identity_key
+### Task 1.6：services：field_validation 与 identity_key ✅
 - **关联：** REQ-BE-03.4、04.2、04.5；D§3.6（`field_validation`、`identity_key`）、D§6、D§1“业务校验单点”；ADR-004
 - **内容：** `services/field_validation.py`：手机号（先去空格/连字符，再匹配 `^1\d{10}$` 或 `^\+\d{6,15}$`）、邮箱（`^[^\s@]+@[^\s@]+\.[^\s@]+$`，≤254）、核心三项去首尾空白后非空、字段与区块长度/条数上限（与 1.4 常量一致）、未知字段，**收集全部问题**产出 `details`（只含字段路径与 reason，不含值）；`services/identity_key.py`：`name_key`/`phone_key`/`email_key` 规范化与展示值。确认与更新共用这两处实现。
 - **测试：** 手机号：`13800138000`、`138 0013 8000`、`138-0013-8000`、`+85212345678`、`+123`、`12345`、全空白；邮箱合法/非法/超 254；全空白核心字段 → `required`；超限 → `too_long`；未知字段 → `unknown_field`；`details` 路径形如 `work_experiences[0].start_date` 且不含值；`identity_key`：去首尾/合并内部空白/邮箱小写/`+8613800138000` 与 `13800138000` 同键/`+85212345678` 保留前缀/`+86` 后非 11 位不去前缀（O-04）；规范化幂等（再次规范化不变）；与 OpenAPI `ResumeFieldsUpdate` 的 `pattern`、`maxLength` 一致（读取 `openapi.yaml` 比对常量）。
@@ -149,9 +149,9 @@
 
 #### 子任务
 
-- [ ] `field_validation`（pattern 与上限取自 1.4 常量/OpenAPI）
-- [ ] `identity_key`（唯一实现点，确认与对账复用）
-- [ ] 对应单元测试
+- [x] `field_validation`（pattern 与上限取自 1.4 常量/OpenAPI）
+- [x] `identity_key`（唯一实现点，确认与对账复用）
+- [x] 对应单元测试
 
 ---
 

@@ -115,3 +115,24 @@ ResumeFieldsUpdate 的 phone/email 格式依赖 1.6 的 field_validation 才完�
 
 ---
 
+## Task-1.6：services：field_validation 与 identity_key
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/services/field_validation.py | 新增 | strip_phone、validate_core_fields、validate_update、issues_from_pydantic（Pydantic 错误→字段路径+reason，丢弃 input） |
+| codes/hr-collection-agent-backend/src/app/services/identity_key.py | 新增 | name_key/phone_key/email_key、Identity、build_identity（O-04 仅 +86 后恰 11 位大陆号去前缀） |
+| codes/hr-collection-agent-backend/tests/services/test_field_validation.py | 新增 | 手机号/邮箱/空白/长度/收集全部问题/不含值/Pydantic 映射 |
+| codes/hr-collection-agent-backend/tests/services/test_identity_key.py | 新增 | 规范化、幂等、同人不同写法同键、展示值 |
+
+### 偏差说明
+补充：issues_from_pydantic 放在 field_validation（design 7.3 要求把校验异常 loc/type 映射为 details，集中在此单点实现，任务 1.7 的异常处理器复用）；validate_core_fields 对 name/phone/email 也检查长度（too_long），邮箱先去首尾空格再匹配 pattern（backend 兜底，G-02 同类宽松）。非核心字段长度、未知键与类型由 schemas（1.4）强制。
+
+### 遗留风险
+无。
+
+---
+
