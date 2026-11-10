@@ -361,3 +361,36 @@ TestClient 来自 fastapi.testclient，运行时有 StarletteDeprecationWarning�
 
 ---
 
+## Task-2.1：接口①：上传简历，同步解析，创建草稿
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/services/upload_validation.py | 新增 | `validate_upload`：缺文件 → 扩展名白名单（.pdf/.jpg/.jpeg/.png，大小写不敏感，先于读取）→ 64KB 分块读取、超 10485760 字节立即中止 → 空文件 → 魔数判型并与扩展名一致；`content_type` 只来自魔数；原文件名取 basename 并截断 255 |
+| codes/hr-collection-agent-backend/src/app/services/parse_normalizer.py | 新增 | `normalize`/`check_invariants`：模型输出当不可信数据——非对象或全部字段不可用 → `ParseFailedError`；**模型返回的 `confirmed`、未知/非法状态一律降为 `uncertain`**；空值 → `missing`；有值但声称 `missing` → `uncertain`（保留值，不猜测补全也不丢弃）；数字转文本、字符串包成列表、超长截断、超条数截断、非对象条目丢弃均降为 `uncertain`；未知键忽略；补齐 22 键；出口断言 missing⇔空值、recognized/uncertain⇔非空、无 confirmed |
+| codes/hr-collection-agent-backend/src/app/services/draft_service.py | 新增 | `DraftService.create`：服务端 ID → 写临时文件 → 调模型 → 归一 → 生成令牌（库内存 SHA-256）→ 插入；任何失败（含非业务异常）清理临时文件且不动旧草稿/Cookie（O-02）；成功后若带有效旧令牌则删除旧草稿行与文件（O-03，失败仅记 `old_draft_cleanup_failed` 日志）；`to_response` 计算 `expires_at = last_active + 7 天` |
+| codes/hr-collection-agent-backend/src/app/api/routes/resume_drafts.py | 新增 | `POST /api/v1/resume-drafts`（operationId `createResumeDraft`，201）：路由只调用 `validate_upload` 与 `DraftService.create`，成功后下发 `draft_token` Cookie；失败路径不设置 Cookie |
+| codes/hr-collection-agent-backend/src/app/api/deps.py | 修改 | `get_parser`（DeepSeekClient 懒创建，应用无密钥也能启动）、`get_draft_service` 装配 |
+| codes/hr-collection-agent-backend/src/app/main.py | 修改 | `create_app` 增加仅供测试注入的 `parser_client`/`clock`/`ids`；挂载 `resume_drafts` 路由 |
+| codes/hr-collection-agent-backend/pyproject.toml | 修改 | ruff bugbear 允许 `fastapi.File` 作默认值 |
+| codes/hr-collection-agent-backend/tests/services/test_upload_validation.py | 新增 | 38 个用例：四种类型与大小写、缺文件、7 种不支持扩展名（不读取流）、10485760 字节通过与 +1 超限、超限提前中止读取（读取量有上界）、空文件、10 种魔数不一致、文件名 basename/截断 |
+| codes/hr-collection-agent-backend/tests/services/test_parse_normalizer.py | 新增 | 54 个用例：22 键补全、未知键忽略、非对象/全不可用 → parse_failed；**11 种非法或 `confirmed` 状态均降为 uncertain**、**提示注入样本（所有字段都声称 confirmed）结果中没有任何 confirmed**、空值恒为 missing、类型/长度/条数降级、块条目清洗、不变式正反例 |
+| codes/hr-collection-agent-backend/tests/services/test_draft_service_create.py | 新增 | 21 个用例（真实 SQLite 与临时目录）：落库/落盘/令牌哈希、响应内容、时间戳、O-02（三种模型错误、归一失败、意外异常、插入失败均不留行不留文件且旧草稿/令牌不变）、O-03（有效旧令牌删旧行与旧文件、无效旧令牌忽略、旧清理失败不影响上传）、日志脱敏 |
+| codes/hr-collection-agent-backend/tests/api/test_resume_drafts_upload.py | 新增 | 28 个接口级用例：201 响应与 Cookie 属性（HttpOnly、SameSite=Lax、Path=/、Max-Age=604800、无 Secure）、令牌与库内哈希一致、数据层断言（行、文件内容）、客户端 Content-Type 被忽略、每次上传新草稿新令牌、重传删旧草稿、模型失败保持旧草稿与 Cookie、400 file_missing/file_empty/file_content_mismatch、413（10MB+1，不调用模型）、10MB 恰好通过、415、502/503/504、意外错误 500 且不泄露、日志不含文件名/内容/令牌、响应符合 OpenAPI `DraftResponse` |
+| codes/hr-collection-agent-backend/tests/openapi_support.py、tests/fakes.py、tests/services/conftest.py、tests/api/conftest.py | 新增/修改 | OpenAPI 校验辅助、`make_raw_result`、`DraftEnv` 夹具、接口测试环境夹具 |
+
+### 偏差说明
+- 按设计实现，并落实审查跟踪项：**ParseNormalizer 拒绝模型返回的 `confirmed`**（测试见 `test_parse_normalizer.py` 的 `test_confirmed_and_unknown_statuses_become_uncertain`、`test_prompt_injection_cannot_produce_confirmed`）。
+- 数据库初始化与目录创建仍待任务 2.7（lifespan）；在此之前直接用 uvicorn 启动时需先存在 `data/drafts.db`。测试夹具自行调用 `init_drafts_db`。
+- `file` 参数声明为可选，由 `validate_upload` 统一抛出 `file_missing`（与异常处理器对 multipart 解析失败的映射一致）。
+- “有值但声称 missing”的处理（保留为 uncertain）是设计未明确的取舍，已写入测试。
+
+### 遗留风险
+- Starlette 在调用路由前已把整个 multipart 请求写入临时文件，因此“超限立即中止读取”只对读取阶段生效，超大上传仍会先占用临时磁盘；POC（本机、约 5 人）可接受，未做请求体大小前置限制。
+- 上传接口同步等待模型（最长约 60 秒）并在线程池中执行，多人并发时占用线程；POC 规模可接受。
+
+---
+
