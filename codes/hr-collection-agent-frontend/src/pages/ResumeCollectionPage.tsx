@@ -9,16 +9,27 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import ErrorAlert from '../components/ErrorAlert';
 import FileCard from '../components/FileCard';
 import NoticeBanner from '../components/NoticeBanner';
+import ReviewSummary from '../components/ReviewSummary';
+import SectionCard from '../components/SectionCard';
 import UploadProgressNotice from '../components/UploadProgressNotice';
 import WelcomePanel from '../components/WelcomePanel';
+import { SECTIONS } from '../hooks/model/SectionConfig';
 import { useResumeSession } from '../hooks/useResumeSession';
 
 const UPLOAD_TIMEOUT_TEXT = '识别时间过长，请重新上传。';
 
 /** Page orchestration only: picks what to render from the session state; never calls the API itself. */
 export default function ResumeCollectionPage() {
-  const { state, retryBootstrap, dismissNotice, requestUpload, confirmOverwrite, cancelOverwrite, selectionNotice } =
-    useResumeSession();
+  const {
+    state,
+    retryBootstrap,
+    dismissNotice,
+    selectSection,
+    requestUpload,
+    confirmOverwrite,
+    cancelOverwrite,
+    selectionNotice,
+  } = useResumeSession();
   const composerRef = useRef<ComposerBarHandle>(null);
   const busy = state.busy !== null;
   const uploading = state.busy === 'upload';
@@ -61,6 +72,21 @@ export default function ResumeCollectionPage() {
           {state.draft ? (
             <FileCard name={state.draft.original_file.filename} sizeBytes={state.draft.original_file.size_bytes} />
           ) : null}
+          {state.draft && state.view === 'sections' ? (
+            <ReviewSummary fields={state.draft.fields} onJump={selectSection} />
+          ) : null}
+          {state.draft
+            ? SECTIONS.map((section) => (
+                <SectionCard
+                  key={section.key}
+                  section={section}
+                  fields={state.draft!.fields}
+                  buffer={state.editBuffer}
+                  active={state.view === 'sections' && state.activeSection === section.key}
+                  onSelect={state.view === 'sections' ? () => selectSection(section.key) : undefined}
+                />
+              ))
+            : null}
           {pending}
         </>
       );

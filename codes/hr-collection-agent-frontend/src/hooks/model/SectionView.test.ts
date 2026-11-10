@@ -6,6 +6,7 @@ import { getSection } from './SectionConfig';
 import {
   buildSectionUpdate,
   coreReady,
+  currentValue,
   firstTodoSection,
   hasUnsubmittedEdits,
   orderedFieldKeys,
@@ -188,5 +189,15 @@ describe('buildSectionUpdate (design §4.4)', () => {
     const { update, errors } = buildSectionUpdate(getSection('self_evaluation'), sampleFields(), {});
     expect(errors).toEqual({});
     expect(update).toEqual({ self_evaluation: null });
+  });
+});
+
+describe('currentValue', () => {
+  it('prefers an unsubmitted edit, including an explicit null or empty list', () => {
+    const fields = sampleFields();
+    expect(currentValue(fields, {}, 'job_title')).toBe('供应链经理');
+    expect(currentValue(fields, { job_title: '新岗位' }, 'job_title')).toBe('新岗位');
+    expect(currentValue(fields, { job_title: null }, 'job_title')).toBeNull();
+    expect(currentValue(fields, { skills: [] }, 'skills')).toEqual([]);
   });
 });

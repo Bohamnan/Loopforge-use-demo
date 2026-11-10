@@ -188,3 +188,28 @@ React 在开发模式下自身会向 console 输出异常信息（含 message）
 ### 遗留风险
 - 上传期间“新对话”按钮禁用；上传结束后点击仍无反应，待 2.7。
 - 拖拽监听挂在 `document` 上，仅在 `ComposerBar` 挂载且未禁用时生效；确认框打开期间 `busy` 仍为 null，此时拖入文件会被 reducer 忽略（`dialog` 非空时 `decideUpload` 返回 ignored）。
+
+## Task-2.3：识别结果展示与草稿恢复展示（REQ-FE-02、05.2）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/components/FieldStatusTag.tsx | 新增 | 四种状态：待确认 / 不确定、请确认 / 待补充 / 已确认（文字 + 颜色，带 `data-status`） |
+| codes/hr-collection-agent-frontend/src/components/ReadOnlySection.tsx | 新增 | 分区只读渲染：22 字段全部以 `data-field` 标注；`missing` / `uncertain` 置顶并高亮；`null` 显示“（未提供）”；手机号完整显示（P-10）；文本列表、多条经历子项逐条展示；未提交编辑覆盖显示并带“未提交修改”标记（不是第五种字段状态） |
+| codes/hr-collection-agent-frontend/src/components/ReviewSummary.tsx | 新增 | 四状态计数与“需要处理”跳转芯片（仅含 missing / uncertain 的分区） |
+| codes/hr-collection-agent-frontend/src/components/SectionCard.tsx | 新增 | 分区卡：标题、分区状态徽标、只读字段；非活跃分区带“修改”入口；活跃分区 `aria-current` 高亮（编辑态在 2.4） |
+| codes/hr-collection-agent-frontend/src/hooks/model/SectionView.ts、SectionView.test.ts | 修改 | 新增 `currentValue`（编辑缓冲优先，含显式 null / 空列表） |
+| codes/hr-collection-agent-frontend/src/hooks/useResumeSession.ts | 修改 | 新增 `selectSection` |
+| codes/hr-collection-agent-frontend/src/pages/ResumeCollectionPage.tsx | 修改 | `reviewing` 时渲染文件卡、概览、11 个分区卡；`view=final`（全部已确认）时以只读卡展示、不带“修改”入口（2.6 替换为最终确认卡） |
+| codes/hr-collection-agent-frontend/src/components/Layout.css | 修改 | 分区、字段行、高亮样式 |
+| 各组件 / 页面测试 | 新增 | `FieldStatusTag`、`ReadOnlySection`、`ReviewSummary`、`SectionCard`、`ResumeCollectionPage.review.test.tsx` |
+
+### 偏差说明
+- 单字段且标签与分区标题相同的分区（个人优势、工作经历等 9 个）不重复渲染字段标签行，但仍带 `data-field` 属性，保证 22 字段均可定位。
+- `view=final` 的临时展示（全部已确认的草稿）复用 `SectionCard`，没有“确认提交”按钮；真正的最终确认卡在 2.6。
+
+### 遗留风险
+- 多个 `role="alert"`：Ant Design `Alert` 默认带该角色，恢复提示与错误提示同屏时读屏会连续播报；2.8（无障碍）时统一评估把提示类改为 `role="status"`。

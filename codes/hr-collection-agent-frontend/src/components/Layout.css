@@ -177,3 +177,87 @@ body {
   font-size: 12px;
   color: var(--muted);
 }
+
+/* Review: sections and fields */
+.review-summary p {
+  margin: 0 0 8px;
+}
+.review-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+.section-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+.section-active {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(18, 106, 243, 0.12);
+}
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px;
+  background: #f7f9fb;
+}
+.section-head h3 {
+  margin: 0;
+  font-size: 14px;
+  color: var(--navy);
+  flex: 1;
+}
+.section-fields {
+  padding: 6px 14px 8px;
+  font-size: 14px;
+}
+.field-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+.field-attention {
+  background: var(--warn-bg);
+}
+.field-label {
+  width: 84px;
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.field-value {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+.field-tags {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.value-empty {
+  color: var(--muted);
+}
+.value-list,
+.value-items {
+  margin: 0;
+  padding-left: 18px;
+}
+.value-items > li + li {
+  margin-top: 8px;
+}
+.sub-row {
+  display: flex;
+  gap: 8px;
+}
+.sub-label {
+  width: 72px;
+  flex-shrink: 0;
+  color: var(--muted);
+}

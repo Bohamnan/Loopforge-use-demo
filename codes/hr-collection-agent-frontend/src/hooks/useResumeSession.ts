@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { ApiError } from '../api/ApiError';
 import { createResumeDraft, getCurrentResumeDraft } from '../api/ResumeDraftApi';
+import type { SectionKey } from './model/SectionConfig';
 import { initialState, sessionReducer, type SessionAction, type SessionState } from './model/SessionReducer';
 import { MULTIPLE_FILES_NOTICE, pickSingleFile } from './model/UploadPrecheck';
 
@@ -102,9 +103,17 @@ export function useResumeSession() {
     send({ type: 'OVERWRITE_CANCELLED' });
   }, [send]);
 
+  const selectSection = useCallback(
+    (section: SectionKey) => {
+      send({ type: 'SECTION_SELECTED', section });
+    },
+    [send],
+  );
+
   return {
     state,
     retryBootstrap,
+    selectSection,
     dismissNotice,
     requestUpload,
     confirmOverwrite,

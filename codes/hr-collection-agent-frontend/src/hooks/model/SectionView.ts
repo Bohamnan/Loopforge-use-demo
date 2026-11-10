@@ -145,3 +145,8 @@ export function buildSectionUpdate(
   }
   return { update: update as ResumeFieldsUpdate, errors };
 }
+
+/** The value to display for a field: an unsubmitted edit if there is one, otherwise the saved draft value. */
+export function currentValue(fields: ResumeFields, buffer: ResumeFieldsUpdate, key: ResumeFieldKey): unknown {
+  return key in buffer ? (buffer as Record<string, unknown>)[key] : fields[key].value;
+}
