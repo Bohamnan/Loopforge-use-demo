@@ -122,3 +122,11 @@ describe('ObjectListEditor', () => {
     expect(within(card(0)).getByRole('button', { name: /删除这一条/ })).toBeDisabled();
   });
 });
+
+describe('ObjectListEditor robustness', () => {
+  it('does not throw for a null element (a title is only a convenience)', () => {
+    expect(() =>
+      render(<ObjectListEditor {...base} field={fieldOf('work')} value={[null as unknown as Record<string, unknown>]} onChange={() => undefined} />),
+    ).not.toThrow();
+  });
+});

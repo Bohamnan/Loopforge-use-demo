@@ -396,3 +396,25 @@ React 在开发模式下自身会向 console 输出异常信息（含 message）
 ### 遗留风险
 - 字段级错误文本通过 `aria-describedby` 关联到输入框，没有单独 `role="alert"`（避免多个错误同时连续播报）；未经真实读屏验证。
 - 浏览器兼容只在 jsdom 中验证，未在 Chrome / Edge / Safari / Firefox 实机验证（任务 3.1 之后的人工验收项）。
+
+## Cleanup-A：草稿形状校验补全 + 上传响应异常提示（第五批 S1、S3）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/api/ResponseShapes.ts | 修改 | **S1**：`isDraftResponse` 增加：文本列表每个元素必须是字符串；经历列表每个元素必须是对象，已知成员为 string / null（`responsibilities`、`achievements` 为字符串数组）；`original_file.size_bytes` 为非负有限数；`content_type` 属 3 个允许值 |
+| codes/hr-collection-agent-frontend/src/components/ObjectListEditor.tsx | 修改 | 纵深防御：即使有非对象元素漏进来也不崩溃（标题 / 渲染都按空对象处理） |
+| codes/hr-collection-agent-frontend/src/components/ErrorAlert.tsx、pages/ResumeCollectionPage.tsx | 修改 | **S3**：上传返回 2xx 但形状不对（`unknown_error` 且状态码 2xx）时显示“上传结果异常，请刷新页面后核对。”；其他 `unknown_error`（如 502）仍用通用文案 |
+| 测试 | 新增 / 修改 | `ResponseShapes.test`（列表元素 / 成员类型 / 文件信息）、`ObjectListEditor.test`（null 元素）、`ErrorAlert.test`、`ResumeCollectionPage.upload.test` |
+
+### S3 的选择
+选“提示用户刷新核对”，不自动重新读取当前草稿：自动 GET 会引入新的请求与状态分支（读取失败时又要处理），而这是极端情形（代理改写了 201 响应）；提示文案明确，刷新页面即触发启动时的草稿读取。
+
+### 偏差说明
+`content_type` 也加入校验（审查建议里提及）；它不被界面使用，但属于契约枚举，不合法时视为异常响应。
+
+### 遗留风险
+形状校验仍只覆盖界面实际读取的部分；未知额外成员被忽略。

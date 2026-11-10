@@ -248,3 +248,26 @@ describe('re-upload over an existing draft (REQ-FE-01.5)', () => {
     expect(screen.getByText('已为你恢复未完成的简历')).toBeInTheDocument();
   });
 });
+
+describe('upload answered 2xx with a wrong shape (review batch 5 S3)', () => {
+  it('tells the user to reload and check, and does not present the old draft as current without a hint', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    backend({ current: () => jsonResponse(200, sampleDraft()), upload: () => jsonResponse(201, {}) });
+    const { container } = renderPage();
+    await screen.findByText('已为你恢复未完成的简历');
+    await userEvent.upload(fileInput(container), pdf('新文件.pdf'));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '继续上传' }));
+    expect(await screen.findByText('上传结果异常，请刷新页面后核对。')).toBeInTheDocument();
+    expect(fileInput(container).disabled).toBe(false);
+  });
+
+  it('a normal unknown error (bad gateway) keeps the generic wording', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    backend({ current: noDraft, upload: () => new Response('<html>bad</html>', { status: 502 }) });
+    const { container } = renderPage();
+    await screen.findByText(/上传简历文件/);
+    await userEvent.upload(fileInput(container), pdf());
+    expect(await screen.findByRole('alert')).toHaveTextContent('服务暂时不可用');
+    expect(screen.queryByText('上传结果异常，请刷新页面后核对。')).not.toBeInTheDocument();
+  });
+});
