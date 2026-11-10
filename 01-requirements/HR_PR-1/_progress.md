@@ -54,7 +54,7 @@
 | 任务拆分 | architecture-advisor | 各 Workbench 工程师 | ✅ backend（20 任务 / 91h）/ ✅ frontend（15 任务 / 79h） | 2026-11-10 | `backend-docs/HR_PR-1/05_task/tasks.md`；`frontend-docs/HR_PR-1/05_task/tasks.md` |
 | 仓库约定补全与复核（仅新项目 Workbench） | architecture-advisor（Step 5） | 各 Workbench 工程师/Dev Lead | ✅ backend / ✅ frontend（已确认） | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
 | 代码实现 | feature-developer | 各 Workbench 工程师 | 🔄 backend 7/20（1.1–1.7 ✅）/ frontend 6/15（1.1–1.6 ✅） | — | `codes/hr-collection-agent-backend/`、`codes/hr-collection-agent-frontend/` |
-| 代码审查 | code-reviewer | 各 Workbench 工程师 | — | — | — |
+| 代码审查 | code-reviewer | 各 Workbench 工程师 | 🔄 第一批审查中（独立 kiro 审查 agent，worktree review-batch1） | — | `backend-docs/HR_PR-1/10_review/code_review.md`；`frontend-docs/HR_PR-1/10_review/code_review.md` |
 | 开发自测用例 | dev-self-test | 各 Workbench 工程师 | — | — | — |
 | 造数脚本 | test-data-script-generator | 各 Workbench 工程师/QA | — | — | — |
 
@@ -132,6 +132,8 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | feature-developer | 前后端同时开工：backend 任务 1.1–1.7，frontend 任务 1.1–1.6 |
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 frontend 1.1–1.6（4238907..4dfed73）；主工作区复跑：npm ci、lint 0 告警、Vitest 15 文件 226 用例通过、tsc + vite build 1399 modules |
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 backend 1.1–1.7（f13ae9d..b3a1391）；主工作区复跑：uv sync --frozen、compileall 27 文件、pytest 213 passed、ruff check/format 通过 |
+| 2026-11-10 | Yin Yang（Dev Lead） | 主 agent | DL 提供 DeepSeek 凭证，已仅写入 backend worktree 本地 .env（600，已 gitignore，未入库）；建议 POC 后轮换该 key |
+| 2026-11-10 | Yin Yang（Dev Lead） | code-reviewer | 按 DL 要求启用独立 kiro 审查 agent（ctx_da4723a4f74e，worktree review-batch1，role dev-lead 只读）审查第一批代码 |
 
 ---
 
