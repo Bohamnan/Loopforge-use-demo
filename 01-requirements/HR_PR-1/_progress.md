@@ -11,7 +11,7 @@
 | **PRD** | `01-requirements/HR_PR-1/prd.md` |
 | **当前 Skill** | feature-developer |
 | **当前阶段** | 🔄 代码实现已全部完成（backend 21/21 含 2.3a、frontend 15/15）；审查全部通过（backend 十批、frontend 十一批）；DL 要求（2026-11-10）：流程完整执行。开发自测：backend 完成（123 条全通过，AC 37/37）；frontend 部分完成（108 条，已有结果 76/77，31 条未执行）；暂停中，恢复后补做 frontend 未执行项 → 造数脚本 → 最终 Review |
-| **状态** | ⏸ 已暂停（2026-11-10，DL 要求本轮结束）：backend 自测完成，frontend 自测部分完成 |
+| **状态** | 🔄 进行中：frontend 剩余自测执行中（后续按 L2，见 `.kiro/decisions/design/2026-11-10-HR_PR-1降级L2防止过度.md`） |
 | **最后更新** | 2026-11-10 |
 
 **状态图例**：`🔄 进行中` / `⏸️ 等待人类确认` / `✅ 已完成` / `❌ 阻断`
