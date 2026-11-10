@@ -20,7 +20,7 @@ function mediaBlock(maxWidth: number): string {
 /** Declarations of the first rule whose selector list contains `selector` inside `block`. */
 function rule(block: string, selector: string): string {
   const pattern = /([^{}]+)\{([^{}]*)\}/g;
-  for (const match of block.matchAll(pattern)) {
+  for (const match of block.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(pattern)) {
     const selectors = (match[1] ?? '').split(',').map((s) => s.trim());
     if (selectors.includes(selector)) return match[2] ?? '';
   }
@@ -40,5 +40,23 @@ describe('phone-width layout (integration drill SUGGEST-2)', () => {
     expect(rule(block, '.field-edit')).toMatch(/flex-wrap:\s*wrap/);
     expect(rule(block, '.field-edit .field-label')).toMatch(/width:\s*100%/);
     expect(rule(block, '.field-edit .field-value')).toMatch(/flex:\s*1\s+1\s+\d+px/);
+  });
+});
+
+describe('phone-width touch targets and composer height (integration drill SUGGEST-3)', () => {
+  const block = mediaBlock(NARROW);
+
+  it('makes every button at least 44x44 px', () => {
+    const declarations = rule(block, 'button.ant-btn');
+    expect(declarations).toMatch(/min-height:\s*44px/);
+    expect(declarations).toMatch(/min-width:\s*44px/);
+  });
+
+  it('drops the format hint in the composer so the bar does not grow with the larger buttons', () => {
+    expect(rule(block, '.composer-hint')).toMatch(/display:\s*none/);
+  });
+
+  it('keeps wider layouts untouched: the 44px rule lives only inside the phone-width block', () => {
+    expect(css.replace(block, '')).not.toMatch(/min-height:\s*44px/);
   });
 });

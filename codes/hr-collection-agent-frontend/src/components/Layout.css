@@ -390,4 +390,13 @@ body {
   .field-edit .field-value {
     flex: 1 1 180px;
   }
+  /* Touch targets >= 44px (SUGGEST-3); button.ant-btn out-ranks antd's size classes (e.g. .ant-btn-sm). */
+  button.ant-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  /* The format hint stays on the welcome panel; dropping it here keeps the bar from growing with 44px buttons. */
+  .composer-hint {
+    display: none;
+  }
 }
