@@ -161,6 +161,7 @@ codes/hr-collection-agent-backend/
 - 保存顺序：复制到 tmp → 单事务写库 → 原子重命名；启动时对账；幂等键为规范化的 姓名+手机号+邮箱（ADR-005、ADR-004）。
 - 已知限制（第七批审查 SUGGEST-3，不改代码）：对账只在启动时运行；提交后重命名失败的窗口内 `file/` 只有 tmp，用户再次确认会得到 `already_saved=true`，直到重启对账 roll-forward 才补齐终态文件。提交后抛普通异常同样保留 tmp 交给对账（不删除）。
 - 跟踪项：第七批 SUGGEST-4（design/openapi 补写 `confirmed` 非布尔 → `confirmation_required`、Pillow 安全公告跟踪方式）、SUGGEST-5（重复分支返回已有 `resume_id`/`saved_at` 可被用于存在性探测；若将来对外暴露需重新评估）。
+- 跟踪项（第九批 SUGGEST-1，POC 不做）：对账保险丝只在“零记录”时触发；库被替换成只有少量记录的库时，其余无记录的终态文件仍会被删。若将来对外部署，可加比例保险丝（孤儿终态文件数超过记录数的 N 倍或绝对值时只告警不删）。
 - 图像预处理口径：LLM 请求体上限按 10^6 字节计并扣除 4 KB 头部余量（`MAX_REQUEST_BYTES = 995,904`）；源图上限 25,000,000 像素，只解码 PNG/JPEG。
 
 ## 待确认清单

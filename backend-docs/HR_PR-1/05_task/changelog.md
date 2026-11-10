@@ -623,3 +623,18 @@ OpenAPI 0.1.1 未改动；无新增依赖；无数据库结构变更（无）。
 
 ### 遗留风险
 对账只在启动时运行，窗口见 AGENTS.md 已知限制（SUGGEST-3 第七批）。未做 uvicorn 真实进程启动演练，生命周期以 `TestClient` 的 `with` 块验证。
+
+---
+
+## 文档补充：第九批 SUGGEST-1/2/3
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| backend-docs/HR_PR-1/02_schema/sql_ddl_resume.md | 修改 | §4.2 情形③加注“零记录时终态文件保留并告警（保险丝）”（SUGGEST-2） |
+| backend-docs/HR_PR-1/04_design/design.md | 修改 | §5.4 同步保险丝与读取顺序（SUGGEST-2） |
+| backend-docs/HR_PR-1/05_task/tasks.md | 修改 | 2.5 的“情形③”同步注记；未改任何 ✅ 标记 |
+| codes/hr-collection-agent-backend/AGENTS.md | 修改 | 登记 SUGGEST-1（比例保险丝）为跟踪项，POC 不做 |
+| codes/hr-collection-agent-backend/tests/core/test_lifecycle.py | 修改 | SUGGEST-3：补“调度线程超过 join 超时”用例，`lifecycle.py` 覆盖 100% |
