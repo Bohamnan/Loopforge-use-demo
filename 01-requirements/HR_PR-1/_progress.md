@@ -120,6 +120,7 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | architecture-advisor | backend 技术设计确认：ADR-004/005 ACCEPTED；双 SQLite 不另立 ADR（ADR-003 覆盖）；CR-01 采纳并入 OpenAPI 0.1.1；DeepSeek 失败映射、读超时近似、单进程采纳；新依赖须锁定精确版本并经私有 Nexus 安装；REQ-FE-03.1 按 P-04 澄清 |
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 OpenAPI 0.1.1（4ba4d15）与 backend 任务拆分（2b72d29），复核校验通过；发现 CR-01a 差异待裁决 |
 | 2026-11-10 | Yin Yang（Dev Lead） | architecture-advisor | backend 任务清单确认：CR-01a 采纳 OpenAPI 现值；新增 pyyaml、pytest-cov 开发依赖（锁定版本）；Nexus 地址与 DeepSeek 凭证留到实施阶段由 DL 经环境变量提供，无凭证时 spike 标“待核实” |
+| 2026-11-10 | Yin Yang（Dev Lead） | 主 agent | DL 决定：不使用私有 Nexus，依赖用 uv 默认索引本地直接安装，仍以 uv lock 锁定精确版本（全局规范的项目例外）；替代上一条中“经私有 Nexus 安装”的要求 |
 
 ---
 
