@@ -62,3 +62,11 @@ def test_display_values_only_trim_edges() -> None:
     assert i.phone == "138 0013 8000"
     assert i.email == "Zs@Example.com"
     assert i.name_key == "张 三" and i.phone_key == "13800138000"
+
+
+def test_non_ascii_digits_do_not_reach_dedup_key_as_mainland_numbers() -> None:
+    # "+86" followed by 11 non-ASCII digits must not be treated as a mainland number.
+    arabic = "1" + "".join(chr(0x0661 + i % 9) for i in range(10))
+    raw = "+86" + arabic
+    assert phone_key(raw) == raw
+    assert phone_key(arabic) == arabic
