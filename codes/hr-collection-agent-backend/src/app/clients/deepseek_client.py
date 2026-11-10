@@ -111,6 +111,7 @@ class DeepSeekClient:
             base_url=settings.deepseek_base_url.rstrip("/"),
             timeout=self.timeout,
             transport=transport,
+            trust_env=False,  # never let proxy env vars redirect resume data (B-02)
         )
 
     def close(self) -> None:

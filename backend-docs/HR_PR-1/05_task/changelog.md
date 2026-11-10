@@ -284,3 +284,29 @@ TestClient 来自 fastapi.testclient，运行时有 StarletteDeprecationWarning�
 
 ---
 
+## Task-1.9：repositories：草稿库与草稿文件存储
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/repositories/draft_repository.py | 新增 | `DraftRecord`；`DraftRepository`：`insert`、`get_by_token_hash`、`touch_and_get`（UPDATE…RETURNING 原子刷新活动时间）、`delete_by_token_hash`（返回被删记录以便删文件）、`delete`、`delete_expired(cutoff)`（严格早于 cutoff，RETURNING file_path）、`list_file_paths`、`transaction()`（BEGIN IMMEDIATE，句柄 `DraftTransaction.get_by_token_hash/update_fields`）；仅 SQL、全部参数绑定、每次操作独立短连接，无业务判断 |
+| codes/hr-collection-agent-backend/src/app/repositories/draft_file_store.py | 新增 | `DraftFileStore`：`{DATA_DIR}/drafts/<id><ext>`，扩展名只来自内容类型白名单，`save`（独占创建、不覆盖、fsync）、`read`、`delete`（幂等）、`resolve`、`list_files`（含 mtime，供 2.6 孤儿扫描）；文件名/ID 正则校验，解析后必须仍在目录内（含符号链接逃逸） |
+| codes/hr-collection-agent-backend/src/app/clients/deepseek_client.py | 修改 | 复审建议：`httpx.Client(trust_env=False)`，代理环境变量不能转走外发请求（B-02） |
+| codes/hr-collection-agent-backend/tests/repositories/test_draft_repository.py | 新增 | 23 个用例：插入/查询、token_hash 唯一、明文令牌不入库、SQL 注入串仅作数据、touch 只刷新 last_active_at、delete 返回记录、过期边界（早 1 秒删、恰好 cutoff 与晚 1 秒保留）、事务读改写/回滚/并发两线程各 10 次更新不丢、CHECK 约束 |
+| codes/hr-collection-agent-backend/tests/repositories/test_draft_file_store.py | 新增 | 三种内容类型的服务端命名与内容一致、非法内容类型、8 种不安全 ID、不覆盖已有文件、8 种越界文件名（`../`、绝对路径、子目录、非白名单扩展名等）、符号链接逃逸被拒且外部文件不受影响、删除幂等、mtime 列表、不触碰 `file/` |
+| codes/hr-collection-agent-backend/tests/clients/test_deepseek_client.py | 修改 | 新增：设置 HTTPS_PROXY 等代理环境变量后 `_mounts` 为空且 `trust_env is False`（已验证去掉 `trust_env=False` 时该测试失败） |
+| codes/hr-collection-agent-backend/tests/clients/test_pdf_renderer.py | 修改 | 复审建议：“页间超时”用例收紧——用伪时钟让每页“耗时 10 秒”，预算 25 秒，断言处理了第 1–3 页后才在第 4 页前超时（`processed == 3`），确认覆盖第 1 页之后的超时 |
+
+### 偏差说明
+- 按设计实现。补充：`DraftTransaction.update_fields` 同时刷新 `updated_at` 与 `last_active_at`（design 5.2 要求更新时刷新两者）；`delete_by_token_hash` 返回被删记录（旧草稿替换流程需要其文件路径，O-03）。
+- `RETURNING` 需要 SQLite ≥ 3.35（本机 3.50.4，design 5.5 已采用）。
+
+### 遗留风险
+- 文件名/ID 正则允许字母、数字和连字符（不强制 UUID 格式）；服务层生成的 ID 为 UUID v4。
+- 符号链接若指向目录内另一文件会被视为目录内文件（目录由服务端独占，POC 可接受）。
+
+---
+

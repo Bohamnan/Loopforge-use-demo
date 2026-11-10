@@ -194,7 +194,7 @@
 
 ---
 
-### Task 1.9：repositories：草稿库与草稿文件存储
+### Task 1.9：repositories：草稿库与草稿文件存储 ✅
 - **关联：** REQ-BE-01.1、01.3、01.5、03.5、05.1、05.5；D§3.5（`DraftRepository`、`DraftFileStore`）、D§4、D§6；S§2.1、S§4.4
 - **内容：** `repositories/draft_repository.py`（`drafts` 表读写；`token_hash` 查询；`transaction()` 事务作用域（`BEGIN IMMEDIATE`）；`touch()`；`delete_expired(cutoff)` 用 `RETURNING file_path`；`list_file_paths()` 供孤儿扫描；不做业务判断）；`repositories/draft_file_store.py`（路径 `DATA_DIR/drafts/{draft_id}{ext}`，`ext` 仅来自魔数判型结果；写入/读取/删除；孤儿扫描；解析后路径必须仍在 `drafts` 目录内，防路径穿越）。
 - **测试：** `token_hash` 唯一；插入/按哈希查询/更新/删除；`BEGIN IMMEDIATE` 读改写并发（两线程各改不同字段均保留）；`delete_expired` 边界（恰 7 天、7 天少 1 秒）及 `RETURNING`；`touch()` 刷新 `last_active_at`；文件存储：写入内容一致、删除幂等、路径穿越被拒、仅接受 `.pdf/.jpg/.png`。**数据验证：** 直接 `SELECT` 断言行；检查文件系统存在性。
@@ -203,9 +203,9 @@
 
 #### 子任务
 
-- [ ] `DraftRepository`（全部 SQL 参数绑定）
-- [ ] `DraftFileStore`（含孤儿扫描：列出未被引用且修改时间早于阈值的文件，删除由调用方决定）
-- [ ] 对应单元测试
+- [x] `DraftRepository`（全部 SQL 参数绑定）
+- [x] `DraftFileStore`（含孤儿扫描：列出未被引用且修改时间早于阈值的文件，删除由调用方决定）
+- [x] 对应单元测试
 
 ---
 
