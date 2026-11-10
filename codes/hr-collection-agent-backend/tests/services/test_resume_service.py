@@ -230,9 +230,13 @@ def test_source_missing_with_draft_present_is_save_failed(resume_env: ResumeEnv)
 def test_only_the_save_path_touches_the_resume_repository() -> None:
     """B-04: the formal database is reachable from ResumeService (and wiring) only.
 
-    Task 2.5 adds ReconcileService, which reads/writes through the same repository.
+    ReconcileService (task 2.5) reads through the same repository (read-only: ``list_refs``) and
+    lifecycle.py (task 2.7) only constructs it for the start-up reconciliation.
     """
-    allowed = {"resume_service.py", "deps.py", "reconcile_service.py", "resume_repository.py"}
+    allowed = {
+        "resume_service.py", "deps.py", "reconcile_service.py", "resume_repository.py",
+        "lifecycle.py",
+    }  # fmt: skip
     importers = {
         p.name
         for p in SRC.rglob("*.py")
