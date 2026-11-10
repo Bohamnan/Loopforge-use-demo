@@ -46,3 +46,24 @@
 
 ### 遗留风险
 React 在开发模式下自身会向 console 输出异常信息（含 message），这是框架行为，非本组件输出；生产构建不输出。
+
+## Task-1.3：types（与 OpenAPI 0.1.1 同名）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/types/ResumeModel.ts | 新增 | `FieldStatus`、`StringField` 等列表字段、`WorkExperience` / `ProjectExperience` / `Education`、`ResumeFields`（22 字段）、`ResumeFieldsUpdate`；导出 `OPENAPI_VERSION`、`FIELD_STATUSES`、`RESUME_FIELD_KEYS` |
+| codes/hr-collection-agent-frontend/src/types/Draft.ts | 新增 | `OriginalFileInfo`、`DraftResponse`、`DraftUpdateRequest` |
+| codes/hr-collection-agent-frontend/src/types/Resume.ts | 新增 | `CreateResumeRequest`、`CreateResumeResponse` |
+| codes/hr-collection-agent-frontend/src/types/Errors.ts | 新增 | `ErrorCode`（13 值，`ERROR_CODES`）、`ErrorDetail` / `ErrorReason`（5 值，`ERROR_REASONS`）、`ErrorResponse`、前端自有 `ClientErrorCode` 与 `ApiErrorCode` |
+| codes/hr-collection-agent-frontend/src/types/Contract.test.ts | 新增 | 契约镜像测试：版本、22 键及顺序、4 状态、13 业务码、5 reason；`expectTypeOf` 类型断言（随 `tsc --noEmit` 检查） |
+
+### 偏差说明
+- 为了让契约镜像测试能在运行期核对枚举，类型文件额外导出了 `as const` 常量数组（`FIELD_STATUSES`、`RESUME_FIELD_KEYS`、`ERROR_CODES`、`ERROR_REASONS`、`OPENAPI_VERSION`），类型由它们派生；设计只要求类型，属于实现细节补充。
+- 经历子 schema 的字段在 OpenAPI 中均非 required，故在 TS 中全部为可选。
+
+### 遗留风险
+类型为手写镜像（F-02），契约变更时需人工同步；镜像测试覆盖键集合与枚举，不覆盖各字段的 `maxLength`（由任务 1.5 的 `FIELD_MAX_LENGTH` 测试覆盖）。

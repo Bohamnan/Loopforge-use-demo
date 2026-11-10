@@ -74,7 +74,7 @@
 - [x] 入口与 `ConfigProvider` 主题
 - [x] `ErrorBoundary` 与测试
 
-### Task 1.3：types（与 OpenAPI 0.1.1 同名）
+### Task 1.3：types（与 OpenAPI 0.1.1 同名） ✅
 - **关联：** REQ-FE-06.4、06.5；design.md §3.1、F-02（手写类型）；`interface_spec_resume.md` §四
 - **内容：** `src/types/ResumeModel.ts`（`FieldStatus`、`StringField`、`StringListField`、三个经历列表字段、`WorkExperience`、`ProjectExperience`、`Education`、`ResumeFields` 22 字段、`ResumeFieldsUpdate`）、`Draft.ts`（`OriginalFileInfo`、`DraftResponse`、`DraftUpdateRequest`）、`Resume.ts`（`CreateResumeRequest`、`CreateResumeResponse`）、`Errors.ts`（`ErrorCode` 13 值、`ErrorDetail` 及 `reason` 5 值、`ErrorResponse`、`ClientErrorCode`）。每个文件头注明对应 OpenAPI 版本 0.1.1；标量允许 `null` 体现为 `string | null`。
 - **测试：** 类型级测试（`tsc --noEmit` 纳入 `npm run build`）；用 Vitest 编写“契约镜像”测试：`ResumeFields` 的 22 个键集合、`FieldStatus` 4 值、`ErrorCode` 13 值、`reason` 5 值，与一份测试内的期望常量（按 OpenAPI 0.1.1 逐项核对）一致，防止漏项或漂移。
@@ -83,8 +83,8 @@
 
 #### 子任务
 
-- [ ] 4 个类型文件与文件头版本注释
-- [ ] 契约镜像测试
+- [x] 4 个类型文件与文件头版本注释
+- [x] 契约镜像测试
 
 ### Task 1.4：api 封装层
 - **关联：** REQ-FE-06.1、06.3、06.4、01.4、01.6、05.1；design.md §3.2、§6（ApiClient / ResumeDraftApi / ResumeApi）、§7.2、DD-02/05/06/10；O-12、F-05
