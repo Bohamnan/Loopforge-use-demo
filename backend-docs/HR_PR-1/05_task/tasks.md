@@ -350,7 +350,7 @@
 
 > 仅放跨任务的契约/端到端测试与质量实测；单元测试已在各任务内完成，不在此重复。
 
-### Task 3.1：契约测试（对照冻结的 OpenAPI 0.1.1）
+### Task 3.1：契约测试（对照冻结的 OpenAPI 0.1.1） ✅
 - **关联：** D§9.2“契约”；`openapi.yaml` 0.1.1；REQ-BE-06.4、06.5
 - **内容：** `tests/contract/test_openapi_conformance.py`：用 `jsonschema` 以冻结的 `openapi.yaml` 校验各接口各状态码的真实响应；比对 `app.openapi()` 与冻结文件的路径、方法、`operationId`、状态码集合一致；校验 schemas 的 `maxLength`/`maxItems`/`pattern` 与 0.1.1 一致（防止代码与契约漂移）。
 - **测试：** ①②③④ 的 2xx 与每个 4xx/5xx 响应体均通过对应 schema；`Set-Cookie` 属性与契约描述一致；路径/方法/`operationId`/状态码集合与冻结文件一致；0.1.1 全部约束（G-01 email、G-02 phone、CR-01 长度与条数）在服务端有对应的拒绝行为（`too_long` 等）。
@@ -365,7 +365,7 @@
 
 ---
 
-### Task 3.2：端到端与安全脱敏测试
+### Task 3.2：端到端与安全脱敏测试 ✅
 - **关联：** D§9.2“端到端”、D§9.4；B-01、B-03、B-06；REQ-BE-06.1–06.3
 - **内容：** 完整流程 上传 → 多次更新 → 确认 → （再次上传同一人）→ 确认；全局日志与响应脱敏断言；密钥与令牌不落盘断言；启动流程端到端（含对账与清理）。
 - **测试：** 第二次确认得到 200 `already_saved=true`；`SELECT count(*) FROM resumes` 恒为 1；`file/` 中恰 1 个终态文件、无 tmp；捕获**全部日志**，断言不含合成姓名/手机号/邮箱标记、文件名、令牌与哈希、模型响应体；构造各类错误请求，断言响应体不含用户提交的值；数据库中不存在令牌明文；`.env.example` 不含真实凭证（正则扫描）；提示注入样本不会产出 `confirmed`；仓库扫描无密钥（B-01）。
@@ -380,7 +380,7 @@
 
 ---
 
-### Task 3.3：质量指标实测与交付自检
+### Task 3.3：质量指标实测与交付自检 ✅
 - **关联：** D§9 开头（覆盖率 ≥ 85%）、全局质量指标；`rules/backend/coding.md`
 - **内容：** 实测覆盖率（分层统计 `services`、`repositories`、`clients`、`core`）、`ruff`、重复代码与 CRAP；按全局规范工具位于 `~/tools/`（`crapper`、`dryer`）。**未实测的指标不得声明已达标**；覆盖率来源（pytest-cov 报告）需写明。
 - **测试：** 全量 `uv run pytest` 通过；核心分支覆盖率 ≥ 85%（`services`、`repositories`、`clients`、`core`）；`ruff check` 无错误；CRAP 单函数 ≤ 10 与重复代码相似度结果（工具不可用时写明未做，并手动估算说明）。
