@@ -10,8 +10,8 @@
 |------|------|
 | **PRD** | `01-requirements/HR_PR-1/prd.md` |
 | **当前 Skill** | feature-developer |
-| **当前阶段** | 🔄 代码实现已全部完成（backend 21/21 含 2.3a、frontend 15/15）；审查全部通过（backend 十批、frontend 十一批）；DL 决定（2026-11-10）：本地简单项目，不做开发自测用例与造数脚本；待 DL 最终 Review |
-| **状态** | ⏸ 等待 DL 最终 Review |
+| **当前阶段** | 🔄 代码实现已全部完成（backend 21/21 含 2.3a、frontend 15/15）；审查全部通过（backend 十批、frontend 十一批）；DL 要求（2026-11-10）：流程完整执行；开发自测进行中，随后造数脚本，再交 DL 最终 Review |
+| **状态** | 🔄 进行中：开发自测 |
 | **最后更新** | 2026-11-10 |
 
 **状态图例**：`🔄 进行中` / `⏸️ 等待人类确认` / `✅ 已完成` / `❌ 阻断`
@@ -55,7 +55,7 @@
 | 仓库约定补全与复核（仅新项目 Workbench） | architecture-advisor（Step 5） | 各 Workbench 工程师/Dev Lead | ✅ backend / ✅ frontend（已确认） | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
 | 代码实现 | feature-developer | 各 Workbench 工程师 | ✅ backend 21/21（含 2.3a，pytest 1001、覆盖率 99%、CRAP 最大 9.0）/ ✅ frontend 15/15（vitest 650、lint 0、build 通过） | — | `codes/hr-collection-agent-backend/`、`codes/hr-collection-agent-frontend/` |
 | 代码审查 | code-reviewer | 各 Workbench 工程师 | 🔄 backend 第一至第十批 ✅（含 2.4/2.5 HIGH_RISK）；frontend 第一至第十一批 ✅（0 BLOCK） | — | `backend-docs/HR_PR-1/10_review/code_review.md`；`frontend-docs/HR_PR-1/10_review/code_review.md` |
-| 开发自测用例 | dev-self-test | 各 Workbench 工程师 | 不做（DL 决定：本地简单项目；联调已完成（联调与真实模型 spike 已完成：`backend-docs/HR_PR-1/10_review/integration_drill.md`、`frontend-docs/HR_PR-1/10_review/integration_drill.md`） | — | — |
+| 开发自测用例 | dev-self-test | 各 Workbench 工程师 | 🔄 进行中（联调与真实模型 spike 已完成：`backend-docs/HR_PR-1/10_review/integration_drill.md`、`frontend-docs/HR_PR-1/10_review/integration_drill.md`） | — | — |
 | 造数脚本 | test-data-script-generator | 各 Workbench 工程师/QA | — | — | — |
 
 ---

@@ -3,7 +3,7 @@
 | 项 | 内容 |
 |---|---|
 | 当前级别 | L3（新项目、跨前后端、外部模型对接） |
-| 状态 | ✅ 编排完成，等待 DL 最终 Review。DL 决定不做 dev-self-test、造数脚本及三个识别细节（职位内部标记、技能连接词、主要客户字段）。临时样品与截图已删除，所有 worker 已释放 |
+| 状态 | ▶ DL 2026-11-10 指令：流程要完整，开发自测必须做并用真实样品自动化测试（取消“不做自测/造数脚本”）。已启动 backend 自测 worker ctx_06b9a17ca92d、frontend 自测 worker ctx_57fceb7f5147（先写文档，执行等我放行以免 8000 端口冲突）；样品副本在 /tmp/hr_sample（结束后删）。后续：自测文档 DL 确认 → test-data-script-generator → 复验 → 最终 Review |
 | 最后更新 | 2026-11-10，feature `505d02d` |
 | 权威进度 | `01-requirements/HR_PR-1/_progress.md`（流程表、贡献记录、末尾「暂停恢复清单」） |
 
