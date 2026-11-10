@@ -8,6 +8,9 @@ import { FakeBackend } from '../test/FakeBackend';
 import { RESUME_FIELD_KEYS } from '../types/ResumeModel';
 import ResumeCollectionPage from './ResumeCollectionPage';
 
+// Two whole-flow tests take about 5 s each and exceeded the default limit when the full suite runs in parallel.
+vi.setConfig({ testTimeout: 15000 });
+
 // Task 3.1: page level integration over an in-memory backend that follows the contract (synthetic data only).
 // Every test also guards the security statics: no browser storage use, no resume content / response body in console.
 
