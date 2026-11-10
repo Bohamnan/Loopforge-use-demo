@@ -6,12 +6,13 @@
 |------|------|----------|------|
 | v0.1 | 2026-11-10 | 初始草稿（architecture-advisor Step 2.2） | Yin Yang（backend） |
 | v0.1.0 | 2026-11-10 | 按契约审视 O-01..O-13 冻结 OpenAPI：O-01 滑动续期 Cookie；O-02 上传失败不动旧草稿；O-03 有效旧令牌重传成功即删旧草稿；O-04 仅 `+86` 后恰 11 位大陆号才去前缀；O-05 `phone` 加 `pattern`（前端即时校验唯一来源）；O-06 目录布局；O-07 清理间隔 1 小时；O-08 201/200 + `already_saved`；O-09 核心三项 `minLength: 1`；O-10 `draft_not_found` 前端按接口区分文案；O-11 区块整体状态；O-12 GET 404 为空态；O-13 无限流为已知风险。`info.version`: `0.1.0-draft` → `0.1.0` | Yin Yang（backend） |
+| v0.1.1 | 2026-11-10 | 兼容修订（只加校验约束与澄清描述，不改接口结构、字段名、业务码）：G-01 `email` 加 `pattern: '^[^\s@]+@[^\s@]+\.[^\s@]+$'` 与 `maxLength: 254`；G-02 `phone` 的 `pattern` 针对提交值，客户端提交前须去空格与连字符，backend 校验前同样去除作为兜底；CR-01 补 `maxLength`/`maxItems`（name ≤ 100、phone ≤ 32、email ≤ 254、其他标量 ≤ 500、self_evaluation ≤ 5000；文本列表 ≤ 50 项、每项 ≤ 1000；经历区块 ≤ 20 条；条内字符串 ≤ 2000、条内列表 ≤ 30 项），超限 `details.reason = too_long`。`info.version`: `0.1.0` → `0.1.1` | Yin Yang（backend） |
 
 ---
 
 > **输入**：`01_requirements/requirements.md`（REQ-BE-01..06）、HLD §4、裁决 C-01..C-15 / D-01..D-06、`rules/backend/api.md`、`02_schema/sql_ddl_resume.md`。
 > **契约载体**：`openapi.yaml`（OpenAPI 3.1.0，已用 openapi-spec-validator 校验通过）。本文给出设计说明与决策；字段级细节以 `openapi.yaml` 为准，二者不重复双写。
-> **状态**：**已冻结 v0.1.0**（2026-11-10，经 cross-workbench-review 契约审视 O-01..O-13；C-13、D-06 已满足）。后续变更须经 cross-workbench-reviewer。
+> **状态**：**已冻结 v0.1.1**（2026-11-10；0.1.0 经契约审视 O-01..O-13 冻结，0.1.1 为 G-01/G-02/CR-01 兼容修订；C-13、D-06 已满足）。后续变更须经 cross-workbench-reviewer。
 
 ---
 

@@ -35,7 +35,7 @@
 | 上传校验顺序 | 缺文件 → 扩展名白名单 → 分块读取并累计大小（>10 MB 立即中止）→ 空文件 → 魔数判型并与扩展名一致性比对 | 先做廉价检查；分块读取避免超大请求占满内存；**不信任客户端 `Content-Type`** | — |
 | 类型判定不引入图像库 | 用魔数前缀判型（PDF `%PDF-`、JPEG `FF D8 FF`、PNG 8 字节签名） | 只需“判型”，不需解码；少一个重依赖与解码攻击面。损坏/加密文件交给模型，失败映射为 `parse_failed` | — |
 | 业务校验单点 | 手机号/邮箱/字段长度校验与幂等键规范化各只在 `services` 一处实现（`field_validation`、`identity_key`），确认与更新共用 | 影响分析“共享逻辑完整性”：两处口径漂移会让“能更新、不能确认” | — |
-| 字段长度上限 | 标量 ≤ 500 字符（`name` ≤ 100、`phone` ≤ 32、`email` ≤ 254、`self_evaluation` ≤ 5000）；文本列表 ≤ 50 项、每项 ≤ 1000；经历区块 ≤ 20 条、条内字符串 ≤ 2000、条内列表 ≤ 30 项 | `too_long` 已在冻结契约的 reason 枚举中，但契约未给上限；需要一个防滥用的明确口径。上限未写入 OpenAPI，见契约变更申请 CR-01（非阻断） | — |
+| 字段长度上限 | 标量 ≤ 500 字符（`name` ≤ 100、`phone` ≤ 32、`email` ≤ 254、`self_evaluation` ≤ 5000）；文本列表 ≤ 50 项、每项 ≤ 1000；经历区块 ≤ 20 条、条内字符串 ≤ 2000、条内列表 ≤ 30 项 | `too_long` 已在冻结契约的 reason 枚举中，但契约未给上限；需要一个防滥用的明确口径。上限已由 CR-01 写入 OpenAPI 0.1.1（已采纳） | — |
 | 草稿清理调度 | 单进程内一个守护线程（`threading.Event` 控制停止），启动先跑一次，之后每 3600 秒一次 | O-07；POC 单进程（C-06）；线程比引入调度库更简单、也便于测试注入时钟 | — |
 | 启动顺序 | `lifespan`：创建目录 → 初始化两个库（`user_version`）→ **对账** → 清理一次 → 启动调度线程 → 开始接收请求 | 对账与清理必须在对外服务前完成，避免与新请求竞争文件 | ADR-005 |
 | 运行形态约束 | 只支持**单进程单 worker**（uvicorn `--workers 1`） | 清理线程、SQLite 单写者、启动对账都按单进程设计；多 worker 会重复对账/清理（本身幂等但无意义） | — |
@@ -570,7 +570,7 @@ flowchart TD
 | B-05 一致性 | ✅ ADR-005 + §9.3 故障注入 |
 | B-06 隐私/测试数据 | ✅ 禁网夹具 + 合成数据；模型全 mock |
 | 分层红线 | ✅ services 不依赖 `sqlite3`/`httpx`；api 无业务判断；repositories 无业务判断；clients 无业务判断（`ParseNormalizer` 在 services） |
-| 跨 Workbench 约束 | ✅ 契约以冻结的 `openapi.yaml` 为准；本设计未改契约（CR-01 为可选申请） |
+| 跨 Workbench 约束 | ✅ 契约以冻结的 `openapi.yaml` 为准；本设计未改契约结构（CR-01 已采纳并落地 OpenAPI 0.1.1） |
 | ADR-001 | ✅ 直接 PDF/图片理解；不回退；spike 留证 |
 | ADR-002 | ✅ 同步 `def` 端点 |
 | ADR-003 | ✅ 独立草稿库、7 天清理、Cookie 令牌 |
@@ -579,7 +579,7 @@ flowchart TD
 
 | 编号 | 内容 | 性质 | 影响 |
 |---|---|---|---|
-| CR-01 | 在 `openapi.yaml` 中为字段补充 `maxLength` / `maxItems`（§1 的长度上限），使 frontend 能即时校验、与 `too_long` 对应 | 可选，**非阻断**；向后兼容的收紧 | 若不采纳：frontend 只能在提交后通过 `validation_failed(too_long)` 得知上限；若采纳：需 cross-workbench-reviewer 审视并升 `info.version` 到 `0.1.1` |
+| CR-01 | 在 `openapi.yaml` 中为字段补充 `maxLength` / `maxItems`（§1 的长度上限），使 frontend 能即时校验、与 `too_long` 对应 | **已采纳，已落地 0.1.1**（2026-11-10）；向后兼容的收紧 | 若不采纳：frontend 只能在提交后通过 `validation_failed(too_long)` 得知上限；若采纳：需 cross-workbench-reviewer 审视并升 `info.version` 到 `0.1.1` |
 
 除 CR-01 外，本设计**未发现必须修改冻结契约的点**。
 
