@@ -5,6 +5,7 @@
 | 版本 | 日期 | 修改说明 | 作者 |
 |------|------|----------|------|
 | v1.0 | 2026-11-10 | 初始版本（architecture-advisor Step 4）；基于 `04_design/design.md` v0.1（技术设计确认关卡已通过）与 OpenAPI 0.1.1 | Yin Yang（backend） |
+| v1.1 | 2026-11-10 | DL 决定不使用私有 Nexus：任务 1.1 及文首说明改为“uv 默认索引（公共 PyPI）本地安装，`uv lock` 锁定精确版本”，不配置私有索引或索引凭证；“需 DL 确认的点”第 1 项关闭。其他任务未改 | Yin Yang（backend） |
 
 ---
 
@@ -13,7 +14,7 @@
 > 全局约定（对所有任务生效）：
 > - 代码根目录：`codes/hr-collection-agent-backend/`（下文路径均相对该目录）。契约以 `backend-docs/HR_PR-1/03_api/openapi.yaml`（**0.1.1**）为准，字段长度上限与 `pattern` 以其为唯一来源。
 > - 测试先行（feature-developer）；测试数据一律合成，模型调用一律 mock，`tests/conftest.py` 的禁网夹具对所有测试生效（B-06）。核心用例附数据层断言（直接查 SQLite、检查文件系统）。
-> - 依赖版本在任务 1.1 通过 `uv lock` 锁定为精确版本，经私有 Nexus 安装；之后新增依赖须先评估安全性。
+> - 依赖版本在任务 1.1 通过 `uv lock` 锁定为精确版本，使用 uv 默认索引（公共 PyPI）本地安装，不配置私有索引或索引凭证（DL 决定的项目例外，2026-11-10）；之后新增依赖须先评估安全性。
 > - 每个任务完成标准：`uv run pytest` 通过且日志中有真实的测试收集与执行；`uv run ruff check` 通过。
 > - 每个任务“关联”列出的 REQ 为 `requirements.md` 的 AC 编号；`D§` = design.md，`S§` = `02_schema/sql_ddl_resume.md`，`A` = 接口①②③④。
 
@@ -68,7 +69,7 @@
 
 - [ ] `pyproject.toml`：`requires-python = ">=3.11,<3.12"`；运行依赖 `fastapi`、`uvicorn`、`pydantic`、`pydantic-settings`、`httpx`、`python-multipart`；开发依赖 `pytest`、`ruff`、`jsonschema`、`pyyaml`（读取 `openapi.yaml` 用，评估后确认）；pytest/ruff 配置（`pythonpath = src`）
 - [ ] **依赖锁定精确版本**：`uv lock` 生成 `uv.lock`；`pyproject.toml` 中依赖写精确版本（`==`），不使用开放区间
-- [ ] **通过私有 Nexus 安装**：将 Nexus 的 PyPI 索引 URL 配置为 uv 的 index（`pyproject.toml` 的 `[[tool.uv.index]]` 或环境变量 `UV_INDEX_URL`）；**凭证只经环境变量，不写入仓库、锁文件与日志**（B-01）；`uv.lock` 提交前检查不含凭证 URL
+- [ ] **本地直接安装**：使用 uv 默认索引（公共 PyPI），`uv sync` 按 `uv.lock` 安装；不配置私有索引或索引凭证（DL 决定的项目例外，2026-11-10）；`uv.lock` 提交前检查不含任何带凭证的 URL（B-01）
 - [ ] 新增依赖（`pydantic-settings`、`httpx`、`python-multipart`、`jsonschema`）逐个评估安全性（维护状态、已知漏洞），结论记入任务完成说明
 - [ ] `.gitignore`：追加 `data/`、`file/`、`.env`、`.venv/`、`__pycache__/`、`.pytest_cache/`（O-06）
 - [ ] `.env.example`：仅占位符，键清单见 D§3.1（`DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL=deepseek-flash`、`DATA_DIR`、`FILE_DIR`、`MODEL_TIMEOUT_SECONDS=60`、`DRAFT_TTL_DAYS=7`、`CLEANUP_INTERVAL_SECONDS=3600`、`COOKIE_SECURE=false`），不含任何真实凭证
@@ -439,7 +440,7 @@
 
 ## 需 Dev Lead 确认的点
 
-1. **Nexus 索引地址与凭证注入方式**：仓库内未发现私有 Nexus 的 PyPI 索引 URL；任务 1.1 需 DL 提供地址及凭证的环境变量名（凭证不入库）。
+1. ~~Nexus 索引地址与凭证注入方式~~：**已关闭**——DL 决定不使用私有 Nexus，改为 uv 默认索引本地安装（见变更履历 v1.1）。
 2. **DeepSeek 真实调用 spike（任务 1.8）**：需要 DL 提供可用凭证并允许用合成 PDF/PNG 发起两次真实调用（简历为合成数据，不含真实个人信息）；否则请求形态保持“待核实”。
 3. **经历区块内部字符串/列表上限**：OpenAPI 0.1.1 中按 design §1 落实为“条内字符串 ≤ 2000、条内列表 ≤ 30 项（每项 ≤ 2000）”，该口径比任务指令中的“其他标量 ≤ 500”更宽，原因是 `background`、`outcome`、`responsibilities` 等字段天然较长；如需改为 500，请 DL 裁决后再升 OpenAPI 版本。
 4. **新增开发依赖**：`pyyaml`（读取 `openapi.yaml`）与 `pytest-cov`（覆盖率实测）不在 design §1 的依赖清单内，将在 1.1 / 3.3 评估后新增并锁定版本，请 DL 确认可以引入。
