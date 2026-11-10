@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: HR 简历信息收集 API（hr-collection-agent）
-  version: 0.1.0
+  version: 0.1.1
   description: |
-    HR_PR-1 backend OpenAPI。**已冻结（2026-11-10，经 cross-workbench-review O-01..O-13）**。
+    HR_PR-1 backend OpenAPI。**已冻结（2026-11-10，0.1.1：G-01/G-02/CR-01 兼容修订）**；0.1.0 经 cross-workbench-review O-01..O-13 冻结。
     后续变更须经 cross-workbench-reviewer 审视（C-13）；v1 内只做向后兼容的新增。
 
     约定：
@@ -141,7 +141,7 @@ paths:
         - 标量字段提交 `null`、列表字段提交 `[]` 表示“确认留空”，状态为 `confirmed`；核心三项（name/phone/email）不允许留空。
         - 列表区块（工作经历、项目经历、教育背景及文本列表）为**整体替换**：多条子项的新增、修改、删除通过提交完整的新列表实现；区块只有**一个整体状态**，不对每条子项单独确认（O-11，POC 接受；前端逐条展示、整块确认）。
         - 幂等：同一请求重复提交结果相同。
-        - 手机号：11 位大陆号，或以 `+` 开头的国际号；**校验前先去除空格与连字符**。规则以 `ResumeFieldsUpdate.phone` 的 `pattern` 为唯一来源，前端即时校验使用同一规则（O-05）。邮箱：格式校验。name/phone/email 不可为空字符串（`minLength: 1`），全空白在服务层按 `required` 拒绝（O-09）。不合法 → 422 `validation_failed`，`details` 给出字段名与原因，**不回显值**（C-09、D-06）。
+        - 手机号：11 位大陆号，或以 `+` 开头的国际号；**校验前先去除空格与连字符**。规则以 `ResumeFieldsUpdate.phone` 的 `pattern` 为唯一来源，前端即时校验使用同一规则（O-05）；`pattern` 针对提交值，客户端先去空格与连字符，服务端校验前同样去除作为兜底（G-02）。邮箱：以 `ResumeFieldsUpdate.email` 的 `pattern` 校验（G-01）。字段长度/条数超限（`maxLength`/`maxItems`，CR-01）→ `details.reason = too_long`。name/phone/email 不可为空字符串（`minLength: 1`），全空白在服务层按 `required` 拒绝（O-09）。不合法 → 422 `validation_failed`，`details` 给出字段名与原因，**不回显值**（C-09、D-06）。
         - 此接口只更新草稿，不写正式库、不代表“用户确认保存”（B-04）。
       security:
         - draftCookie: []
@@ -330,38 +330,41 @@ components:
     WorkExperience:
       type: object
       properties:
-        company: { type: [string, 'null'] }
-        position: { type: [string, 'null'] }
-        start_date: { type: [string, 'null'], description: 形如 2021.03 }
-        end_date: { type: [string, 'null'], description: 形如 2024.06 或 至今 }
-        department: { type: [string, 'null'] }
-        reports_to: { type: [string, 'null'] }
-        team_size: { type: [string, 'null'] }
-        responsibilities: { type: array, items: { type: string }, default: [] }
-        achievements: { type: array, items: { type: string }, default: [] }
+        company: { type: [string, 'null'], maxLength: 2000 }
+        position: { type: [string, 'null'], maxLength: 2000 }
+        start_date: { type: [string, 'null'], maxLength: 2000, description: 形如 2021.03 }
+        end_date: { type: [string, 'null'], maxLength: 2000, description: 形如 2024.06 或 至今 }
+        department: { type: [string, 'null'], maxLength: 2000 }
+        reports_to: { type: [string, 'null'], maxLength: 2000 }
+        team_size: { type: [string, 'null'], maxLength: 2000 }
+        responsibilities: { type: array, maxItems: 30, items: { type: string, maxLength: 2000 }, default: [] }
+        achievements: { type: array, maxItems: 30, items: { type: string, maxLength: 2000 }, default: [] }
+      description: 字符串字段 ≤ 2000 字符；列表字段 ≤ 30 项（0.1.1）。超限 → 422 validation_failed（reason=too_long）。
       additionalProperties: false
 
     ProjectExperience:
       type: object
       properties:
-        name: { type: [string, 'null'] }
-        start_date: { type: [string, 'null'] }
-        end_date: { type: [string, 'null'] }
-        background: { type: [string, 'null'] }
-        role: { type: [string, 'null'] }
-        tech: { type: [string, 'null'] }
-        outcome: { type: [string, 'null'] }
+        name: { type: [string, 'null'], maxLength: 2000 }
+        start_date: { type: [string, 'null'], maxLength: 2000 }
+        end_date: { type: [string, 'null'], maxLength: 2000 }
+        background: { type: [string, 'null'], maxLength: 2000 }
+        role: { type: [string, 'null'], maxLength: 2000 }
+        tech: { type: [string, 'null'], maxLength: 2000 }
+        outcome: { type: [string, 'null'], maxLength: 2000 }
+      description: 字符串字段 ≤ 2000 字符；列表字段 ≤ 30 项（0.1.1）。超限 → 422 validation_failed（reason=too_long）。
       additionalProperties: false
 
     Education:
       type: object
       properties:
-        start_date: { type: [string, 'null'] }
-        end_date: { type: [string, 'null'] }
-        school: { type: [string, 'null'] }
-        major: { type: [string, 'null'] }
-        degree: { type: [string, 'null'] }
-        honors: { type: [string, 'null'] }
+        start_date: { type: [string, 'null'], maxLength: 2000 }
+        end_date: { type: [string, 'null'], maxLength: 2000 }
+        school: { type: [string, 'null'], maxLength: 2000 }
+        major: { type: [string, 'null'], maxLength: 2000 }
+        degree: { type: [string, 'null'], maxLength: 2000 }
+        honors: { type: [string, 'null'], maxLength: 2000 }
+      description: 字符串字段 ≤ 2000 字符；列表字段 ≤ 30 项（0.1.1）。超限 → 422 validation_failed（reason=too_long）。
       additionalProperties: false
 
     StringField:
@@ -448,39 +451,47 @@ components:
 
     ResumeFieldsUpdate:
       type: object
-      description: 部分更新；仅包含要修正/补充/确认的字段，值即最终值。出现的字段将被置为 confirmed。标量可为 null（确认留空，核心三项除外），列表字段可为 []。
+      description: 部分更新；仅包含要修正/补充/确认的字段，值即最终值。出现的字段将被置为 confirmed。标量可为 null（确认留空，核心三项除外），列表字段可为 []。长度上限（0.1.1，CR-01）：name ≤ 100、phone ≤ 32、email ≤ 254、其他标量 ≤ 500、self_evaluation ≤ 5000；文本列表 ≤ 50 项、每项 ≤ 1000；经历区块 ≤ 20 条。超限 → 422 validation_failed，details.reason = too_long。
       additionalProperties: false
       properties:
-        name: { type: string, minLength: 1, description: 核心字段，不可为空；全空白在服务层按 required 拒绝 }
-        job_title: { type: [string, 'null'] }
-        expected_city: { type: [string, 'null'] }
-        expected_salary: { type: [string, 'null'] }
-        available_time: { type: [string, 'null'] }
+        name: { type: string, minLength: 1, maxLength: 100, description: 核心字段，不可为空；全空白在服务层按 required 拒绝 }
+        job_title: { type: [string, 'null'], maxLength: 500 }
+        expected_city: { type: [string, 'null'], maxLength: 500 }
+        expected_salary: { type: [string, 'null'], maxLength: 500 }
+        available_time: { type: [string, 'null'], maxLength: 500 }
         phone:
           type: string
           minLength: 1
+          maxLength: 32
           pattern: '^(1\d{10}|\+\d{6,15})$'
           description: |
-            核心字段，不可为空。**校验前先去除空格与连字符**（客户端与服务端同一规则）；去除后须为
+            核心字段，不可为空。`pattern` 针对**提交值**：客户端提交前必须先去掉空格与连字符；
+            backend 校验前同样先去掉空格与连字符，作为兜底（G-02）。去除后须为
             11 位大陆号（`^1\d{10}$`）或 `+` 开头的国际号（`^\+\d{6,15}$`）。
-            此 pattern 是前端即时校验的唯一来源（O-05）。
+            此 pattern 是前端即时校验的唯一来源（O-05）。`maxLength` 32 针对原始提交值（含兜底前的空格/连字符）。
           examples: ['13800138000', '+85212345678']
-        email: { type: string, minLength: 1, description: 核心字段；邮箱格式；全空白在服务层按 required 拒绝 }
-        homepage: { type: [string, 'null'] }
-        gender: { type: [string, 'null'] }
-        birth_month: { type: [string, 'null'] }
-        political_status: { type: [string, 'null'] }
-        current_city: { type: [string, 'null'] }
-        work_years: { type: [string, 'null'] }
-        highest_education: { type: [string, 'null'] }
-        strengths: { type: array, items: { type: string } }
-        work_experiences: { type: array, items: { $ref: '#/components/schemas/WorkExperience' } }
-        project_experiences: { type: array, items: { $ref: '#/components/schemas/ProjectExperience' } }
-        educations: { type: array, items: { $ref: '#/components/schemas/Education' } }
-        skills: { type: array, items: { type: string } }
-        certificates_honors: { type: array, items: { type: string } }
-        languages: { type: array, items: { type: string } }
-        self_evaluation: { type: [string, 'null'] }
+        email:
+          type: string
+          minLength: 1
+          maxLength: 254
+          pattern: '^[^\s@]+@[^\s@]+\.[^\s@]+$'
+          description: 核心字段，不可为空；全空白在服务层按 required 拒绝。格式规则从宽，只防明显错误；此 pattern 是前端即时校验的唯一来源（G-01）。
+          examples: ['zhangsan@example.com']
+        homepage: { type: [string, 'null'], maxLength: 500 }
+        gender: { type: [string, 'null'], maxLength: 500 }
+        birth_month: { type: [string, 'null'], maxLength: 500 }
+        political_status: { type: [string, 'null'], maxLength: 500 }
+        current_city: { type: [string, 'null'], maxLength: 500 }
+        work_years: { type: [string, 'null'], maxLength: 500 }
+        highest_education: { type: [string, 'null'], maxLength: 500 }
+        strengths: { type: array, maxItems: 50, items: { type: string, maxLength: 1000 } }
+        work_experiences: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/WorkExperience' } }
+        project_experiences: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/ProjectExperience' } }
+        educations: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/Education' } }
+        skills: { type: array, maxItems: 50, items: { type: string, maxLength: 1000 } }
+        certificates_honors: { type: array, maxItems: 50, items: { type: string, maxLength: 1000 } }
+        languages: { type: array, maxItems: 50, items: { type: string, maxLength: 1000 } }
+        self_evaluation: { type: [string, 'null'], maxLength: 5000 }
 
     OriginalFileInfo:
       type: object
