@@ -10,7 +10,7 @@
 |------|------|
 | **PRD** | `01-requirements/HR_PR-1/prd.md` |
 | **当前 Skill** | feature-developer |
-| **当前阶段** | frontend 2.7–2.8 审查通过（待 DL 确认后做 3.1 + 跟踪项清理）；backend 存储加固 + 2.1–2.3 进行中 |
+| **当前阶段** | frontend 3.1 + 跟踪项清理；backend 存储加固 + 2.1–2.3 进行中 |
 | **状态** | 🔄 feature-developer 进行中 |
 | **最后更新** | 2026-11-10 |
 
@@ -147,6 +147,7 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | code-reviewer | backend 1.9–1.10 审查（fc9d224）PASS_WITH_SUGGESTIONS；DL：本机部署，选占用最小方案，继续用内置 SQLite（3.50.4，要求 ≥3.35 并加启动检查）；stage 自清理接受；S1/S3 在 2.4 前修复 |
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 frontend 2.6 标 ✅（a8f4020）、SUGGEST-2/1（5be3727、bdb7316）、2.7（8966bb0）、2.8（a012693）：复跑 50 文件 577 例通过、lint 0、build 1439 modules |
 | 2026-11-10 | Yin Yang（Dev Lead） | code-reviewer | frontend 第五批审查（6ab7ad8）：PASS_WITH_SUGGESTIONS（0/0/4），F-03 误报路径关闭、2.7/2.8 符合 P-08/C-07/TD-13；两个 DL 确认点建议接受 |
+| 2026-11-10 | Yin Yang（Dev Lead） | feature-developer | DL 确认 frontend 2.7、2.8 标 ✅，两个确认点接受；下发 frontend 3.1 及跟踪项清理 |
 
 ---
 
