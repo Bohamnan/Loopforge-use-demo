@@ -432,7 +432,7 @@ TestClient 来自 fastapi.testclient，运行时有 StarletteDeprecationWarning�
 | codes/hr-collection-agent-backend/tests/api/test_resume_drafts_patch.py | 新增 | 71 个接口级用例：200 与数据层断言（库中 fields_json）、Cookie 续期、null/[]/区块替换、手机号 6 种合法写法（含带空格/连字符，规则针对去噪后的值）、幂等且与 GET 一致、OpenAPI 响应符合；404（无/未知 Cookie、过期且不被修改）；**422 参数化 38 种坏请求：坏手机号（含阿拉伯-印度数字、全角数字、`+`+Unicode 数字、去空格后过短、空、全空白、超长）、坏邮箱、空/超长姓名、超长标量/列表/条目/条数、未知键、错误类型、多问题同时报告**，全部断言 422 `validation_failed`、`details` 只含 field+reason、无 Set-Cookie、**库内 fields_json 与 updated_at 未变化**；哨兵值不回显（6 个字段 + 核心三项）；畸形 body 与非法 JSON；日志不含提交值与令牌 |
 
 ### 必须落实项的位置
-- **路由必须调用 `validate_update`/`validate_core_fields`，且有接口级测试**：路由 → `DraftService.update` → `validate_update`（`validate_update` 内部使用与 `validate_core_fields` 相同的 `_check_core`）。接口级测试为 `tests/api/test_resume_drafts_patch.py::test_invalid_updates_return_422_with_field_and_reason_only`（40 个参数）。变异验证：把 service 中的 `validate_update` 调用临时改为空，该文件 23 个用例失败，恢复后 71 个全部通过。
+- **路由必须调用 `validate_update`/`validate_core_fields`，且有接口级测试**：路由 → `DraftService.update` → `validate_update`（`validate_update` 内部使用与 `validate_core_fields` 相同的 `_check_core`）。接口级测试为 `tests/api/test_resume_drafts_patch.py::test_invalid_updates_return_422_with_field_and_reason_only`（38 个参数）。变异验证：把 service 中的 `validate_update` 调用临时改为空，该文件 23 个用例失败，恢复后 71 个全部通过。
 - 审查跟踪项“normalizer 拒绝 `confirmed`”已在 2.1 落实（见 Task-2.1 偏差说明）。
 
 ### 偏差说明
