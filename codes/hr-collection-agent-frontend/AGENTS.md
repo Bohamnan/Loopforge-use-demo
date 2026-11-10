@@ -2,10 +2,10 @@
 
 | 项 | 内容 |
 |---|---|
-| 状态 | 待复核（设计有更新） |
+| 状态 | 已确认 |
 | 版本 | v1（技术设计后补全） |
 | 来源 | [solution-design.md](../../01-requirements/HR_PR-1/solution-design.md)（HR_PR-1）；工作台 frontend 规范与架构参考；v1 补全依据 [design.md](../../frontend-docs/HR_PR-1/04_design/design.md)（v1.1）、[interface_spec_resume.md](../../frontend-docs/HR_PR-1/03_api/interface_spec_resume.md)（v0.2）、[tasks.md](../../frontend-docs/HR_PR-1/05_task/tasks.md)、[openapi.yaml](../../backend-docs/HR_PR-1/03_api/openapi.yaml)（0.1.1） |
-| 最后更新 | 2026-11-10（v1 补全，待 Dev Lead 复核） |
+| 最后更新 | 2026-11-10（v1 补全，Dev Lead 已复核确认） |
 
 ## 项目定位
 
@@ -15,7 +15,7 @@ HR 人力信息收集 Web 对话前端：支持用户上传简历、查看并校
 
 | 类别 | 选型 | 依据 |
 |---|---|---|
-| 语言与版本 | TypeScript（`strict`）；Node.js 版本待定，见待确认清单 #4 | 工作台项目上下文与 frontend 架构参考 |
+| 语言与版本 | TypeScript（`strict`）；Node.js ≥ 24（LTS），`package.json` 的 `engines` 写 `"node": ">=24"` | 工作台项目上下文与 frontend 架构参考 |
 | 框架与构建 | React 18、Vite | 工作台项目上下文与 frontend 架构参考 |
 | 组件库 | Ant Design（React 版）；主题 token 取自原型 `style.css` 配色（TD-14） | 工作台 frontend coding 规范；design TD-14 |
 | 状态管理 | React `useState` / `useReducer`；不引入额外状态管理库 | 工作台 frontend coding 规范 |
@@ -84,7 +84,7 @@ codes/hr-collection-agent-frontend/
 |---|---|
 | 依赖管理 | npm；`.npmrc` 设 `save-exact=true`，`package.json` 所有依赖写精确版本，提交 `package-lock.json`，不使用开放区间（tasks 1.1） |
 | 安装依赖 | `npm ci`（按锁文件安装，使用 npm 默认 registry） |
-| 开发运行 | `npm run dev`（Vite dev server，端口由 Vite 默认值决定；需 backend 已运行于 `http://localhost:8000`） |
+| 开发运行 | `npm run dev`（Vite dev server，端口由 Vite 默认值决定；需 backend 已运行于 `http://127.0.0.1:8000`） |
 | 构建 | `npm run build`（含 `tsc --noEmit` 类型检查与 Vite 打包） |
 | 测试 | `npm test`（Vitest，单次运行；不使用 watch 模式作为验证命令） |
 | 静态检查 | `npm run lint`（ESLint；格式检查随 lint，不单设格式化命令） |
@@ -100,10 +100,11 @@ codes/hr-collection-agent-frontend/
 
 ### Vite dev proxy 与 Cookie（C-06、O-01）
 
-- `vite.config.ts` 中 `server.proxy['/api']` 转发到 `http://localhost:8000`（backend 默认监听 `127.0.0.1:8000`）。
+- `vite.config.ts` 中 `server.proxy['/api']` 转发到 `http://127.0.0.1:8000`（backend 默认监听 `127.0.0.1:8000`）。
 - 必须**保留 `Set-Cookie`**，不配置 `cookieDomainRewrite` / `cookiePathRewrite`（`draft_token` 无 Domain、Path 为 `/`）。
 - 代理超时不得短于 75 秒（上传超时），multipart 请求体原样透传。
 - 浏览器经 dev server 同源访问 `/api`，因此使用 `credentials: 'same-origin'`，不依赖 CORS。
+- 代理目标使用 `127.0.0.1` 而不是 `localhost`：新版 Node 在 macOS 上解析 `localhost` 时可能优先得到 IPv6 的 `::1`，而 backend 只监听 `127.0.0.1`，会导致代理连接被拒（DL 复核修正，2026-11-10）。
 
 ### 环境变量
 
@@ -130,5 +131,5 @@ codes/hr-collection-agent-frontend/
 | 1 | 用户等待同步解析时的进度呈现与模型超时后的具体交互 | ✅ 已关闭 | P-05、TD-10（单一加载提示，不伪造进度）；C-08、REQ-FE-01.4（75 秒超时后提示重新上传）；裁决 F-04（孤儿草稿由 7 天清理兜底，POC 接受）；ADR-002 |
 | 2 | Cookie 的 SameSite、Secure、Path、续期及跨域部署配置 | ✅ 已关闭 | C-06、O-01；interface_spec §2.4（`HttpOnly; SameSite=Lax; Path=/`，不含 Domain，不强制 Secure）；同源 + Vite dev proxy，前端无 Cookie 代码；ADR-003 |
 | 3 | backend OpenAPI 的具体路径、字段类型、状态值和错误码 | ✅ 已关闭 | OpenAPI 0.1.1（4 个接口、22 字段、4 种字段状态、13 个业务码）；G-01、G-02、CR-01、CR-01a；跨 Workbench Review 已通过 |
-| 4 | Node.js 版本（及 `engines` / `.nvmrc`） | ⏳ 保留 | 设计与裁决均未规定；在任务 1.1 初始化工程时按届时的 LTS 版本确定并回填本文件。确认人：frontend 工程师/Dev Lead；时机：任务 1.1 |
+| 4 | Node.js 版本（及 `engines` / `.nvmrc`） | ✅ 已关闭 | DL 复核决定（2026-11-10）：`engines` 为 `"node": ">=24"`（Node 24 LTS）；本机 v25.8.2 满足 |
 | 5 | 非本地（非 localhost）部署时的同源方式（反向代理、Cookie `Secure`） | ⏳ 保留 | 本期为 localhost POC，生产部署形态未定（与 backend 待确认 #2a 同属部署设计）。确认人：Dev Lead/部署负责人；时机：部署设计 |

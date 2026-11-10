@@ -9,9 +9,9 @@
 | 字段 | 内容 |
 |------|------|
 | **PRD** | `01-requirements/HR_PR-1/prd.md` |
-| **当前 Skill** | architecture-advisor |
-| **当前阶段** | frontend 任务清单已确认 → Step 5 补全仓库约定；复核通过后前后端同时进入 feature-developer |
-| **状态** | 🔄 architecture-advisor 进行中 |
+| **当前 Skill** | feature-developer |
+| **当前阶段** | 设计阶段全部完成；backend 任务 1.1–1.7、frontend 任务 1.1–1.6 同时进入 feature-developer |
+| **状态** | 🔄 feature-developer 进行中 |
 | **最后更新** | 2026-11-10 |
 
 **状态图例**：`🔄 进行中` / `⏸️ 等待人类确认` / `✅ 已完成` / `❌ 阻断`
@@ -52,8 +52,8 @@
 | 架构设计（Schema+接口） | architecture-advisor | 各 Workbench 工程师 | ✅ backend（OpenAPI 0.1.0 冻结，0.1.1 待修订 G-01/G-02）/ frontend（Step 2.2 评审通过） | 2026-11-10 | `backend-docs/HR_PR-1/02_schema/`、`03_api/`；`frontend-docs/HR_PR-1/03_api/interface_spec_resume.md` |
 | 技术设计 | architecture-advisor | 各 Workbench 工程师 | ✅ backend / ✅ frontend（2026-11-10） | 2026-11-10 | `backend-docs/HR_PR-1/04_design/design.md`；`frontend-docs/HR_PR-1/04_design/design.md` |
 | 任务拆分 | architecture-advisor | 各 Workbench 工程师 | ✅ backend（20 任务 / 91h）/ ✅ frontend（15 任务 / 79h） | 2026-11-10 | `backend-docs/HR_PR-1/05_task/tasks.md`；`frontend-docs/HR_PR-1/05_task/tasks.md` |
-| 仓库约定补全与复核（仅新项目 Workbench） | architecture-advisor（Step 5） | 各 Workbench 工程师/Dev Lead | ✅ backend（已确认）/ 🔄 frontend 进行中 | — | backend、frontend 仓库 `AGENTS.md` |
-| 代码实现 | feature-developer | 各 Workbench 工程师 | — | — | — |
+| 仓库约定补全与复核（仅新项目 Workbench） | architecture-advisor（Step 5） | 各 Workbench 工程师/Dev Lead | ✅ backend / ✅ frontend（已确认） | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
+| 代码实现 | feature-developer | 各 Workbench 工程师 | 🔄 backend 1.1–1.7 / frontend 1.1–1.6 | — | `codes/hr-collection-agent-backend/`、`codes/hr-collection-agent-frontend/` |
 | 代码审查 | code-reviewer | 各 Workbench 工程师 | — | — | — |
 | 开发自测用例 | dev-self-test | 各 Workbench 工程师 | — | — | — |
 | 造数脚本 | test-data-script-generator | 各 Workbench 工程师/QA | — | — | — |
@@ -128,6 +128,8 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent | DL 决定：backend 与 frontend 一起进入 feature-developer——待 frontend 任务清单确认（及其 Step 5 仓库约定复核）后同时开工；backend 首批为任务 1.1–1.7 |
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 frontend 设计对齐 0.1.1（020ca8b）与任务拆分（81ebf62） |
 | 2026-11-10 | Yin Yang（Dev Lead） | architecture-advisor | frontend 任务清单确认：T-DL-01 默认 registry 例外写入 AGENTS.md；T-DL-02 任务 2.6 仅依赖 2.4、集成以 2.5 为准；T-DL-03 工时不含 Step 5 与审查（知悉） |
+| 2026-11-10 | Yin Yang（Dev Lead） | architecture-advisor | frontend AGENTS.md v1 复核通过，状态改回“已确认”；Node engines >=24；dev proxy 目标统一改为 http://127.0.0.1:8000（避免 localhost 解析到 ::1）|
+| 2026-11-10 | Yin Yang（Dev Lead） | feature-developer | 前后端同时开工：backend 任务 1.1–1.7，frontend 任务 1.1–1.6 |
 
 ---
 

@@ -68,7 +68,7 @@ api 层把所有失败转换为同一个 `ApiError`，界面只面对它：
 ### 2.4 Cookie 与 Vite dev proxy
 
 - Cookie `draft_token`（`HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`，不含 `Domain`、不强制 `Secure`）由浏览器自动携带；`GET .../current` 与 `PATCH .../current` 成功时 backend 会滑动续期（O-01），上传成功时下发新令牌，`POST /resumes` 成功时使令牌过期（C-11）。前端对这些**无需任何代码**，也不要求读取。
-- Vite `server.proxy['/api']`：`target` 指向 backend（本地 `http://localhost:8000`，见 OpenAPI `servers`）。要求：
+- Vite `server.proxy['/api']`：`target` 指向 backend（本地 `http://127.0.0.1:8000`，见 OpenAPI `servers`）。要求：
   - 保留 `Set-Cookie`，不配置 `cookieDomainRewrite` / `cookiePathRewrite`（Cookie 无 Domain，Path 为 `/`）；
   - 不设置短于 75 秒的代理超时；
   - multipart 请求体原样透传。

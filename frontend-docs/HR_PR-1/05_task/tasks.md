@@ -49,7 +49,7 @@
     - 在 `src/pages`、`src/components`、`src/hooks` 内禁用 `fetch`（`no-restricted-globals`），仅 `src/api` 豁免；
     - `no-console`（`warn`，仅允许 `console.error`）。
   - 依赖管理：使用 npm 默认 registry 本地安装（DL 决定不使用私有 Nexus，属项目例外，须在 `AGENTS.md` / 安装说明中注明）；`.npmrc` 设 `save-exact=true`，`package.json` 所有依赖写**精确版本**，提交 `package-lock.json`；只引入上面列出的必要依赖，添加前核对包名（防 typosquatting），不引入状态管理库、路由库、请求库。
-  - `vite.config.ts`：`server.proxy['/api']` → `http://localhost:8000`，保留 `Set-Cookie`，不设置 `cookieDomainRewrite` / `cookiePathRewrite`，代理超时不短于 75 秒，multipart 原样透传。
+  - `vite.config.ts`：`server.proxy['/api']` → `http://127.0.0.1:8000`，保留 `Set-Cookie`，不设置 `cookieDomainRewrite` / `cookiePathRewrite`，代理超时不短于 75 秒，multipart 原样透传。
   - `.gitignore`（`node_modules`、`dist`、覆盖率输出、`.env*`）；不提交任何密钥。
 - **测试：** 冒烟用例（一个空渲染测试）确认 Vitest + RTL 链路可用；用一个故意违规的临时文件验证三条 ESLint 规则会报错（验证后删除，不入库）；`npm run build` 的日志中确认有真实 TypeScript 编译与 Vite 打包动作。
 - **预估：** 4h

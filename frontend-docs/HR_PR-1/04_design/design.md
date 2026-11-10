@@ -162,7 +162,7 @@ graph TD
 | ResumeCollectionPage | `src/pages/ResumeCollectionPage.tsx` | 新增 | 页面编排：挂载时调用 `bootstrap`；按 `phase` / `view` 选择渲染内容；把 hook 状态与动作分发给组件；不直接请求接口 | REQ-FE-01..05 |
 | App / main | `src/App.tsx`、`src/main.tsx` | 新增 | 应用入口、Ant Design `ConfigProvider`（主题 token，TD-14）、错误边界 | REQ-FE-06 |
 | ErrorBoundary | `src/components/ErrorBoundary.tsx` | 新增 | 渲染异常兜底；展示通用文案，不输出简历内容（B-03） | REQ-FE-06.3 |
-| Vite 配置 | `vite.config.ts` | 新增 | `server.proxy['/api']` 指向 `http://localhost:8000`；不设 `cookieDomainRewrite` / `cookiePathRewrite`；不设短于 75 秒的代理超时 | REQ-FE-05.1（C-06） |
+| Vite 配置 | `vite.config.ts` | 新增 | `server.proxy['/api']` 指向 `http://127.0.0.1:8000`；不设 `cookieDomainRewrite` / `cookiePathRewrite`；不设短于 75 秒的代理超时 | REQ-FE-05.1（C-06） |
 
 ### 3.6 组件树
 
