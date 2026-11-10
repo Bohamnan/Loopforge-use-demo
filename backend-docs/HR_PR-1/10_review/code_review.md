@@ -679,3 +679,70 @@
 
 ### 最终结论
 **通过。** B-04（路径、顺序、取值严格性）与 B-05（保存顺序、补偿、提交后异常）均满足；2.3a 及 SUGGEST-1/2 修复到位。建议 DL 将 2.4 标 ✅。跟踪项：SUGGEST-3（对账窗口）、SUGGEST-4（openapi/design 文档补写）、SUGGEST-5（存在性探测）；2.5 须补“对账后终态文件正确、tmp 消失”的断言，并覆盖本批新增的“提交后异常保留 tmp”起点。
+
+## 第八批审查（任务 2.5 启动对账 ReconcileService，HIGH_RISK：B-05）
+
+- 日期：2026-11-10；Reviewer：Yin Yang（dev-lead，审查 agent 代行）；Review 模式：Ticket-aware Review
+- 审查对象：`e3bd9ac`（合并提交 `14551c8`；`git merge-base --is-ancestor e3bd9ac HEAD` 为真）。对照 ADR-005、design §3.6/5.4/9.3、tasks 2.5、schema S§4.2。
+- **本批结论：通过（0 BLOCK / 0 QUESTION / 4 SUGGEST）。HIGH_RISK 最终结论：B-05 的对账部分通过，建议 DL 将 2.5 标 ✅；但“对账与请求处理不竞争”目前没有任何代码保证，必须作为 2.7 的前置要求（见下）。**
+- 上下文限制：对账尚未接入 `src`（`grep` 确认无调用方，留给 2.7），本批只能验证服务本身；未对真实大量文件/真实崩溃做压力测试；覆盖率见下。
+
+### 四情形与不变式核对
+| 检查项 | 结论 | 证据 |
+|---|---|---|
+| ① 记录+仅 tmp → roll-forward | ✅ | `_check_records`：`ref.file_path` 非终态且 tmp 命中 → `archive.promote`（`os.replace`，且先 `lexists` 拒绝覆盖）；用例按 .pdf/.jpg/.png 断言终态内容、tmp 消失、记录不变 |
+| ② 无记录 tmp → 删除 | ✅ | `_remove_orphans`；仅当 `final_name(entry)` 不在记录路径且 `entry.resume_id` 不属于任何记录 |
+| ③ 无记录终态 → 删除 | ✅ | 同上 |
+| ④ 记录无文件无 tmp → 告警 | ✅ | `missing_files` 计数 + `reconcile_record_file_missing`（只含 resume_id），不删记录；若存在同 id 他名文件则不报“丢失”而归入冲突 |
+| 幂等 | ✅ | `test_reconcile_is_idempotent`；第二次运行全为 0（2.4 联调用例中也断言） |
+| 单条失败不影响其余 | ✅ | `_roll_forward`、`_remove` 各自 `try/except Exception`，计入 `failed` 并记 `reconcile_entry_failed`；有“某条 promote 失败/某条 delete 失败”两个用例 |
+| 整体 aborted 时不删任何文件 | ✅ | `list_refs()` 与 `scan()` 都在任何删除之前执行，抛错 → `run()` 捕获，返回 `aborted=True`；`test_database_failure_aborts_without_deleting_anything`、`test_directory_scan_failure…` |
+| 只处理 `file/`、不碰草稿目录 | ✅ | 服务构造器只收 `ResumeRepository`、`ArchiveFileStore`、`Clock`（`test_service_depends_only_on_…` 以源码固化）；`test_draft_directory_is_not_touched` |
+| 只处理可识别命名 | ✅ | `scan()` 把非 `<id>.<ext>` / `.<id>.<ext>.tmp` 的文件、符号链接归为 unknown 并跳过；目录跳过；`ArchiveFileStore._path` 拒绝符号链接与路径穿越 |
+| 日志不含内容 | ✅ | 事件只带 `resume_id`、`count`、`duration_ms`（均在 `ALLOWED_FIELDS`）与栈帧；`test_logs_contain_only_counts_and_ids_no_content` 含非空断言；对账失败级别为 warning/error，不静默 |
+| 失败不阻止启动 | ✅ | `run()` 捕获 `Exception`（`SimulatedCrash(BaseException)` 不吞，有用例）；仍写 `reconcile_done` |
+| 与 2.4 衔接 | ✅ | 提交后崩溃（`promote`/`db_after_commit` 的 `SimulatedCrash`）、重命名连续失败、提交后普通异常（QUESTION-1 修复后保留的 tmp）三个起点，在 `test_resume_service_faults.py` 里补全“对账→终态文件内容与草稿原文件一致、tmp 消失、`SELECT * FROM resumes` 不变、子表仍 1 行、二次对账为 0”；提交前崩溃：tmp 被删、草稿保留可重试 |
+
+### “误删文件”风险路径（逐条）
+| 路径 | 结论 |
+|---|---|
+| 读记录失败 | ✅ 先读后删，异常 → aborted，零删除（变异 M2 被杀） |
+| 同 id 不同扩展名（记录 `X.pdf`，文件 `X.png` 或 `.X.png.tmp`） | ✅ 归冲突，不删不动（变异 M1 被杀） |
+| 记录同时有 tmp 与终态 | ✅ 归冲突，不覆盖、不删 tmp（变异 M4 被杀） |
+| 终态位置被符号链接占用 | ✅ 符号链接属 unknown，promote 的 `lexists` 拒绝覆盖，计 failed |
+| 并发中的 tmp / 刚提交的终态 | ⚠ **服务本身无防护**，见 SUGGEST-1：`list_refs()` 先于 `scan()`，若与请求并发，新建的 tmp（尚无记录）或刚提交的终态（记录在快照之后）会被当作孤儿**删除**，造成“有记录无文件”。安全性完全取决于“对账完成前不接收请求” |
+| 记录库被误清空/换新而文件目录有数据 | ⚠ 见 SUGGEST-2：空记录集会把 `file/` 下全部终态文件当孤儿删除（符合 S§4.2 字面，但不可逆） |
+
+### 2.7 前置要求（必须写入 tasks 2.7）
+1. `lifespan` 中 `ReconcileService.run()` 必须**同步**执行完毕后才开始接收请求（yield 之前），不得放入后台线程、不得与 `CleanupService` 调度线程并行；2.7 的“对账在首个请求前完成”用例须断言这一顺序，并以记录调用序列的假对象固化。
+2. 仅支持单进程单 worker（多 worker 时各自启动对账会互相删除对方正在保存的 tmp）；需在 2.7 与 AGENTS.md 里写明，并确保不会在运行期被重复调用（本服务不是运行期可调用的）。
+3. 传入对账的 `ResumeRepository` / `ArchiveFileStore` 必须与请求处理共用同一 `DATA_DIR`/`FILE_DIR` 配置，且 `init_resumes_db` 在对账之前完成（避免新建空库→SUGGEST-2 的批量误删）。
+
+### SUGGESTIONS（不阻断）
+- **第八批-SUGGEST-1（调换读取顺序，成本为零）**：把 `scan()` 放在 `list_refs()` 之前。这样即使与保存并发，也只会出现“扫描见到 tmp、记录已提交 → 去 promote（与请求的 promote 竞争，最多 `FileNotFound` 计 failed）”，而不会出现“记录尚未可见的文件被当孤儿删除”（终态文件只在提交之后才存在，后读的记录必然包含它）。作为 2.7 前置要求之外的纵深防御。
+- **第八批-SUGGEST-2（批量删除保险丝）**：当记录数为 0（或孤儿终态文件数占比异常）而 `file/` 下有终态文件时，不删终态文件，只告警并返回 `conflicts`/单独计数，等人工确认。这类场景只会来自配置错误或库被替换，自动删除不可恢复。
+- **第八批-SUGGEST-3（aborted 语义）**：`run()` 在 `_reconcile()` 中途抛出非预期异常时返回 `ReconcileReport(aborted=True)`，丢失已完成的计数；而模块说明“aborted 即未改动任何内容”对中途异常并不严格成立（读取阶段才严格成立）。建议调整注释，或保留已累计计数。
+- **第八批-SUGGEST-4（情形④的运维入口）**：记录无文件只在启动日志告警一次；2.7/运维文档需写明处理方式（从备份恢复文件或人工处理记录），避免告警被忽略。
+
+### 变异验证（均已还原，`git status --short` 在代码根与仓库根无变更）
+| 变异 | 结果 |
+|---|---|
+| M1 删除“同 id 他名文件归冲突”分支 | ✅ 被杀：`test_same_id_but_different_extension_is_not_deleted` |
+| M2 读记录失败时当作空列表继续 | ✅ 被杀：`test_database_failure_aborts_without_deleting_anything` |
+| M3 roll-forward 改为删除 tmp | ✅ 被杀：15 个用例（含 2.4 的提交后崩溃联调） |
+| M4 记录同有 tmp 与终态时删除 tmp | ✅ 被杀：`test_record_with_both_tmp_and_final_loses_nothing` |
+| M5 单条失败只捕获 `FileNotFoundError`（其余异常中断） | ✅ 被杀：`test_one_failing_roll_forward_does_not_block_the_rest` |
+
+（过程说明：我在 M3 的 shell 命令里误写了重定向，生成了一个无关的临时文件 `delete`，已立即删除，未入库。）
+
+### 本批复跑
+| 命令 | 结果 |
+|---|---|
+| `uv sync --frozen` | ✅ Checked 36 packages |
+| `compileall src`（先清 `__pycache__`） | ✅ 43 行 `Compiling`，有真实编译动作 |
+| `uv run pytest` | ✅ **839 passed**，1 warning（既有），基线 839 相符 |
+| `ruff check .` / `ruff format --check .` | ✅ All checks passed / 95 files already formatted |
+| 覆盖率 | `uv run pytest --cov=app.services.reconcile_service --cov-branch`（本地 pytest-cov，对账与 2.4 故障两组用例）：`reconcile_service.py` **行 97/97、分支 24/24 = 100%**；CRAP 未用 `~/tools/crapper`（该工具不读 Python `.coverage`），各方法圈复杂度 ≤ 6 且覆盖 100%，手工估算 < 10，未经工具实测 |
+
+### 最终结论
+**通过，建议 DL 将 2.5 标 ✅。** 四情形、幂等、局部失败隔离、aborted 零删除、只碰 `file/` 与日志脱敏均有测试并被变异验证；与 2.4 的三类提交后故障已联调到“终态文件内容正确、tmp 消失、记录不变”。放行前提：2.7 按上文三条前置要求落实（尤其“对账同步完成于首个请求之前”）；SUGGEST-1/2 建议在 2.7 之前或同期处理。
