@@ -295,7 +295,7 @@ TestClient 来自 fastapi.testclient，运行时有 StarletteDeprecationWarning�
 | codes/hr-collection-agent-backend/src/app/repositories/draft_repository.py | 新增 | `DraftRecord`；`DraftRepository`：`insert`、`get_by_token_hash`、`touch_and_get`（UPDATE…RETURNING 原子刷新活动时间）、`delete_by_token_hash`（返回被删记录以便删文件）、`delete`、`delete_expired(cutoff)`（严格早于 cutoff，RETURNING file_path）、`list_file_paths`、`transaction()`（BEGIN IMMEDIATE，句柄 `DraftTransaction.get_by_token_hash/update_fields`）；仅 SQL、全部参数绑定、每次操作独立短连接，无业务判断 |
 | codes/hr-collection-agent-backend/src/app/repositories/draft_file_store.py | 新增 | `DraftFileStore`：`{DATA_DIR}/drafts/<id><ext>`，扩展名只来自内容类型白名单，`save`（独占创建、不覆盖、fsync）、`read`、`delete`（幂等）、`resolve`、`list_files`（含 mtime，供 2.6 孤儿扫描）；文件名/ID 正则校验，解析后必须仍在目录内（含符号链接逃逸） |
 | codes/hr-collection-agent-backend/src/app/clients/deepseek_client.py | 修改 | 复审建议：`httpx.Client(trust_env=False)`，代理环境变量不能转走外发请求（B-02） |
-| codes/hr-collection-agent-backend/tests/repositories/test_draft_repository.py | 新增 | 23 个用例：插入/查询、token_hash 唯一、明文令牌不入库、SQL 注入串仅作数据、touch 只刷新 last_active_at、delete 返回记录、过期边界（早 1 秒删、恰好 cutoff 与晚 1 秒保留）、事务读改写/回滚/并发两线程各 10 次更新不丢、CHECK 约束 |
+| codes/hr-collection-agent-backend/tests/repositories/test_draft_repository.py | 新增 | 18 个用例：插入/查询、token_hash 唯一、明文令牌不入库、SQL 注入串仅作数据、touch 只刷新 last_active_at、delete 返回记录、过期边界（早 1 秒删、恰好 cutoff 与晚 1 秒保留）、事务读改写/回滚/并发两线程各 10 次更新不丢、CHECK 约束 |
 | codes/hr-collection-agent-backend/tests/repositories/test_draft_file_store.py | 新增 | 三种内容类型的服务端命名与内容一致、非法内容类型、8 种不安全 ID、不覆盖已有文件、8 种越界文件名（`../`、绝对路径、子目录、非白名单扩展名等）、符号链接逃逸被拒且外部文件不受影响、删除幂等、mtime 列表、不触碰 `file/` |
 | codes/hr-collection-agent-backend/tests/clients/test_deepseek_client.py | 修改 | 新增：设置 HTTPS_PROXY 等代理环境变量后 `_mounts` 为空且 `trust_env is False`（已验证去掉 `trust_env=False` 时该测试失败） |
 | codes/hr-collection-agent-backend/tests/clients/test_pdf_renderer.py | 修改 | 复审建议：“页间超时”用例收紧——用伪时钟让每页“耗时 10 秒”，预算 25 秒，断言处理了第 1–3 页后才在第 4 页前超时（`processed == 3`），确认覆盖第 1 页之后的超时 |
@@ -307,6 +307,30 @@ TestClient 来自 fastapi.testclient，运行时有 StarletteDeprecationWarning�
 ### 遗留风险
 - 文件名/ID 正则允许字母、数字和连字符（不强制 UUID 格式）；服务层生成的 ID 为 UUID v4。
 - 符号链接若指向目录内另一文件会被视为目录内文件（目录由服务端独占，POC 可接受）。
+
+---
+
+## Task-1.10：repositories：正式库与归档文件存储
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/repositories/resume_repository.py | 新增 | `NewResume`（主表 + 三类子表所需数据）、`ResumeRef`；`ResumeRepository`：`find_by_identity_key`、`list_refs`（供 2.5 对账）、`create_aggregate`（单个 BEGIN IMMEDIATE 事务写主表 + work/project/education 子表，`seq` 从 0 起，`*_json` 用 `json.dumps(ensure_ascii=False)`，`created_at = updated_at`）；唯一索引冲突（消息含 `resumes.name_key`）转 `DuplicateIdentityError`，其他完整性错误（`file_path` 唯一、CHECK、外键、触发器）原样抛出；任一步失败整体回滚；规范化键由调用方传入，仓储不做规范化或业务判断 |
+| codes/hr-collection-agent-backend/src/app/repositories/archive_file_store.py | 新增 | `ArchiveFileStore` 原语：`stage`（复制到同目录隐藏 tmp 名 `.<id><ext>.tmp` 并 fsync；复制失败自动删除残留 tmp）、`promote`（`os.replace` 原子重命名 + 尽力 fsync 目录）、`discard_tmp`（幂等、不会删除终态文件）、`exists_tmp/final`、`remove`（按名删除，仅限可识别的 tmp/终态名，拒绝符号链接与越界名）、`scan`（tmp/终态/未知分类，未知文件只报告不处理）；ID 与扩展名白名单校验；**不实现保存顺序与补偿**（2.4/2.5） |
+| codes/hr-collection-agent-backend/tests/repositories/test_resume_repository.py | 新增 | 14 个用例：主表/子表写入与顺序、JSON 列保留中文与空数组、未设置标量为 NULL、SQL 注入串仅作数据、`find_by_identity_key`（三键必须全部匹配）、重复身份抛 `DuplicateIdentityError` 且子行回滚、其他完整性错误不被吞（file_path 唯一/CHECK/空白姓名）、用触发器在最后一张子表注入失败 → 四张表均无数据且仓储可继续使用、4 线程并发同身份恰好 1 成功 3 重复且各表计数为 1、`list_refs` |
+| codes/hr-collection-agent-backend/tests/repositories/test_archive_file_store.py | 新增 | 26 个用例：目录创建、tmp 与终态同目录同设备、promote 为同一 inode 的重命名（非复制）、缺 tmp 抛 `FileNotFoundError`、源文件缺失/复制中途失败不留 tmp、`discard_tmp` 幂等且不删终态、7 种不安全 ID 与 6 种非法扩展名被拒、`scan` 分类（含 README/隐藏文件/子目录）、三种扩展名、`remove` 只删可识别文件并拒绝 5 种非法名、符号链接不被跟随 |
+
+### 偏差说明
+- 按设计实现。补充：`ArchiveFileStore.stage` 在复制失败时自行清理残留 tmp（design 将“失败后删除 tmp”写在 service 补偿中，此处额外兜底，不改变 2.4 的补偿职责）；提供 `scan`/`remove`/`exists_*` 以支撑 2.5 对账。
+- 未提前实现 B-05 保存顺序、重复分支与补偿，以及对账决策逻辑（2.4 / 2.5）。
+- 1.9 changelog 中“`test_draft_repository.py` 23 个用例”应为 **18 个**（已在文件中更正，该文本更正随本次提交）。
+
+### 遗留风险
+- 并发测试覆盖 `ResumeRepository` 的 BEGIN IMMEDIATE + 唯一索引，但“同一草稿被并发确认时源文件被先到者删除”的分支属 2.4 范围。
+- `scan` 不检查 tmp/终态文件内容，只按文件名分类；对账时是否 roll-forward 由 2.5 结合记录判断。
 
 ---
 

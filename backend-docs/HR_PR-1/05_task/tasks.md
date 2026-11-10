@@ -209,7 +209,7 @@
 
 ---
 
-### Task 1.10：repositories：正式库与归档文件存储
+### Task 1.10：repositories：正式库与归档文件存储 ✅
 - **关联：** REQ-BE-04.3、04.4、04.5、04.6；D§3.5（`ResumeRepository`、`ArchiveFileStore`）、D§4、D§6；S§2.2、S§4.1/§4.2；ADR-004、ADR-005
 - **内容：** `repositories/resume_repository.py`（`find_by_identity_key()`；`create_aggregate()`：单个 `BEGIN IMMEDIATE` 事务内写主表 + 3 张子表，`IntegrityError` 仅当涉及 `uq_resumes_identity` 时转 `DuplicateIdentityError`，其他完整性错误原样抛出；`list_file_paths()` 供对账；`json.dumps(ensure_ascii=False)`；`created_at = updated_at`）；`repositories/archive_file_store.py`（`stage()`：复制 + `fsync` 到同目录 tmp 名 `.{id}{ext}.tmp`；`promote()`：`os.replace` + 尽力 `fsync` 目录；`discard_tmp()` 幂等；`scan()`；路径穿越防护）。
 - **测试：** 主表 + 子表原子写入（子表写入失败整体回滚，主表无行）；唯一冲突 → `DuplicateIdentityError`；其他完整性错误（如 CHECK）不被吞；`json_valid` CHECK；`file_path` 唯一；`find_by_identity_key` 命中/未命中；`stage` 复制内容一致；`promote` 后终态文件存在、tmp 消失；`discard_tmp` 幂等；tmp 与终态同目录；路径穿越被拒。**数据验证：** `SELECT count(*)` 主表/子表，目录文件列表断言。
@@ -218,9 +218,9 @@
 
 #### 子任务
 
-- [ ] `ResumeRepository`（规范化键由调用方传入，repository 不做规范化判断）
-- [ ] `ArchiveFileStore`
-- [ ] 对应单元测试
+- [x] `ResumeRepository`（规范化键由调用方传入，repository 不做规范化判断）
+- [x] `ArchiveFileStore`
+- [x] 对应单元测试
 
 ---
 
