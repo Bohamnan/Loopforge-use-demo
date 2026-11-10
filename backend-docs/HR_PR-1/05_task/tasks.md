@@ -77,7 +77,7 @@
 
 ---
 
-### Task 1.2：core：配置、时钟、ID 与令牌工具
+### Task 1.2：core：配置、时钟、ID 与令牌工具 ✅
 - **关联：** REQ-BE-06.1、05.2；D§3.2（`Settings`、`Clock`/`IdGenerator`/令牌）、D§1“配置来源”“依赖注入与可测试性”
 - **内容：** `core/config.py`（`pydantic-settings`，`DATA_DIR` 默认仓库内 `data/`，`FILE_DIR` 默认 `file/`，密钥只来自环境）、`core/clock.py`（可注入 UTC 时钟 + 测试用 `FakeClock`）、`core/ids.py`（UUID v4、`token_urlsafe(32)`、SHA-256 哈希）。
 - **测试：** 环境变量覆盖与默认值；缺少 `DEEPSEEK_API_KEY` 时 Settings 仍可加载（启动不阻止，首次调用才阻断，见 D§7.2）；`repr(Settings)`/日志不泄露密钥；UTC ISO 8601 格式；`FakeClock` 推进；令牌长度/不可预测性（不重复）、同一令牌哈希稳定；`fake` 的 ID 生成器可注入。
@@ -86,10 +86,10 @@
 
 #### 子任务
 
-- [ ] `Settings`（密钥字段用 `SecretStr`，`repr` 不泄露）
-- [ ] `Clock` 协议 + `SystemClock` + `FakeClock`（放入 `tests/`，与 src 解耦）
-- [ ] `IdGenerator`、令牌生成与哈希函数
-- [ ] 对应单元测试
+- [x] `Settings`（密钥字段用 `SecretStr`，`repr` 不泄露）
+- [x] `Clock` 协议 + `SystemClock` + `FakeClock`（放入 `tests/`，与 src 解耦）
+- [x] `IdGenerator`、令牌生成与哈希函数
+- [x] 对应单元测试
 
 ---
 

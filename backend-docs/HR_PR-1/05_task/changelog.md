@@ -27,3 +27,26 @@ FakeClock、FakeParserClient 按任务计划分别在 1.2、1.8 补入。
 
 ---
 
+## Task-1.2：core：配置、时钟、ID 与令牌工具
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/core/config.py | 新增 | Settings（pydantic-settings，SecretStr 密钥，目录解析，正数校验） |
+| codes/hr-collection-agent-backend/src/app/core/clock.py | 新增 | Clock 协议、SystemClock、format_utc/parse_utc（YYYY-MM-DDTHH:MM:SSZ） |
+| codes/hr-collection-agent-backend/src/app/core/ids.py | 新增 | IdGenerator、UuidGenerator、generate_token、hash_token |
+| codes/hr-collection-agent-backend/tests/fakes.py | 新增 | FakeClock、SequentialIdGenerator |
+| codes/hr-collection-agent-backend/tests/core/test_config.py | 新增 | 配置默认值/覆盖/密钥不泄露/非法值 |
+| codes/hr-collection-agent-backend/tests/core/test_clock_ids.py | 新增 | 时钟、ID、令牌与哈希（含 SHA-256 已知向量） |
+
+### 偏差说明
+按设计实现。补充：deepseek_base_url 默认值取 DeepSeek 公开地址 https://api.deepseek.com（非密钥，可由环境变量覆盖），design 未指定默认值；FakeClock 放在 tests/fakes.py 而非 conftest.py（便于导入）。
+
+### 遗留风险
+base_url 默认值与实际接入地址需在任务 1.8 spike 时核实。
+
+---
+
