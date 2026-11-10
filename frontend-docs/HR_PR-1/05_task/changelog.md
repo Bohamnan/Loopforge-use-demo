@@ -67,3 +67,25 @@ React 在开发模式下自身会向 console 输出异常信息（含 message）
 
 ### 遗留风险
 类型为手写镜像（F-02），契约变更时需人工同步；镜像测试覆盖键集合与枚举，不覆盖各字段的 `maxLength`（由任务 1.5 的 `FIELD_MAX_LENGTH` 测试覆盖）。
+
+## Task-1.4：api 封装层
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/api/ApiError.ts | 新增 | `ApiError`：`status`、`code`（契约码或前端自有码）、`message`、`request_id`、`details`（仅保留 field / reason）；工厂 `fromBody` / `unknown` / `timeout` / `network`；非契约错误体统一为 `unknown_error` 且不暴露原文（DD-10） |
+| codes/hr-collection-agent-frontend/src/api/ApiClient.ts | 新增 | 唯一调用 fetch 的模块：`/api/v1` 前缀、`credentials: 'same-origin'`、JSON / FormData（不手设 multipart Content-Type）、`AbortController` 超时（上传 75s、其余 30s）、区分 `client_timeout` 与 `network_error`、无自动重试；失败日志仅 `request_id` / `code` / status，`quietCodes` 可免记预期错误 |
+| codes/hr-collection-agent-frontend/src/api/ResumeDraftApi.ts | 新增 | `createResumeDraft`、`getCurrentResumeDraft`（404 `draft_not_found` → `null`，不抛、不记日志，O-12）、`updateCurrentResumeDraft` |
+| codes/hr-collection-agent-frontend/src/api/ResumeApi.ts | 新增 | `createResume`（请求体固定 `{confirmed: true}`） |
+| codes/hr-collection-agent-frontend/src/test/ApiMocks.ts | 新增 | 测试辅助：`fetch` mock、挂起 / 超时 mock、合成 `DraftResponse`（覆盖四种字段状态与空列表）与 `CreateResumeResponse` |
+| codes/hr-collection-agent-frontend/src/api/*.test.ts（4 个） | 新增 | 见验证；全部使用 mock，不依赖真实 backend |
+
+### 偏差说明
+- `ApiClient` 导出函数 `request` 而非类（设计只说“基于 fetch 的底层请求”），属实现形式选择。
+- 客户端错误文案（超时 / 网络 / 未知）在 `ApiError` 中给出默认固定文案；上传超时的专用文案“识别时间过长，请重新上传”由 UI 层（任务 2.2 的 `ErrorAlert`）按场景覆盖。
+
+### 遗留风险
+无。`ApiError.request_id` 在前端自有码上为 `undefined`，UI 展示 `request_id` 时需判空。

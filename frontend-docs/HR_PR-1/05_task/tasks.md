@@ -86,7 +86,7 @@
 - [x] 4 个类型文件与文件头版本注释
 - [x] 契约镜像测试
 
-### Task 1.4：api 封装层
+### Task 1.4：api 封装层 ✅
 - **关联：** REQ-FE-06.1、06.3、06.4、01.4、01.6、05.1；design.md §3.2、§6（ApiClient / ResumeDraftApi / ResumeApi）、§7.2、DD-02/05/06/10；O-12、F-05
 - **内容：** `src/api/ApiError.ts`、`ApiClient.ts`、`ResumeDraftApi.ts`、`ResumeApi.ts`。
   - `ApiClient`：前缀 `/api/v1`；`credentials: 'same-origin'`；JSON 设 `Content-Type`，`FormData` 不手设；`AbortController` 超时（上传 75s，其余 30s）；区分 `client_timeout` 与 `network_error`；非 2xx 解析 `ErrorResponse`（含 `details`），缺字段或非 JSON 时 `unknown_error` 并使用通用文案；日志仅 `request_id` / `code` / HTTP 状态。
@@ -98,10 +98,10 @@
 
 #### 子任务
 
-- [ ] `ApiError` 与工厂
-- [ ] `ApiClient`（超时、错误转换、日志约束）
-- [ ] `ResumeDraftApi`、`ResumeApi`
-- [ ] 契约样例的 mock 工厂（供后续切片测试复用，放 `src/test/`）
+- [x] `ApiError` 与工厂
+- [x] `ApiClient`（超时、错误转换、日志约束）
+- [x] `ResumeDraftApi`、`ResumeApi`
+- [x] 契约样例的 mock 工厂（供后续切片测试复用，放 `src/test/`）
 
 ### Task 1.5：hooks/model 纯逻辑
 - **关联：** REQ-FE-01.1、01.2、02.1、02.2、03.4、03.5、04.1、04.2；design.md §3.3、§4.2–§4.4、§6（SectionConfig / FieldRules / UploadPrecheck / SectionView）、§6.1（`FIELD_MAX_LENGTH`）、TD-06、TD-07；G-01、G-02、CR-01、CR-01a
