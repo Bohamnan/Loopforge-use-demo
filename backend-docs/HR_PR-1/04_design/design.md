@@ -361,7 +361,7 @@ flowchart TD
     E --> F["开始接收请求"]
 ```
 
-`ReconcileService.run()` 按 Schema §4.2 的四种情形处理（roll-forward tmp、删无记录 tmp、删无记录终态文件、记录缺文件仅告警）。对账失败不阻止启动，但必须记录告警（含数量、不含内容）。
+`ReconcileService.run()` 按 Schema §4.2 的四种情形处理（roll-forward tmp、删无记录 tmp、删无记录终态文件、记录缺文件仅告警）。**情形③的例外（保险丝）：零记录时终态文件保留并告警**，不删除；另外先 `scan()` 再 `list_refs()`，任一读取失败则整体放弃、不删任何文件。对账失败不阻止启动，但必须记录告警（含数量、不含内容）。
 
 ### 5.5 草稿清理（REQ-BE-05.5；ADR-003）
 

@@ -623,3 +623,75 @@ OpenAPI 0.1.1 未改动；无新增依赖；无数据库结构变更（无）。
 
 ### 遗留风险
 对账只在启动时运行，窗口见 AGENTS.md 已知限制（SUGGEST-3 第七批）。未做 uvicorn 真实进程启动演练，生命周期以 `TestClient` 的 `with` 块验证。
+
+---
+
+## 文档补充：第九批 SUGGEST-1/2/3
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| backend-docs/HR_PR-1/02_schema/sql_ddl_resume.md | 修改 | §4.2 情形③加注“零记录时终态文件保留并告警（保险丝）”（SUGGEST-2） |
+| backend-docs/HR_PR-1/04_design/design.md | 修改 | §5.4 同步保险丝与读取顺序（SUGGEST-2） |
+| backend-docs/HR_PR-1/05_task/tasks.md | 修改 | 2.5 的“情形③”同步注记；未改任何 ✅ 标记 |
+| codes/hr-collection-agent-backend/AGENTS.md | 修改 | 登记 SUGGEST-1（比例保险丝）为跟踪项，POC 不做 |
+| codes/hr-collection-agent-backend/tests/core/test_lifecycle.py | 修改 | SUGGEST-3：补“调度线程超过 join 超时”用例，`lifecycle.py` 覆盖 100% |
+
+---
+
+## Task-3.1：契约测试（对照冻结的 OpenAPI 0.1.1）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/tests/contract/test_openapi_conformance.py | 新增 | 97 个用例（参数化）：25 个场景对冻结文件全部 (路径, 方法, 状态码) 发真实请求并用 `jsonschema` 校验响应体、错误码、`Set-Cookie`；路径/方法/`operationId` 与 `app.openapi()` 一致；`maxLength`/`maxItems`/`pattern` 与代码一致；逐项验证“恰为上限接受、超限 422 `too_long`”；契约文件未改动 |
+
+### 偏差说明
+- `app.openapi()` 是 FastAPI 自动生成，只含成功状态码与默认 422，不含统一错误处理器产生的 4xx/5xx。因此状态码集合不用 `app.openapi()` 比对，而用“冻结文件每个 (路径, 方法, 状态码) 都有真实请求产出且响应体通过对应 schema”（`test_every_documented_status_is_produced_by_a_scenario`）；成功状态码仍与 `app.openapi()` 比对。如需让生成文档也带全错误响应，须在路由上声明 `responses`，属代码改动，未做。
+- POST /resumes 500 的冻结示例只有 `save_failed`，描述写明“或 internal_error”，测试按“示例 + 描述中出现的错误码”判定。
+- 变异验证 5 处（SCALAR_MAX、手机号 pattern、operationId、SameSite、BLOCK_MAX_ENTRIES），均被抓到。
+- 无新依赖（`jsonschema`、`pyyaml` 已在开发依赖中）。
+
+---
+
+## Task-3.2：端到端与安全脱敏测试
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/tests/e2e/__init__.py | 新增 | 包标记 |
+| codes/hr-collection-agent-backend/tests/e2e/test_end_to_end.py | 新增 | 25 个用例（参数化）：真实 `DeepSeekClient` + `httpx.MockTransport`（无网络、无真实密钥）、整个应用经 lifespan 运行 |
+
+### 覆盖
+- 全流程：上传 → 多次更新 → 确认(201) → 同一人再次上传确认(200 `already_saved=true`)；`count(*)` 恒为 1，`file/` 恰 1 个终态文件、无 tmp，终态文件内容与上传一致，草稿库/草稿目录清空。
+- 模型恶意输出（声明 `confirmed`、提示注入文本、额外键 `confirmed/save`）不产生 `confirmed`，上传后不写正式库、不归档文件。
+- 全局日志（根 logger 全量 + stdout/stderr）不含合成姓名/手机号/邮箱、原文件名、模型响应标记、令牌及其哈希、API 密钥、请求载荷；12 类错误请求的响应体与日志不回显提交的值；内部异常响应与日志不含内部细节。
+- 令牌明文不落盘（扫描 `data/`、`file/` 全部字节，确认前后）；API 密钥不落盘；`.env.example` 仅占位符且 `.env` 被忽略；仓库扫描（`git ls-files --cached --others --exclude-standard`，即所有可能被提交的文件）无密钥模式；扫描器有自检用例。
+- 启动流程端到端：预置“提交后崩溃的 tmp、提交前崩溃的 tmp、无记录终态文件、过期草稿”，进入 lifespan 后在首个请求前已修复/清理，随后服务正常工作。
+
+### 偏差与说明
+- 错误详情里的 `field` 会回显调用方提交的**键名**（如未知字段 `unknown_field`），这是契约规定的行为（只含字段名与原因代码）；测试断言的是**值**不回显。
+- 仓库扫描只看 git 会纳入的文件：工作目录里存在被 `.gitignore` 忽略的本地 `.env`（未跟踪），本任务**没有读取或输出其内容**；该文件不在扫描范围，请持有者确认其仅保存在本机。
+- 变异验证 6 处（模型声称 confirmed 且去掉不变量、令牌明文存储、文件名打印到 stdout、临时文件放入密钥串等），均被抓到。
+
+---
+
+## Task-3.3：质量指标实测与交付自检
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| backend-docs/HR_PR-1/05_task/quality_report.md | 新增 | 实测结果与自检结论草稿；无代码改动 |
+
+### 结果摘要
+- pytest 999 passed；覆盖率（pytest-cov，行+分支）总计 99%，services 97.8% / repositories 98.9% / clients 99.1% / core 99.4%；ruff check/format 通过。
+- `~/tools/dryer`：无重复候选。`~/tools/crapper`：198 个函数中 1 个超标（`build_user_blocks` CRAP 14.0 > 10，覆盖率 100%，需降低复杂度），未修改代码，待裁决。
+- 未做项（uvicorn 真实进程演练、真实 DeepSeek、并发容量、mutator）已在报告 §8 列明，未声称达标。

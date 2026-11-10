@@ -291,3 +291,28 @@ def test_database_initialisation_failure_stops_the_start(
 
     with pytest.raises(RuntimeError), TestClient(create_app(settings)):
         pass  # pragma: no cover
+
+
+def test_stop_warns_when_the_scheduler_does_not_finish_in_time(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A cleanup run that outlives the join timeout is reported, and stop still returns."""
+    caplog.set_level(logging.DEBUG, logger="app")
+    import app.core.lifecycle as module
+
+    monkeypatch.setattr(module, "STOP_JOIN_TIMEOUT_SECONDS", 0.05)
+    entered, release = threading.Event(), threading.Event()
+
+    class Blocking(RecordingLifecycle):
+        def cleanup(self) -> None:
+            entered.set()
+            release.wait(WAIT)
+
+    life = Blocking(settings, interval_seconds=0.001)
+    life.start_scheduler()
+    try:
+        assert entered.wait(WAIT)
+        life.stop()
+        assert any("scheduler_stop_timeout" in r.getMessage() for r in caplog.records)
+    finally:
+        release.set()
