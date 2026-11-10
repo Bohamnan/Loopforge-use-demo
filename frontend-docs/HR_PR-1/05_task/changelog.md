@@ -438,3 +438,14 @@ React 在开发模式下自身会向 console 输出异常信息（含 message）
 
 ### 遗留风险
 空白行会一直留在界面直到用户删除或提交；提交后（PATCH 成功）新草稿不含空白行，界面随之刷新。
+
+## Cleanup-C：尊重“减少动态效果”（第五批 S2）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/components/ChatThread.tsx、ChatThread.test.tsx | 修改 | 滚动到目标区块时，用户系统设置为 `prefers-reduced-motion: reduce` 则 `behavior: 'auto'`，否则 `'smooth'`；各有测试 |
+
+偏差：无。遗留风险：Ant Design 自身的组件动画（弹窗等）不在本项范围内，沿用库的默认处理。

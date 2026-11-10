@@ -14,7 +14,8 @@ export default function ChatThread({ children, focusKey = null }: ChatThreadProp
     if (!focusKey) return;
     const target = container.current?.querySelector<HTMLElement>(`[data-focus-key="${focusKey}"]`);
     if (!target) return;
-    target.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    target.scrollIntoView?.({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
     target.focus({ preventScroll: true });
   }, [focusKey]);
 
