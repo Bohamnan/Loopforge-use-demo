@@ -3,7 +3,7 @@
 | 项 | 内容 |
 |---|---|
 | 当前级别 | L3（新项目、跨前后端、外部模型对接） |
-| 状态 | ▶ **已恢复**（2026-11-10，DL 唤醒）：审查 worker `ctx_e5631b244e6b`（Task task_b6e2f0fb7ed7，第六批审查）与 frontend worker `ctx_35baa4f3c420`（Task task_adf5f4bbc6f4，续 3.1）运行中；审查与 frontend 3.1 已完成并合并（195ba1d）；2.3a 已合并复验（pytest 751 passed、ruff 通过）；2.4 已合并复验（pytest 795 passed、ruff 通过，未标 ✅），第七批审查 BLOCKED（8fbc3a4：BLOCK-1 StrictBool、QUESTION-1），DL 2026-11-10 批准按建议处理（含 1 MB 口径取 10^6 并留 4KB 余量、像素上限 2500 万）；修复已下发 backend worker；修完 → 复审 → 标 2.4 ✅ → 2.5 |
+| 状态 | ▶ 进行中：2.4 复审通过（7093e1e），tasks.md 已标 ✅；backend worker 正做 2.5（HIGH_RISK，完成后不标 ✅，先审查）；审查 worker `ctx_a5c820bc77c6` 保留空闲供下批复用；frontend 暂无任务 |
 | 最后更新 | 2026-11-10，feature `505d02d` |
 | 权威进度 | `01-requirements/HR_PR-1/_progress.md`（流程表、贡献记录、末尾「暂停恢复清单」） |
 
@@ -24,6 +24,8 @@
 | 审查 agent | review-batch1 | `/Users/yanyin/orca/workspaces/workspce-coding/review-batch1` | dev-lead（只读审查） | `b7ce9f8` |
 
 ## 二、启动 / 恢复 worker 的做法（已踩过的坑）
+
+0. **worker 管理（DL 要求）**：还可能复用的 agent 不要关闭；只关闭重复、多余的。同一 worktree 已有空闲 agent 时用 `send --to dispatch:<id>` 复用，不要再 `worker-start` 新开。
 
 1. kiro 的 trust-all 确认已全局关闭（`chat.disableTrustAllConfirmation = true`），不会再拦截启动。
 2. **新 worktree** 第一次启动 kiro 会卡在"Trust this workspace?"：先用 `orca terminal create --worktree <id> --command "kiro-cli chat --tui --trust-all-tools"` 打开，回车选 Trust，`/quit` 后关闭这个终端，再执行 `worker-start`。上面三个 worktree 都已信任过。
