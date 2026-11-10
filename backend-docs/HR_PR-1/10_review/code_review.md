@@ -820,3 +820,75 @@
 
 ### 最终结论
 **通过。** 2.7 的三条前置要求全部落实并被变异验证；2.6 只清草稿、过期规则与 `is_draft_expired` 一致、失败隔离且日志脱敏。保险丝改变了 Schema §4.2 情形③在“零记录”时的字面行为，评估为合理的安全加固，建议接受并补文档注记（SUGGEST-2）。建议 DL 将 2.6、2.7 标 ✅。
+
+## 第十批审查（backend 阶段 3：3.1 契约、3.2 端到端与脱敏、3.3 质量实测、文档注记、CRAP 重构）
+
+- 日期：2026-11-10；Reviewer：Yin Yang（dev-lead，审查 agent 代行）；Review 模式：Ticket-aware Review
+- 审查对象：`c3da583`（3.1）、`4c688d6`（3.2）、`191c335`（3.3）、`8786810`（文档注记）、`5a7e0eb`（CRAP 重构），合并提交 `11505e4`（四个功能提交 `merge-base --is-ancestor` 均为真）。
+- **本批结论：通过（0 BLOCK / 0 QUESTION / 4 SUGGEST）。建议 DL 将 3.1–3.3 标 ✅；backend 可进入联调，前提是联调前先完成“真实 DeepSeek 联调”和“uvicorn 真实进程演练”两项（见残余项）。**
+- 上下文限制：未做真实 DeepSeek 调用、未起 uvicorn 真实进程、未做并发容量实测；本 worktree 无 `codes/…/.env`（被 `.gitignore` 忽略，是作者本机文件），我没有读取过它；`~/tools/mutator` 未运行，以手工变异代替。
+
+### 3.1 契约一致性
+| 检查项 | 结论 | 证据 |
+|---|---|---|
+| 契约文件未被改动 | ✅ | `git diff 793bbf2 HEAD -- backend-docs/HR_PR-1/03_api` 无任何输出；`openapi.yaml` 最后一次提交仍是 `4ba4d15`（0.1.1 兼容修订）；测试还断言 `info.version == "0.1.1"` |
+| 比对的是冻结文件本身 | ✅ | `tests/openapi_support.py` 直接读 `backend-docs/HR_PR-1/03_api/openapi.yaml`（`yaml.safe_load`），不复制、不内联期望值 |
+| 路径 / 方法 / operationId | ✅ | `app.openapi()` 与冻结文档逐项相等 |
+| 状态码 | ✅（替代方案成立） | 见下 |
+| 限长 / `maxItems` / `pattern` | ✅ | 更新 schema 与三类条目 schema 的限制与代码常量相等；`PHONE_PATTERN`/`EMAIL_PATTERN` 与冻结 pattern 字符串相等；并发起真实请求：恰等于上限被接受，超 1 个得 422 `too_long`，且不回显输入值 |
+| 响应体 | ✅ | 每个真实响应用 `jsonschema`（Draft 2020-12）对冻结文档里该状态码声明的 schema 校验，`$ref` 取自冻结文档 |
+
+**对“`app.openapi()` 只含成功码和默认 422，改用真实响应比对”的评估：足以防漂移，且比比对 `app.openapi()` 更强，建议接受。** 理由：① 错误码由统一错误处理器产生，FastAPI 生成文档本来就不含它们，用它比对只会得到“恒缺失”的假信号；② 测试以 **25 个场景各发一次真实请求**，并用 `test_every_documented_status_is_produced_by_a_scenario` 断言“场景覆盖的 (路径, 方法, 状态码) 集合 == 冻结文档的集合”，冻结文档新增或删除一个状态码，测试即转红；③ `test_every_documented_error_code_is_produced` 要求 13 个 `ErrorCode` 枚举都被真实产出；④ 同时校验 `Set-Cookie`（属性与 `Max-Age` 取自描述）、未声明 `Set-Cookie` 的响应必须没有 Cookie。我实测变异：把 `draft_not_found` 的 HTTP 状态 404→410，契约用例 `get_404`、`patch_404` 与 e2e 同时失败；把文本列表上限 50→51，限长/条数用例失败。两种漂移都被抓到。局限：代码若新增“冻结文档之外”的状态码，而场景没有触发它，测试不会发现——这是黑盒测试的固有边界，可接受。
+
+### 3.2 端到端与脱敏
+| 检查项 | 结论 | 证据 |
+|---|---|---|
+| 日志/stdout 覆盖面 | ✅ | `caplog.set_level(DEBUG)` 作用于**所有 logger**（不止 `app`），再并上 `capsys` 的 stdout/stderr；断言姓名、姓、手机、邮箱、原文件名、模型响应标记、提示注入文本、令牌及其哈希、API 密钥、非法字段值均不出现，并有“事件确实被记录”的非空断言 |
+| 错误响应不回显 | ✅ | 12 类错误请求（`test_error_responses_never_echo…`）；内部异常不含细节；响应中不含令牌或其哈希 |
+| 密钥/令牌不落盘 | ✅ | 对 `data/`、`file/` 全部字节扫描：令牌明文、API 密钥均不存在；`.env.example` 仅占位符；仓库密钥模式扫描，并有 `test_secret_scanner_detects_the_patterns_it_claims_to` 防“扫描器失效” |
+| 请求体只含 1 次模型请求、API 密钥只在 Header | ✅ | 断言每步一次外发、请求体里无密钥、唯一外发主机 `api.deepseek.com` |
+| 提示注入 | ✅（范围内） | 恶意模型输出（声称已确认、注入文本、额外键）不产生 `confirmed`，上传后正式库 0 行、`file/` 为空；模型不能通过额外键触发保存。注意：这证明“模型输出无法越权写库”，不证明模型被注入后不会提取错信息——后者由人工校对环节兜底 |
+| 变异：故意在日志里打印合成数据 | ✅ 被杀 | M1 在 `resume_service` 保存成功后用标准库 `logging.getLogger("app").warning("saved %s", identity.phone)`（绕过白名单）→ `test_logs_and_stdout_contain_no_personal_data_filename_token_or_model_body` 失败；M2 同处 `print(identity.email)` 到 stdout → 同一用例失败；M3 让内部异常响应带出异常消息 → `test_internal_errors_hide_details…` 失败 |
+
+### 3.3 质量数字（自行复现，未采信自报）
+| 项 | 自报 | 我的复现 | 一致 |
+|---|---|---|---|
+| `uv run pytest` | 1001 passed，3 warnings | **1001 passed，3 warnings**（13.9s） | ✅ |
+| `uv sync --frozen`、`compileall`（先清缓存） | 通过，有 Compiling | Checked 36 packages；45 行 `Compiling` | ✅ |
+| ruff check / format | 通过 | All checks passed / 102 files already formatted | ✅ |
+| 覆盖率分层（`pytest --cov=app --cov-branch` + coverage JSON 按目录汇总，行+分支） | services 97.8、repositories 98.9、clients 99.1、core 99.4、api 97.5、schemas 100、root 100 | services 702/687 语句、208/203 分支 → **97.8**；repositories 98.9；clients 99.1；core 99.4；api 97.5；schemas 100；root 100 | ✅ 逐层一致 |
+| crapper（`~/tools/crapper/crapper src`，工具自己重跑 `coverage run -m pytest`） | 203 个函数，CRAP>10 为 0，最大 9.0，>5 的 21 个 | 解析工具输出：**203 个、>10 的 0 个、最大 9.0、>5 的 21 个**；最大值为 `_remove_orphans`（reconcile）、`field_validation._path`、`parse_normalizer._block`，均 9.0 | ✅ |
+| dryer（默认阈值） | No duplicate candidates found | **No duplicate candidates found** | ✅ |
+
+自报中未发现与实测不符之处。我在代码根生成的 `.metrics/`、`target/` 已删除，`git status --short` 无变更。mutator 未运行，报告也已如实声明。
+
+### CRAP 重构（`5a7e0eb`）评估
+- **外发请求体字节级不变：已自行复验 ✅。** 我把重构前（`793bbf2`）的 `deepseek_client.py` 作为临时模块，与现版本对同一输入比较 `json.dumps(build_user_blocks(...))`：约 9MB 噪声 PNG、约 8.4MB 噪声 JPEG 大照片、5 页扫描 PDF（28.8MB 噪声页图，超过上传上限，仅作压力）三种输入均 **identical**。临时模块已删除，无遗留。
+- **1 MB 预算与 996,000 上限仍成立 ✅。** 三种输入的完整请求 JSON 序列化大小分别为 768,740 / 777,464 / 817,162 字节，均 ≤ `MAX_REQUEST_BYTES`（995,904）≤ 996,000；`MAX_REQUEST_BYTES`、预算逻辑与出口总检未改；原有 `test_large_jpeg_photo_request_body_within_1mb`、`test_five_page_scanned_pdf_request_body_within_1mb` 仍通过。
+- 拆分合理：`build_user_blocks` CC 14→2，拆为 `_collect_items`/`_pdf_item`/`_assemble`；`parse_normalizer` 的两个 CC=10 函数同时拆分。重构暴露了两个测试盲点（单个垃圾项应降级为 `uncertain`；文本块/图片块顺序与预算扣除），并补了用例。
+
+### 残余项评估与建议
+| 残余项 | 评估 | 建议 |
+|---|---|---|
+| uvicorn 真实进程演练 | 生命周期（建目录→建库→对账→清理→调度）仅用 `TestClient` 的 `with` 块验证；真实进程的信号停止、`--workers 1`、监听地址未验证 | **联调前必做**：用 `uvicorn --workers 1` 起一次，验证启动日志顺序、`Ctrl-C` 能干净退出（调度线程 join）、重启后对账幂等；L1 工作量 |
+| 真实 DeepSeek 联调（C-01/ADR-001 待核验） | 目前全部是 `MockTransport`；“压缩后图片仍可被模型识别”（第七批已指出）、响应格式与超时行为均未验证 | **联调阶段 spike，需 DL 提供凭证**：使用合成简历、本机 `.env`；验证 JSON 响应格式、10MB 照片压缩后的识别率、20 秒 PDF 渲染上限 |
+| 约 5 人并发容量 | SQLite 默认 journal + `busy_timeout=5000`，单进程；未压测 | 联调时做一次简单并发上传+确认（5 个并发，合成数据），关注 `database is locked` 与 `save_failed`；POC 规模下风险低，可后置 |
+| 本地 `.env` 的使用边界 | 文件被 `.gitignore` 忽略、未跟踪，作者声明未读取其内容；仓库扫描不覆盖它 | 仅用于本机联调；不得提交、不得复制到文档/日志/会话；联调结束后由持有者确认只留在本机；若曾出现在任何终端输出或截图中，应视为泄露并轮换密钥 |
+
+### SUGGESTIONS（不阻断）
+- **第十批-SUGGEST-1（契约测试不应静默跳过）**：`pytestmark = skipif(not openapi_available())`——若契约文件路径变动或在仅检出 `codes/` 的 CI 里运行，整组 97 个用例会被**静默跳过**并仍显示通过。建议在 CI/交付检查里把“跳过数 = 0”作为门禁，或在文件缺失时改为失败。
+- **第十批-SUGGEST-2（生成文档不带错误响应）**：作者已登记：若希望 `app.openapi()` 本身准确，需在路由上声明 `responses`（代码改动）。POC 可不做；若前端用生成类型，则须做。
+- **第十批-SUGGEST-3（3 条测试警告）**：e2e 伪造 Cookie 用例使用 per-request cookies（httpx 弃用）+ 1 条 Starlette 提示；升级依赖前清理，避免日后变成错误。
+- **第十批-SUGGEST-4（报告口径）**：`quality_report.md` §2 写明覆盖率来源为 pytest-cov，§4 写明 CRAP 的覆盖率来自 crapper 自己重跑，口径已区分，建议保留。
+
+### 本批复跑
+| 命令 | 结果 |
+|---|---|
+| `uv sync --frozen` | ✅ Checked 36 packages |
+| `compileall src`（先清 `__pycache__`） | ✅ 45 行 `Compiling` |
+| `uv run pytest` | ✅ **1001 passed**，3 warnings，与基线一致 |
+| `ruff check .` / `ruff format --check .` | ✅ All checks passed / 102 files already formatted |
+| 变异（共 5 处，均还原） | M1/M2 日志泄露、M3 内部异常泄露、M4 状态码 404→410、M5 列表上限 50→51：全部被杀；`git status --short` 无变更 |
+
+### 最终结论
+**通过：建议 DL 将 3.1–3.3 标 ✅，backend 阶段 3 完成。** 契约未被改动，用“25 个真实场景 + 冻结文档三元组集合相等”替代 `app.openapi()` 比对是有效的防漂移手段；脱敏断言覆盖全部 logger、stdout 与错误响应，3 处泄露变异均被抓到；3.3 的数字（测试、覆盖率分层、CRAP、重复代码）全部复现一致；CRAP 重构的外发请求体与重构前字节级一致，预算上限成立。**可进入联调**，条件：联调前完成 uvicorn 真实进程演练，并在 DL 提供凭证后做真实 DeepSeek spike；`.env` 仅限本机使用。
