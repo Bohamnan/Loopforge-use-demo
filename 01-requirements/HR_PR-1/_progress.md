@@ -125,6 +125,7 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | architecture-advisor | backend AGENTS.md v1 复核通过（运行命令、Nexus 例外措辞采纳），状态改回“已确认” |
 | 2026-11-10 | Yin Yang（Dev Lead） | architecture-advisor | frontend 技术设计确认：ADR-006 ACCEPTED；Q-DL-01..06 采纳（输入区无文本框、纯逻辑放 hooks/model、保存卡保留三项摘要、新对话后刷新恢复旧草稿可接受、兼容/无障碍范围、用户信息与历史会话去掉）；REQ-FE-04.4 澄清 v1.2 |
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent | DL 决定（简单方式）：业务代码直接放在本仓库 codes/ 下随工作台分支管理，不另建独立代码仓库；根 AGENTS.md/CLAUDE.md 同步说明 |
+| 2026-11-10 | Yin Yang（Dev Lead） | 主 agent | DL 决定：backend 与 frontend 一起进入 feature-developer——待 frontend 任务清单确认（及其 Step 5 仓库约定复核）后同时开工；backend 首批为任务 1.1–1.7 |
 
 ---
 
