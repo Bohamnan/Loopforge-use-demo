@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { ApiError } from '../api/ApiError';
+import { createResume } from '../api/ResumeApi';
 import { createResumeDraft, getCurrentResumeDraft, updateCurrentResumeDraft } from '../api/ResumeDraftApi';
 import type { ResumeFieldsUpdate } from '../types/ResumeModel';
 import { getSection, type SectionKey } from './model/SectionConfig';
@@ -142,8 +143,42 @@ export function useResumeSession() {
     send({ type: 'DISCARD_EDITS_AND_GO_FINAL' });
   }, [send]);
 
-  const backToSections = useCallback(() => {
-    send({ type: 'BACK_TO_SECTIONS' });
+  /** Leaves the final review; optionally opens a given section (e.g. the core section). */
+  const backToSections = useCallback(
+    (section?: SectionKey) => {
+      send({ type: 'BACK_TO_SECTIONS' });
+      if (section) send({ type: 'SECTION_SELECTED', section });
+    },
+    [send],
+  );
+
+  /**
+   * The explicit final confirmation. Success is reported to the reducer only after the backend answered (F-03);
+   * a failure never produces a success state and the user may simply try again (C-05).
+   */
+  const startConfirm = useCallback(
+    (epoch: number) => {
+      void createResume().then(
+        (response) => send({ type: 'CONFIRM_SUCCEEDED', response, epoch }),
+        (error: unknown) => send({ type: 'CONFIRM_FAILED', error: toApiError(error), epoch }),
+      );
+    },
+    [send],
+  );
+
+  const confirmResume = useCallback(() => {
+    const { before, after } = send({ type: 'CONFIRM_REQUESTED' });
+    if (before.busy === null && after.busy === 'confirm') startConfirm(after.epoch);
+  }, [send, startConfirm]);
+
+  /** "Continue" in the unconfirmed-fields dialog: confirm what is displayed. */
+  const proceedUnconfirmed = useCallback(() => {
+    const { before, after } = send({ type: 'CONFIRM_PROCEEDED' });
+    if (before.busy === null && after.busy === 'confirm') startConfirm(after.epoch);
+  }, [send, startConfirm]);
+
+  const uploadNext = useCallback(() => {
+    send({ type: 'UPLOAD_NEXT' });
   }, [send]);
 
   const dismissDialog = useCallback(() => {
@@ -159,6 +194,9 @@ export function useResumeSession() {
     goFinal,
     discardEditsAndGoFinal,
     backToSections,
+    confirmResume,
+    proceedUnconfirmed,
+    uploadNext,
     dismissDialog,
     dismissNotice,
     requestUpload,

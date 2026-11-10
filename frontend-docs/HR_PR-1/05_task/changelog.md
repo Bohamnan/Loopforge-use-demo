@@ -266,3 +266,48 @@ React 在开发模式下自身会向 console 输出异常信息（含 message）
 ### 遗留风险
 - 子项无 id、以下标为 key：删除或在中间插入时，已折叠 / 展开的状态会随下标移动（仅影响显示，不影响数据）。
 - 嵌套列表（职责 / 业绩）的 `status` 与“未提交修改”标记显示在外层经历字段上，子项级没有单独状态（契约中整块一个状态，O-11）。
+
+## Task-2.6：最终确认与保存（REQ-FE-04，HIGH_RISK：约束 F-03）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+**状态**：待人类审查（HIGH_RISK，tasks.md 暂不标 ✅）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/components/FinalReviewCard.tsx | 新增 | 最终确认卡：全文只读（11 区 / 22 字段，状态标签原样）、未确认字段数提示、“确认提交”（核心三项就绪才可点，进行中禁用并 loading）、“我还要修改”、失败时 `ErrorAlert` + “当前不能确认是否已保存，可直接重试”；核心未就绪时说明原因并提供“去确认基本信息”。卡内任何位置都不出现“已保存” |
+| codes/hr-collection-agent-frontend/src/components/SavedResultCard.tsx | 新增 | 仅在后端返回成功后渲染：`already_saved=false` → “已保存”+ 姓名 / 原始文件名 / 保存时间（`formatSavedAt`）；`true` → 只有“该简历已保存过”，不含任何记录内容；均无记录编号 / `resume_id`；“上传下一份” |
+| codes/hr-collection-agent-frontend/src/hooks/useResumeSession.ts | 修改 | 新增 `confirmResume`、`proceedUnconfirmed`（`busy` 由 null→confirm 时才发 `createResume()` 并回传 `epoch`）、`uploadNext`；`backToSections(section?)` |
+| codes/hr-collection-agent-frontend/src/pages/ResumeCollectionPage.tsx | 修改 | 用 `FinalReviewCard` 替换 2.4 的临时“我还要修改”按钮；`saved` 阶段渲染 `SavedResultCard`；接线“还有字段未确认”确认框（偏差 ② 条件）；页面级拖拽防护 |
+| codes/hr-collection-agent-frontend/src/hooks/usePreventFileDropNavigation.ts | 新增 | 全页面取消 `dragover` / `drop` 默认行为，覆盖没有 composer 的阶段（读取中 / 读取失败 / 结果页） |
+| codes/hr-collection-agent-frontend/src/components/ComposerBar.tsx | 修改 | **修复审查 SUGGEST（拖拽离开页面）**：监听器在 `disabled` 时也保持挂载并 `preventDefault`，仅在可用时才把文件交给页面 |
+| codes/hr-collection-agent-frontend/src/components/NoticeBanner.tsx | 修改 | “已恢复草稿”“已保存过”两类信息提示改 `role="status"`（需要行动的警告仍为 `alert`），减少同屏连续播报（兑现 2.3 风险的一部分） |
+| codes/hr-collection-agent-frontend/src/components/Layout.css | 修改 | 最终确认卡与保存结果卡样式 |
+| frontend-docs/HR_PR-1/04_design/design.md | 修改 | §4.4 补写“空子项处理”（偏差 ③），顶部变更履历追加 v1.2 |
+| 测试 | 新增 / 修改 | `FinalReviewCard`、`SavedResultCard`、`usePreventFileDropNavigation`、`ComposerBar`（禁用时仍取消默认行为）、`ResumeCollectionPage.final.test.tsx`（30 例，按 REQ-FE-04.1–04.8 分组） |
+
+### REQ-FE-04 验收标准 → 实现 → 测试
+| AC | 实现 | 测试（`ResumeCollectionPage.final.test.tsx` 除特别注明） |
+|---|---|---|
+| 04.1 独立最终确认，核心三项就绪才可点 | `FinalReviewCard` + `coreReady`（三项均 `confirmed` 且值合法且无未提交编辑） | “REQ-FE-04.1” 组 4 例；`FinalReviewCard.test` 启用 / 禁用 / 原因 / 去确认基本信息 |
+| 04.2 有未确认字段先提示，继续即确认当前显示的全部内容 | reducer `unconfirmed` 对话框 + `proceedUnconfirmed`；未提交编辑走 `unsubmitted_edits` 对话框 | “REQ-FE-04.2” 组 3 例（取消不发请求、继续发一次、无未确认不弹窗、放弃修改） |
+| 04.3 成功前不显示“已保存”，不做乐观更新（F-03） | “已保存”只在 `phase=saved`（仅 `CONFIRM_SUCCEEDED` 设置）渲染 | “REQ-FE-04.3” 组：进行中、500 save_failed、500 internal_error、422 confirmation_required、非 JSON 502、网络失败、超时（fake timers）均断言无 `saved-result` 且无“已保存”；请求体恰为 `{"confirmed":true}`、`same-origin` |
+| 04.4 成功：已保存 + 上传下一份；清空内容，只留姓名 / 文件名 / 保存时间 | `SavedResultCard`、`savedSummary` | “REQ-FE-04.4” 组：卡片三项、页面文本不含手机号 / 邮箱、无 `data-field`、无记录编号；上传下一份回到空态；结果页无上传栏 |
+| 04.5 `already_saved` 只显示文字，不展示已有记录 | `SavedResultCard` 的 `alreadySaved` 分支 | “REQ-FE-04.5” 组：无姓名 / 文件名 / 手机号 / 邮箱；以字段而非 HTTP 状态判断（201+true、200+false） |
+| 04.6 超时 / 网络失败不提示成功，可直接重试，不查询状态 | `CONFIRM_FAILED` 停留 `final`；按钮保持可点 | “REQ-FE-04.6” 组：超时后重试成功、网络失败后重试成功；请求序列恰为 `GET current → POST → POST`，无任何状态查询 |
+| 04.7 `draft_not_found` → “可能已保存，请重新上传核实” | reducer 回空态 + `maybe_saved` 提示 | “REQ-FE-04.7” 组：提示出现、无成功态、内容清空、可重新上传 |
+| 04.8 请求期间防止重复点击 | `busy=confirm`：按钮 disabled + loading，hook / reducer 忽略重复请求，“我还要修改”“新对话”同时禁用 | “REQ-FE-04.8” 组：多次点击只发一个 POST |
+
+### 偏差 ② 的落实
+2.4 提前加的“未提交的修改”确认框保留并继续使用；本任务接线 `unconfirmed` 对话框，并用 `FinalReviewCard` 替换了临时“我还要修改”按钮。`new_chat` 对话框仍在 2.7。
+
+### 偏差说明
+- 422 `validation_failed`（确认时）回到分区视图并显示字段错误，错误卡出现在活跃分区内（沿用 2.4 的 `section` 级错误展示），不在最终确认卡内。
+- 核心未就绪时，`FinalReviewCard` 另提供“去确认基本信息”入口（设计未列，用于避免死路：该情形下“我还要修改”可能落在别的分区）。
+- 保存时间用 `toLocaleString('zh-CN', { hour12: false })` 本地时区格式化。
+
+### 遗留风险
+- HIGH_RISK：请人类审查 F-03 路径——`SavedResultCard` 的唯一入口（`reducer CONFIRM_SUCCEEDED`）、`draft_not_found` 与各类失败不会进入成功态。
+- 超时 / 网络失败后“结果未知”的文案依赖 backend 确认接口幂等（ADR-004）；已保存但响应丢失的情形，重试会得到 `already_saved=true`，界面显示“该简历已保存过”。
+- “＋ 新对话”仍待 2.7；`saved` 与 `empty` 阶段点击该按钮暂无反应，使用“上传下一份”即可。
