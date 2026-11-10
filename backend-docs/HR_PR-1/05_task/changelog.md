@@ -575,3 +575,51 @@ OpenAPI 0.1.1 未改动；无新增依赖；无数据库结构变更（无）。
 
 ### 遗留风险
 对账只在启动时运行（AGENTS.md 已知限制，第七批 SUGGEST-3）；接入 `lifespan` 在 2.7。
+
+---
+
+## Task-2.6：草稿清理 CleanupService
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/services/cleanup_service.py | 新增 | `CleanupService.run_once()`：先删过期行再删文件；孤儿扫描（未被引用且修改时间超过 1 天）；只依赖草稿仓储与草稿文件仓储，返回 `CleanupReport` |
+| codes/hr-collection-agent-backend/tests/services/test_cleanup_service.py | 新增 | 16 个用例：7 天边界、活动续期、先删行后删文件、删除失败不抛出、孤儿 1 天窗口、`file/` 不变、数据库/目录读取失败、日志只含数量 |
+
+### 设计要点
+- 恰好 7 天（`last_active_at == cutoff`）不删，7 天 + 1 秒删；孤儿恰好 1 天不删。
+- 无法读取草稿库或目录时不删任何孤儿（否则全部文件会被误判）；不识别的文件名与符号链接不动、不计失败。
+- `run_once` 对普通异常不抛出，调度线程由 2.7 负责再兜底。
+- 无新依赖，不改 OpenAPI。
+
+### 遗留风险
+清理与确认的竞态沿用 design §5.5 的 POC 接受结论。
+
+---
+
+## Task-2.7：启动编排 lifecycle 与清理调度线程
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/core/lifecycle.py | 新增 | `Lifecycle`（建目录 → 初始化两库 → 对账 → 清理 → 启动调度线程）与 `lifespan`；守护线程由 `Event.wait` 驱动，`stop()` 置位并 join |
+| codes/hr-collection-agent-backend/src/app/main.py | 修改 | `create_app` 接入 `lifespan`，新增可选参数 `lifecycle`（默认使用与请求相同的 settings/clock） |
+| codes/hr-collection-agent-backend/src/app/services/reconcile_service.py | 修改 | 第八批 SUGGEST-1：先 `scan()` 后 `list_refs()`；SUGGEST-2：无任何记录而存在终态文件时不删终态文件（计 `conflicts`）；SUGGEST-3：中途异常保留已累计计数并标 `aborted`，注释同步 |
+| codes/hr-collection-agent-backend/AGENTS.md | 修改 | 对账约束（仅启动时同步一次、单进程单 worker、不得运行期/调度线程调用）、失败不阻止启动、情形④及冲突告警的运维处置（SUGGEST-4） |
+| codes/hr-collection-agent-backend/tests/core/test_lifecycle.py | 新增 | 16 个用例：启动顺序（记录调用序列的假对象）、对账同步在启动线程且在首个请求前完成、对账仅一次、调度线程再次清理/存活/停止 join、`with TestClient` 无线程泄漏、真实步骤、对账或清理失败不阻止启动、初始化失败终止启动 |
+| codes/hr-collection-agent-backend/tests/services/test_reconcile_service.py | 修改 | 新增 5 个用例（SUGGEST-1/2/3）；2 个原用例补一条无关记录以避开新保险丝 |
+| codes/hr-collection-agent-backend/tests/services/test_resume_service.py | 修改 | “只有保存路径触达正式库”守卫的白名单加入 `lifecycle.py`（仅装配对账服务） |
+
+### 偏差说明
+- 实现与测试同批完成：lifecycle 先写实现后补测试，已用 8 处变异验证测试有效（对账与清理换序、对账放后台线程、初始化晚于对账、对账失败外泄、调度线程调用对账、stop 不置位、取消保险丝、读取顺序颠倒），均被杀。
+- 保险丝（SUGGEST-2）改变 Schema §4.2 情形③在“零记录”时的字面行为，仅此一种状态改为保留并告警。
+- 清理与确认的竞态沿用 design §5.5。
+
+### 遗留风险
+对账只在启动时运行，窗口见 AGENTS.md 已知限制（SUGGEST-3 第七批）。未做 uvicorn 真实进程启动演练，生命周期以 `TestClient` 的 `with` 块验证。

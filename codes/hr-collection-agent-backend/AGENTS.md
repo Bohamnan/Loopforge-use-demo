@@ -5,12 +5,13 @@
 | 状态 | 已确认 |
 | 版本 | v1（技术设计后补全） |
 | 来源 | [solution-design.md](../../01-requirements/HR_PR-1/solution-design.md)（HR_PR-1）；工作台 backend 规范与架构参考；v1 补全依据 [design.md](../../backend-docs/HR_PR-1/04_design/design.md)、[sql_ddl_resume.md](../../backend-docs/HR_PR-1/02_schema/sql_ddl_resume.md)、[openapi.yaml](../../backend-docs/HR_PR-1/03_api/openapi.yaml)（0.1.1）、[tasks.md](../../backend-docs/HR_PR-1/05_task/tasks.md) |
-| 最后更新 | 2026-11-10（存储加固：SQLite ≥ 3.35 要求；此前：任务 1.8 审查修复：模型与外发地址锁定；此前任务 1.8：依赖清单增加 `pypdfium2`，日志白名单增加 token 用量；此前：第一批审查后修订） |
+| 最后更新 | 2026-11-10（任务 2.6/2.7：清理与启动编排，对账运行约束与运维处置；此前：存储加固：SQLite ≥ 3.35 要求；此前：任务 1.8 审查修复：模型与外发地址锁定；此前任务 1.8：依赖清单增加 `pypdfium2`，日志白名单增加 token 用量；此前：第一批审查后修订） |
 
 ### 变更履历
 
 | 日期 | 变更 | 驱动 |
 |------|------|------|
+| 2026-11-10 | 任务 2.7：写明对账只在启动时同步运行一次（不得在运行期或调度线程调用）；登记情形④的运维处置、对账保险丝（无记录时不删终态文件）与读取顺序 | 第八批审查 2.7 前置要求、SUGGEST-1~4 |
 | 2026-11-10 | 第一批审查后修订：日志白名单补 `count`、`stack`；命名条款补与 OpenAPI 同名模型的例外 | 审查 SUGGEST-5、QUESTION-1 |
 | 2026-11-10 | 存储加固：SQLite 版本要求 ≥ 3.35 与启动检查（DL：本机部署，沿用 Python 自带 SQLite）；`DraftFileStore` 拒绝符号链接；`ArchiveFileStore.promote` 不覆盖 | 第四批审查 SUGGEST-1/2/3；DL 裁决 |
 | 2026-11-10 | 任务 1.8 审查修复：环境变量 `DEEPSEEK_MODEL` 只能为 `deepseek-flash`、`DEEPSEEK_BASE_URL` 只允许 `https://api.deepseek.com`；PDF 处理 20 秒上限；提示词起止标记 | 第二批审查 BLOCK-1、QUESTION-1；DL 裁决 |
@@ -112,6 +113,8 @@ codes/hr-collection-agent-backend/
 
 - **仅支持单进程单 worker**（`--workers 1`）：清理线程、SQLite 单写者、启动对账都按单进程设计（C-06；design §1“运行形态约束”）。
 - 启动顺序（`lifespan`）：创建目录 → 初始化两个库（`user_version=1`）→ 启动对账 → 清理一次 → 启动清理调度线程（每 3600 秒，O-07）→ 开始接收请求（design §5.4）。
+- **对账约束（B-05）**：`ReconcileService.run()` 只在 `lifespan` 启动阶段**同步**执行一次，完成后才开始接收请求；不得放入后台线程、不得由清理调度线程或请求调用（代码里只有 `core/lifecycle.py` 引用它，测试固定）。原因：对账会删除“无记录”的文件，只有在没有其他保存在途时才安全，因此也只支持单进程单 worker。对账与请求处理使用同一份 `DATA_DIR`/`FILE_DIR` 配置，且两个库在对账前已初始化（避免新建空库造成误删）。
+- 对账失败（含构造失败）与清理失败都不阻止启动，只记录告警；建目录或初始化数据库失败则启动失败。
 - 路由使用同步 `def` 端点，`httpx` 用同步客户端（ADR-002）。
 - 默认监听 `127.0.0.1:8000`；前端同源经 Vite dev proxy 转发 `/api`，无需 CORS（C-06）。
 
@@ -130,6 +133,18 @@ codes/hr-collection-agent-backend/
 | `COOKIE_SECURE` | 是否给 `draft_token` 加 `Secure`，默认 `false`（C-06，本地 HTTP） |
 
 仓库只提供仅含占位符的 `.env.example`；`.env` 加入 `.gitignore`（B-01）。依据：design §3.1、§1“配置来源”。
+
+## 运维：启动对账告警的处置
+
+对账日志（`reconcile_*` 事件）只含数量与 `resume_id`，不含内容。启动后查看这些事件：
+
+| 事件 | 含义 | 处置 |
+|---|---|---|
+| `reconcile_record_file_missing`（含 `resume_id`） | 情形④：有记录但 `file/` 里既无终态文件也无 tmp，**程序无法自动修复**，只在每次启动时告警 | 从备份恢复 `file/<resume_id>.<ext>`（文件名必须与记录的 `file_path` 一致）；无备份则由人工决定是否保留该记录。不要删除记录来“消除告警”而不经业务确认 |
+| `reconcile_conflicts`（`count`） | 记录同时有 tmp 与终态文件、同 id 但扩展名不同、或**数据库没有任何记录而 `file/` 下有终态文件**（疑似库被误删/换成空库/配置指向错误目录） | 程序**不删不改**。先核对 `DATA_DIR`、`FILE_DIR` 是否指向正确位置，再人工处理；确认无误后手工清理多余文件 |
+| `reconcile_entries_failed` / `reconcile_aborted` | 某条目的重命名/删除失败，或读取记录/目录失败 | 通常为权限或磁盘问题；修复后重启，对账可重复执行 |
+
+对账只在启动时运行；已知窗口见“红线”中的已知限制。
 
 ## 红线
 

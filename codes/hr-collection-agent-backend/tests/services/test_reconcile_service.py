@@ -81,12 +81,14 @@ def test_case2_tmp_without_record_is_deleted(resume_env: ResumeEnv) -> None:
 
 
 def test_case3_final_without_record_is_deleted(resume_env: ResumeEnv) -> None:
+    add_record(resume_env, 1)  # other records exist (without any, the finals are kept: below)
+    put(resume_env, final(1), PDF_C)
     put(resume_env, final(9), PDF_B)
 
     report = reconcile(resume_env)
 
-    assert resume_env.archive_names() == []
-    assert resume_env.count("resumes") == 0
+    assert resume_env.archive_names() == [final(1)]
+    assert resume_env.count("resumes") == 1
     assert report.final_removed == 1
 
 
@@ -340,6 +342,8 @@ def test_directory_scan_failure_is_reported_not_raised(
 def test_unexpected_error_in_the_middle_of_the_run_is_contained(
     resume_env: ResumeEnv, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    add_record(resume_env, 1)
+    put(resume_env, final(1))
     put(resume_env, tmp(8))
     put(resume_env, final(9))
 
@@ -351,7 +355,7 @@ def test_unexpected_error_in_the_middle_of_the_run_is_contained(
     report = reconcile(resume_env)  # per-entry failures are counted, nothing escapes
 
     assert report.failed == 2 and report.aborted is False
-    assert resume_env.archive_names() == sorted([tmp(8), final(9)])
+    assert resume_env.archive_names() == sorted([final(1), tmp(8), final(9)])
 
 
 def test_a_simulated_process_crash_is_not_swallowed(
@@ -482,3 +486,83 @@ def test_rename_failing_twice_is_completed_by_reconcile(resume_env: ResumeEnv) -
 
     assert resume_env.archive_names() == [f"{resume_id}.pdf"]
     assert resume_env.count("resumes") == 1
+
+
+# ---- 2.7 follow-ups (review batch 8: SUGGEST-1/2/3) -------------------------------------------
+
+
+def test_directory_is_listed_before_records_are_read(resume_env: ResumeEnv) -> None:
+    """SUGGEST-1: a file that appears after the listing is never judged against old records."""
+    calls: list[str] = []
+    real_scan, real_refs = resume_env.archive.scan, resume_env.resume_repo.list_refs
+    resume_env.archive.scan = lambda: (calls.append("scan"), real_scan())[1]  # type: ignore[method-assign]
+    resume_env.resume_repo.list_refs = lambda: (calls.append("refs"), real_refs())[1]  # type: ignore[method-assign]
+
+    reconcile(resume_env)
+
+    assert calls == ["scan", "refs"]
+
+
+def test_save_committing_during_the_run_is_not_mistaken_for_an_orphan(
+    resume_env: ResumeEnv,
+) -> None:
+    """A record and final file that appear after the directory listing must both survive."""
+    add_record(resume_env, 1)  # at least one record, so the "no records" safeguard stays out
+    put(resume_env, final(1))
+    real_refs = resume_env.resume_repo.list_refs
+
+    def refs_then_concurrent_save() -> list:
+        snapshot = real_refs()
+        add_record(resume_env, 5)  # a request commits and renames while we are running
+        put(resume_env, final(5), PDF_A)
+        return snapshot
+
+    resume_env.resume_repo.list_refs = refs_then_concurrent_save  # type: ignore[method-assign]
+
+    reconcile(resume_env)
+
+    assert resume_env.archive_names() == sorted([final(1), final(5)])
+    assert resume_env.count("resumes") == 2
+
+
+def test_final_files_are_kept_when_there_are_no_records_at_all(resume_env: ResumeEnv) -> None:
+    """SUGGEST-2: an empty or replaced database must not wipe the archive."""
+    put(resume_env, final(1), PDF_A)
+    put(resume_env, final(2), PDF_B)
+    put(resume_env, tmp(3), PDF_C)  # a tmp without record is still just an unfinished save
+
+    report = reconcile(resume_env)
+
+    assert resume_env.archive_names() == sorted([final(1), final(2)])
+    assert (resume_env.file_dir / final(1)).read_bytes() == PDF_A
+    assert report.final_removed == 0 and report.conflicts == 2 and report.tmp_removed == 1
+
+
+def test_final_without_record_is_still_deleted_when_other_records_exist(
+    resume_env: ResumeEnv,
+) -> None:
+    add_record(resume_env, 1)
+    put(resume_env, final(1))
+    put(resume_env, final(9))
+
+    assert reconcile(resume_env).final_removed == 1
+    assert resume_env.archive_names() == [final(1)]
+
+
+def test_unexpected_error_mid_run_keeps_the_counts_done_so_far(
+    resume_env: ResumeEnv, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """SUGGEST-3: a run stopped midway reports what it already did and says it was aborted."""
+    add_record(resume_env, 1)
+    put(resume_env, tmp(1))
+    put(resume_env, tmp(9))
+
+    def broken(self: object, *args: object) -> None:
+        raise RuntimeError("unexpected")
+
+    monkeypatch.setattr(ReconcileService, "_remove_orphans", broken)
+
+    report = reconcile(resume_env)
+
+    assert report.aborted is True and report.rolled_forward == 1
+    assert resume_env.archive_names() == sorted([final(1), tmp(9)])

@@ -9,6 +9,7 @@ from app.clients.resume_parser_client import ResumeParserClient
 from app.core.clock import Clock, SystemClock
 from app.core.config import Settings
 from app.core.ids import IdGenerator, UuidGenerator
+from app.core.lifecycle import Lifecycle, lifespan
 from app.core.logging import configure_logging
 
 
@@ -18,18 +19,27 @@ def create_app(
     parser_client: ResumeParserClient | None = None,
     clock: Clock | None = None,
     ids: IdGenerator | None = None,
+    lifecycle: Lifecycle | None = None,
 ) -> FastAPI:
     """Create the application.
 
     ``parser_client``, ``clock`` and ``ids`` exist so tests can inject fakes; by default the
-    real DeepSeek client is created lazily on first use. Lifespan arrives with task 2.7.
+    real DeepSeek client is created lazily on first use. ``lifecycle`` lets tests record the
+    start-up sequence; by default it works on the same settings and clock as the requests.
     """
     configure_logging()
-    app = FastAPI(title="hr-collection-agent", version="0.1.1", docs_url=None, redoc_url=None)
+    app = FastAPI(
+        title="hr-collection-agent",
+        version="0.1.1",
+        docs_url=None,
+        redoc_url=None,
+        lifespan=lifespan,
+    )
     app.state.settings = settings or Settings()
     app.state.parser_client = parser_client
     app.state.clock = clock or SystemClock()
     app.state.ids = ids or UuidGenerator()
+    app.state.lifecycle = lifecycle or Lifecycle(app.state.settings, app.state.clock)
     app.add_middleware(RequestIdMiddleware)
     register_error_handlers(app)
     app.include_router(resume_drafts.router)

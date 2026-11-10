@@ -13,8 +13,15 @@ Situations, per record / file:
 
 Anything unclear is left alone and counted as a conflict: a record that has both tmp and final
 file, or a file whose id matches a record but whose name does not. Deleting is irreversible, so
-only files that clearly have no record are deleted. If the record list or the directory listing
-cannot be read, nothing is deleted at all (every file would look orphaned).
+only files that clearly have no record are deleted. Safeguards against mass deletion:
+
+- the directory is listed *before* the records are read, so a save that commits while we run
+  can only show up as a tmp to roll forward, never as a final file whose record we missed;
+- if the record list or the directory listing cannot be read, nothing is deleted at all (every
+  file would look orphaned);
+- if there are no records at all but final files exist (wrong or replaced database), the final
+  files are kept and reported as conflicts: records are never deleted, so this state cannot
+  come from a normal run.
 
 ``run`` never raises for ordinary errors: a failed reconciliation must not stop the service
 from starting, but it is always logged (counts and ids only, never content).
@@ -43,7 +50,9 @@ class ReconcileReport:
     missing_files: int = 0  # records without any file: needs a human
     conflicts: int = 0  # unclear states left untouched
     failed: int = 0  # entries whose action raised
-    aborted: bool = False  # records or directory could not be read: nothing was changed
+    # The run stopped early: either records/directory could not be read (nothing was changed),
+    # or an unexpected error hit midway (the counts above are what was already done).
+    aborted: bool = False
 
 
 class ReconcileService:
@@ -57,11 +66,14 @@ class ReconcileService:
     def run(self) -> ReconcileReport:
         """Reconcile once. Ordinary errors are logged, never raised."""
         started = self._clock.now()
+        counts = _Counts()
         try:
-            report = self._reconcile()
+            self._reconcile(counts)
+            report = counts.report()
         except Exception as exc:  # noqa: BLE001 - must not block start-up; logged below
             log_event("reconcile_aborted", level="error", exc=exc)
-            report = ReconcileReport(aborted=True)
+            report = counts.report(aborted=True)
+        counts.log()
         elapsed = self._clock.now() - started
         log_event(
             "reconcile_done",
@@ -71,14 +83,11 @@ class ReconcileService:
         )
         return report
 
-    def _reconcile(self) -> ReconcileReport:
+    def _reconcile(self, counts: "_Counts") -> None:
+        scan = self._archive.scan()  # first: see _remove_orphans / module docstring
         refs = sorted(self._resumes.list_refs(), key=lambda r: r.id)
-        scan = self._archive.scan()
-        counts = _Counts()
         self._check_records(refs, scan, counts)
         self._remove_orphans(refs, scan, counts)
-        counts.log()
-        return counts.report()
 
     # ---- records: situations 1 and 4 -----------------------------------------------------
 
@@ -111,7 +120,11 @@ class ReconcileService:
     def _remove_orphans(self, refs: list[ResumeRef], scan: ArchiveScan, counts: "_Counts") -> None:
         paths = {r.file_path for r in refs}
         record_ids = {r.id for r in refs}
+        keep_finals = not refs and bool(scan.final)  # no records at all: do not wipe the archive
         for entry, is_tmp in [(e, True) for e in scan.tmp] + [(e, False) for e in scan.final]:
+            if keep_finals and not is_tmp:
+                counts.conflicts += 1
+                continue
             if final_name(entry.resume_id, entry.ext) in paths:
                 continue  # owned by a record (handled above)
             if entry.resume_id in record_ids:
@@ -154,8 +167,8 @@ class _Counts:
         self.conflicts = 0
         self.failed = 0
 
-    def report(self) -> ReconcileReport:
-        return ReconcileReport(**vars(self))
+    def report(self, aborted: bool = False) -> ReconcileReport:
+        return ReconcileReport(**vars(self), aborted=aborted)
 
     def log(self) -> None:
         for event, count, level in (
