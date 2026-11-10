@@ -10,7 +10,7 @@
 |------|------|
 | **PRD** | `01-requirements/HR_PR-1/prd.md` |
 | **当前 Skill** | feature-developer |
-| **当前阶段** | backend 1.8、frontend 2.6 审查均建议标 ✅，待 DL 确认 |
+| **当前阶段** | DL 确认 1.8、2.6 标 ✅；backend 1.9–1.10、frontend SUGGEST-2/1 + 2.7–2.8 进行中 |
 | **状态** | 🔄 feature-developer 进行中 |
 | **最后更新** | 2026-11-10 |
 
@@ -53,8 +53,8 @@
 | 技术设计 | architecture-advisor | 各 Workbench 工程师 | ✅ backend / ✅ frontend（2026-11-10） | 2026-11-10 | `backend-docs/HR_PR-1/04_design/design.md`；`frontend-docs/HR_PR-1/04_design/design.md` |
 | 任务拆分 | architecture-advisor | 各 Workbench 工程师 | ✅ backend（20 任务 / 91h）/ ✅ frontend（15 任务 / 79h） | 2026-11-10 | `backend-docs/HR_PR-1/05_task/tasks.md`；`frontend-docs/HR_PR-1/05_task/tasks.md` |
 | 仓库约定补全与复核（仅新项目 Workbench） | architecture-advisor（Step 5） | 各 Workbench 工程师/Dev Lead | ✅ backend / ✅ frontend（已确认） | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
-| 代码实现 | feature-developer | 各 Workbench 工程师 | ⏸ backend 1.8 待 DL 确认（7/20 ✅）/ ⏸ frontend 2.6 审查中（11/15 ✅） | — | `codes/hr-collection-agent-backend/`、`codes/hr-collection-agent-frontend/` |
-| 代码审查 | code-reviewer | 各 Workbench 工程师 | 🔄 第二批：frontend ✅ / backend 1.8 ⏸ 修复待复审 | — | `backend-docs/HR_PR-1/10_review/code_review.md`；`frontend-docs/HR_PR-1/10_review/code_review.md` |
+| 代码实现 | feature-developer | 各 Workbench 工程师 | 🔄 backend 8/20 → 1.9–1.10 / frontend 12/15 → 2.7–2.8 | — | `codes/hr-collection-agent-backend/`、`codes/hr-collection-agent-frontend/` |
+| 代码审查 | code-reviewer | 各 Workbench 工程师 | 🔄 第一批 ✅、1.8 ✅、2.1–2.6 ✅；后续批次待审 | — | `backend-docs/HR_PR-1/10_review/code_review.md`；`frontend-docs/HR_PR-1/10_review/code_review.md` |
 | 开发自测用例 | dev-self-test | 各 Workbench 工程师 | — | — | — |
 | 造数脚本 | test-data-script-generator | 各 Workbench 工程师/QA | — | — | — |
 
@@ -142,6 +142,7 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | code-reviewer | backend 1.8 修复（8e5f9f5）经主 agent 独立验证（模型名与地址锁定、361 passed）和审查 agent 复审（cf49419）：0 BLOCK / 0 QUESTION，建议标 ✅ |
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 frontend 2.6（2bdd002）：复跑 42 文件 453 例通过、lint 0、build 1435 modules；交审查 agent 做 HIGH_RISK 审查 |
 | 2026-11-10 | Yin Yang（Dev Lead） | code-reviewer | frontend 2.6 HIGH_RISK 审查（b3d4a9b）：PASS_WITH_SUGGESTIONS（0/0/5），F-03 唯一入口已核实；第④点证实 worker 理解有误、实现正确（重试得 draft_not_found → 可能已保存），建议标 ✅ |
+| 2026-11-10 | Yin Yang（Dev Lead） | feature-developer | DL 确认 HIGH_RISK：backend 1.8、frontend 2.6 标 ✅；下发 backend 1.9–1.10（含 httpx trust_env=False），frontend 先修 2.6 审查 SUGGEST-2（保存响应形状校验）/SUGGEST-1，再做 2.7–2.8 |
 
 ---
 
