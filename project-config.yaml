@@ -1,0 +1,37 @@
+# ============================================================
+# Project Configuration — Dev Harness Framework
+# ------------------------------------------------------------
+# 由 project-setup-brief 依据 project-brief.confirmed.yaml 生成。
+# 本文件只存配置与索引；技术栈、分层、命令等 Workbench 知识在
+# .github/skills/{skill}/references/{Workbench}.md 与 rules/{Workbench}/ 中。
+# 提交此文件到 git。
+# ============================================================
+
+project:
+  name: "hr-info-collection"
+  ticket_prefix: "HR_PR"       # 票据前缀
+  ticket_format: "HR_PR-1"     # 完整格式示例
+
+# 目录结构配置
+dirs:
+  requirements: "01-requirements"       # 需求文档根目录
+  module_exploration: "00-analysis"     # 模块探索产物目录
+
+# Workbench 的 key 同时是 role 与 local_profile.yaml 的 code_roots 键名
+Workbench:
+  - key: backend
+    name: "backend"
+    doc_root: "backend-docs"
+    repositories:
+      - name: hr-collection-agent
+        description: HR 信息收集后端服务：文件接收、大模型解析、对话校对、归档保存
+
+  - key: frontend
+    name: "frontend"
+    doc_root: "frontend-docs"
+    repositories:
+      - name: hr-collection-agent-web
+        description: HR 信息收集 Web 对话前端：上传简历、对话校对与确认
+
+# 团队角色
+roles: [backend, frontend, dev-lead, ba, qa]

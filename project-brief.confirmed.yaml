@@ -1,0 +1,344 @@
+# ============================================================
+# project-brief.yaml —— 项目初始化总览配置（通用模板 v0.3）
+# ------------------------------------------------------------
+# 用途：project-setup-brief Skill 的唯一输入。把初始化需要收集的项目信息，提前集中写在
+#       这一个文件里；运行 Skill 时只做一次确认，不再逐条提问。
+# 范围：通用模板，适用于任何新项目。预置 backend、frontend 两个 Workbench 和常见技术栈预设
+#       （后端 Python + FastAPI，前端 TypeScript + React），技术栈不同时直接改对应条目；
+#       项目信息与业务约束按项目填写。增减 Workbench 的方法见 README。
+# 用法：每个项目复制一份本文件再填写，不要直接改模板。
+# 安全：本文件只写事实与预设值，不得写入密钥、账号、内部地址。
+#
+# ------------------------------------------------------------
+# 怎么读这份文件
+# ------------------------------------------------------------
+# 1. 每条事实占一行，字段含义：
+#      k / id  键名或编号（Skill 按它找到对应位置）
+#      v       取值
+#      s       状态，三选一：
+#                confirmed  已确定，无需再确认
+#                assumed    预设值，需要你确认或修改
+#                tbd        尚无依据，需要你填写
+#      basis   这条取值的依据或来源
+#      alt     可选项（可选）
+#      hint    仅用于待填写项，说明要填什么、格式、示例
+#      blocking  为 true 时，该项没填就不能开始初始化
+#      by / on   确认人与日期，由 Skill 在确认后回写，不要手填
+#
+# 2. 待填写项的统一标记：取值为  【待填写】
+#    在本文件中全文搜索  【待填写】  即可找到全部需要你填的位置；
+#    每处都带有 hint，写明填什么。填好后把 s 改为 confirmed，并删除 hint。
+#
+# 3. 命令里的 {file}、{keyword}、{test_name} 是命令参数的占位，不是待填项。
+#
+# 4. 取值若仍是  【待填写】、null、空，或写着“待定”“TBD”，无论 s 写的是什么，
+#    Skill 都按未填写处理，并在确认单里列出。
+#
+# 5. 每个键是什么意思、填了会影响什么，见下方 field_guide。确认单里每一条都会带上这里的说明。
+#
+# 6. 待填写项如果涉及技术选型，会带三个键：suggest 是建议取值，why 是理由，check 是需要核实什么。
+#    认可建议就直接采纳；没有 suggest 的项（如项目名、业务约束、数据合规口径）只能由项目方提供。
+#
+# 7. 填了下面的“项目背景”后，初始化时还会结合背景对技术选型给出针对性建议，并指出与背景冲突的预设值，
+#    每条建议都注明依据的是背景里的哪一项。背景写得越具体，建议越准；背景不填，就只有模板自带的通用建议。
+# ============================================================
+
+# ------------------------------------------------------------
+# 字段说明：每个键的含义，以及它会写进哪里、影响哪个环节
+# 格式："含义｜影响"
+# ------------------------------------------------------------
+field_guide:
+  # 项目全局
+  name: "项目名称｜写入工作台的 AGENTS.md 和 project-config.yaml"
+  ticket_prefix: "需求票号的前缀｜需求文档按票号建目录，所有 Skill 靠票号找到需求"
+  ticket_format: "完整票号的样子｜同上，用于识别用户输入的是不是票号"
+  target_path: "工作台生成到哪个目录｜初始化把全部文件写到这里"
+  requirements_dir: "需求文档目录名（框架固定）｜所有需求票都放在这个目录下"
+  module_exploration_dir: "模块探索产物目录名（框架固定）｜module-explorer 的产出放这里"
+  roles: "团队里有哪些角色｜每人在 local_profile.yaml 里选一个，决定能操作哪个 Workbench 的代码和文档"
+  language_policy: "文档用什么语言｜各 Skill 产出文档的语言"
+  # 跨 Workbench
+  dependency: "前后端之间允许怎么调用｜写入架构约束，技术设计和代码审查按它检查"
+  contract_owner: "接口契约由谁维护｜决定接口变更时以哪一方为准"
+  contract_change: "接口契约变更要经过谁审视｜写入架构约束"
+  secrets_rule: "密钥、凭证可以放在哪里｜写入安全检查项，代码审查发现违反即阻断"
+  # 每个 Workbench：身份
+  doc_root: "这个 Workbench 的文档目录名｜影响分析、设计、任务清单等文档写在这里"
+  repository: "代码仓库名和职责｜写入工作台 AGENTS.md 的仓库表"
+  code_root_key: "local_profile.yaml 里代码路径的键名｜Skill 用它找到本机的代码目录"
+  # 每个 Workbench：技术栈
+  language: "编程语言｜决定编码规范、代码写法和各类命令"
+  version: "语言版本｜需与运行环境、依赖镜像一致"
+  web_framework: "后端 Web 框架｜决定接口代码的写法和目录结构"
+  framework: "前端框架｜决定页面和组件的写法"
+  data_validation: "数据校验库｜决定请求、响应模型怎么定义"
+  database: "数据库产品，没有就写“无”｜决定数据表设计、数据库规范、造数和清数语句；没填时这些内容写 TODO"
+  key_dependencies: "框架以外的关键依赖或外部服务（如缓存、消息队列、第三方 API、模型服务）｜写入技术设计；对外调用一律经 clients 层"
+  ui_library: "前端组件库｜决定页面用哪套组件"
+  api_client: "前端怎么调用后端｜决定前端访问后端的唯一出口"
+  state_management: "前端状态怎么管理｜决定页面数据流的写法"
+  client_persistence: "浏览器里能不能保存数据｜写入前端约束"
+  # 每个 Workbench：命令
+  install: "安装依赖的命令｜编码和自测前运行"
+  build: "构建或语法检查命令｜每个开发任务完成后必须通过"
+  test: "运行全部测试的命令｜开发任务完成后运行，失败就要修"
+  test_one: "运行单个测试的命令｜开发时只跑本任务相关的测试"
+  lint: "静态检查命令｜开发任务完成后运行"
+  format: "格式检查命令｜同上"
+  # 每个 Workbench：分层
+  pattern: "代码分几层、谁能调用谁｜写入编码规范，设计、编码、审查都按它检查有没有越层"
+  dirs: "代码目录结构｜决定新代码放在哪里"
+  layer_api: "接口层的职责与禁止事项｜违反时代码审查阻断"
+  layer_services: "业务层的职责与禁止事项｜同上"
+  layer_repositories: "存储访问层的职责与禁止事项｜同上"
+  layer_clients: "对外调用层的职责与禁止事项｜同上"
+  layer_pages: "页面层的职责与禁止事项｜同上"
+  layer_components: "组件层的职责与禁止事项｜同上"
+  layer_hooks: "状态与副作用层的职责与禁止事项｜同上"
+  # 每个 Workbench：编码约定
+  naming: "命名规则｜写入编码规范，代码审查检查"
+  comment_language: "注释用什么语言｜同上"
+  error_handling: "异常怎么处理｜同上"
+  logging: "日志怎么写、哪些内容不能写进日志｜同上，并写入安全检查项"
+  base_classes: "公共基类｜新代码是否必须继承"
+  audit_fields: "保存的数据必须带哪些字段｜数据表设计时必须包含"
+  query_filter: "查询时必须加的过滤条件｜数据访问代码必须遵守"
+  # 每个 Workbench：约束（B-xx、F-xx）
+  constraints: "硬约束。BLOCK 级：任何环节发现违反就停下；WARN 级：提醒但不停｜写入 architectural_constraints.md，所有 Skill 都要遵守"
+  # 每个 Workbench：设计画像
+  has_storage: "这个 Workbench 自己保存数据吗｜是：做数据表设计、生成数据库规范、可以造测试数据；否：这些都跳过"
+  interface_form: "对外提供接口还是调用别人的接口、用什么协议｜决定接口设计文档写成什么样"
+  api_style: "接口路径和资源的命名风格｜写入接口规范"
+  request_response_contract: "请求和响应的数据格式｜写入接口规范"
+  error_contract: "出错时返回什么格式｜写入接口规范，前端按它解析错误"
+  schema_dimensions: "设计数据表时要考虑哪些方面｜数据表设计文档的检查项"
+  interface_dimensions: "设计接口时要覆盖哪些方面｜接口设计文档的检查项"
+  slice_shape: "开发任务怎么拆，一个任务包含哪几层｜architecture-advisor 拆任务的依据"
+  walkthrough_path: "代码走读按什么顺序讲｜code-walkthrough 讲解代码的路线"
+  test_dimensions: "测试要覆盖哪些类型｜dev-self-test 生成用例、code-reviewer 检查测试是否够"
+  test_data: "测试数据从哪里来｜test-data-script-generator 造数的依据"
+  locate_cmd: "在代码里查找的命令和入口目录｜影响分析、改 bug 时定位代码"
+  kickoff_signals: "什么样的需求归这个 Workbench｜requirement-kickoff 分派需求的依据"
+  self_test_unit_header: "自测用例里，每个被测对象要记录哪些信息｜dev-self-test 用例的表头"
+  self_test_io: "自测用例的输入、输出各写什么｜dev-self-test 用例的输入、预期输出两栏"
+  self_test_verify: "自测时怎么确认结果正确｜dev-self-test 用例里的验证步骤"
+  self_test_trace_dims: "自测除了对应需求的验收条件，还要统计哪些覆盖｜dev-self-test 的覆盖统计"
+  # 项目背景（写入 global-info/business-brief.md，摘要同步到工作台 AGENTS.md）
+  problem: "要解决什么问题、做成后有什么改变｜写入业务概述；需求分析和方案设计据此判断一项需求是否值得做"
+  users: "谁来用、在什么场景下用｜写入业务概述；PRD 和原型据此确定用户角色"
+  in_scope: "这个项目做哪些事｜写入业务概述；需求启动时据此判断需求是否在范围内"
+  out_of_scope: "明确不做哪些事｜写入业务概述和 AGENTS.md 摘要；设计和编码遇到这些内容直接视为超出范围"
+  inputs_outputs: "用户或上游给什么、系统产出什么｜写入业务概述；接口设计和测试数据据此确定"
+  success_criteria: "怎样算做成｜写入业务概述；验收和测试据此判断"
+  summary: "两三句话的项目摘要｜写入业务概述，并同步到工作台 AGENTS.md 的“项目概览”，每次会话都会读到"
+  # 术语
+  glossary_seed: "业务术语初稿，一个词一行，只写名词和它的定义，不写背景说明｜写入术语表，所有 Skill 用统一叫法"
+
+brief:
+  version: "0.3"
+  applies_to: "通用模板（任何新项目）"
+  framework_baseline: "dev-harness 2.1 基础版"
+  note: "确认完成后，Skill 会生成 project-brief.confirmed.yaml，作为本次初始化的记录随工作台保存"
+
+# ------------------------------------------------------------
+# 一、项目全局信息
+# ------------------------------------------------------------
+project:
+  facts:
+    - {k: name,                 v: "hr-info-collection", s: confirmed, basis: "用户补充：项目叫“HR人力信息收集系统”，英文短名为拟定，请确认", by: "用户", on: "2026-11-10"}
+    - {k: ticket_prefix,        v: "HR_PR", s: confirmed, basis: "用户确认 2026-11-10"}
+    - {k: ticket_format,        v: "HR_PR-1", s: confirmed, basis: "用户确认 2026-11-10"}
+    - {k: target_path,          v: "/Users/yanyin/Desktop/Projects/格兰富/workspce-coding", s: confirmed, basis: "用户确认 2026-11-10"}
+    - {k: requirements_dir,     v: "01-requirements", s: confirmed, basis: "框架固定约定"}
+    - {k: module_exploration_dir, v: "00-analysis", s: confirmed, basis: "框架固定约定"}
+    - {k: roles,                v: [backend, frontend, dev-lead, ba, qa], s: confirmed, basis: "由 Workbench 键加固定协作角色派生"}
+    - {k: language_policy,      v: "文档使用中文", s: confirmed, basis: "通用预设", alt: ["文档使用英文", "过程文档中文，正式交付英文"], by: "用户", on: "2026-11-10"}
+
+# ------------------------------------------------------------
+# 二、项目背景（写入 global-info/business-brief.md；summary 同步到工作台 AGENTS.md 的“项目概览”）
+# ------------------------------------------------------------
+# 只写项目层面相对稳定的事实，不写具体需求（具体需求走 PRD）。可以先不填，初始化时会写 TODO，之后在 business-brief.md 里补。
+background:
+  facts:
+    - {k: summary,          v: "HR人力信息收集系统：用户在 Web 对话中上传简历文件（PDF、照片等），由大模型（DeepSeek flash）解析内容，再与用户逐项对话校对，确认后将结构化简历信息和原始文件一并保存到本地。", s: confirmed, basis: "用户补充信息 2026-11-10，措辞为整理稿，请确认", by: "用户", on: "2026-11-10"}
+    - {k: problem,          v: "简历散落在各类文件和图片里，人工逐份录入信息慢且易错；做成后，上传即可得到按统一简历模型整理、经本人确认的结构化信息，并能回溯到原始文件。", s: confirmed, basis: "由用户补充信息推断，现状痛点需业务方确认", by: "用户", on: "2026-11-10"}
+    - {k: users,            v: "提供简历信息的用户：在对话中上传简历并校对确认解析结果。HR 人员的查看与使用方式未说明，待补充。", s: confirmed, basis: "用户补充信息只提到“用户通过 Web 对话上传”，HR 角色为推断", by: "用户", on: "2026-11-10"}
+    - {k: in_scope,         v: "Web 对话界面；简历文件上传（PDF、照片等）；大模型解析文件内容；按预设简历模型与用户对话校对；确认后保存到本地数据库；原始文件存入项目 file 目录，并在简历记录中关联原始文件", s: confirmed, basis: "用户补充信息", by: "用户", on: "2026-11-10"}
+    - {k: out_of_scope,     v: "只做简历信息的识别、收集、归档，其他一律不做（如简历筛选与岗位匹配、招聘流程管理、对接其他 HR 系统）", s: confirmed, basis: "用户确认 2026-11-10"}
+    - {k: inputs_outputs,   v: "输入：用户上传的简历文件（PDF、照片等）和对话中的校对回复；输出：经确认的结构化简历记录（保存在本地数据库）、保存在项目 file 目录下的原始文件，以及两者的关联关系", s: confirmed, basis: "用户补充信息", by: "用户", on: "2026-11-10"}
+    - {k: success_criteria, v: "【待填写】", s: tbd, hint: "填什么：怎样算做成，尽量写成能检查的条件｜示例：上传一份简历后，经对话确认，数据库中出现一条简历记录且关联到原始文件；未经用户确认的内容不入库", deferred: true}
+
+# ------------------------------------------------------------
+# 三、跨 Workbench 约定
+# ------------------------------------------------------------
+cross_workbench:
+  facts:
+    - {k: dependency,       v: "frontend 只通过 backend 提供的 HTTP 接口取数，不直连外部服务、不直连存储", s: confirmed, basis: "通用预设：前后端分离的常见做法", by: "用户", on: "2026-11-10"}
+    - {k: contract_owner,   v: "backend 维护接口契约（OpenAPI），frontend 按契约开发", s: confirmed, basis: "通用预设；已有契约管理方式则以其为准", by: "用户", on: "2026-11-10"}
+    - {k: contract_change,  v: "接口契约变更须经 cross-workbench-reviewer 审视后才能合入", s: confirmed, basis: "框架自带 Skill 的使用方式", by: "用户", on: "2026-11-10"}
+    - {k: secrets_rule,     v: "任何密钥、凭证只放环境变量或配置中心，两个 Workbench 都不得写入代码、日志、仓库", s: confirmed, basis: "通用安全规范；有组织安全编码政策的以政策为准", by: "用户", on: "2026-11-10"}
+
+# ------------------------------------------------------------
+# 四、Workbench
+# ------------------------------------------------------------
+workbenches:
+
+  # ==========================================================
+  # backend
+  # ==========================================================
+  - key: backend
+    identity:
+      - {k: name,        v: "backend", s: confirmed, basis: "框架约定：Workbench 键"}
+      - {k: doc_root,    v: "backend-docs", s: confirmed, basis: "通用预设的文档目录名", by: "用户", on: "2026-11-10"}
+      - {k: repository,  v: {name: hr-collection-agent, description: "HR 信息收集后端服务：文件接收、大模型解析、对话校对、归档保存"}, s: confirmed, basis: "仓库名由用户提供；职责描述为整理稿，请确认", by: "用户", on: "2026-11-10"}
+      - {k: code_root_key, v: "backend", s: confirmed, basis: "框架约定：与 Workbench 键相同"}
+
+    tech:
+      - {k: language,    v: "Python", s: confirmed, basis: "通用预设；团队主力语言不同则改为实际语言，并同步改下方命令与约定", alt: ["Java", "Go", "Node.js"], by: "用户", on: "2026-11-10"}
+      - {k: version,     v: "3.11", s: confirmed, basis: "通用预设：主流稳定版本，需与运行环境和依赖镜像一致", alt: ["3.10", "3.12"], by: "用户", on: "2026-11-10"}
+      - {k: web_framework, v: "FastAPI", s: confirmed, basis: "通用预设：异步、自动生成 OpenAPI 契约；团队已有标准框架则以其为准", alt: ["Flask", "Django REST"], by: "用户", on: "2026-11-10"}
+      - {k: data_validation, v: "Pydantic v2", s: confirmed, basis: "随 FastAPI", by: "用户", on: "2026-11-10"}
+      - {k: database,    v: "SQLite（本地单文件数据库）；原始简历文件存放在项目 file 目录，数据库记录保存文件路径等关联信息", s: confirmed, basis: "用户补充“保存到本地的 DS_Store 数据库”；.DS_Store 是 macOS 目录元数据文件，不是数据库，按 SQLite 理解，请确认", suggest: "起步阶段用 SQLite（Python 自带 sqlite3，单文件，不需要单独申请数据库实例）；存储访问集中在 repositories 层，日后换成正式数据库只改这一层", why: "项目起步阶段并发低、数据量小，单文件数据库免去申请和运维实例的时间；分层隔离保证换库成本可控", check: "组织是否规定必须使用指定的数据库产品？能否及时提供数据库实例？并发和数据量是否在起步阶段就较大？任一为是，直接填指定的数据库", by: "用户", on: "2026-11-10"}
+      - {k: key_dependencies, v: "DeepSeek flash（简历内容解析与结构化抽取，经 clients 层调用）；PDF 文本提取与照片文字识别的方式待确认（DeepSeek flash 是否支持图片输入需核实，不支持则需另配 OCR）", s: confirmed, basis: "用户补充信息；图片处理方式为待核实项", by: "用户", on: "2026-11-10"}
+
+    commands:
+      - {k: install,     v: "pip install -r requirements.txt", s: confirmed, basis: "通用预设；使用内网镜像时按团队配置", by: "用户", on: "2026-11-10"}
+      - {k: build,       v: "python -m compileall -q src", s: confirmed, basis: "Python 无编译步骤，用语法编译检查代替", by: "用户", on: "2026-11-10"}
+      - {k: test,        v: "pytest -q", s: confirmed, basis: "Python 惯例", by: "用户", on: "2026-11-10"}
+      - {k: test_one,    v: "pytest -q {file}::{test_name}", s: confirmed, basis: "Python 惯例", by: "用户", on: "2026-11-10"}
+      - {k: lint,        v: "ruff check .", s: confirmed, basis: "通用预设；已有 flake8 或 pylint 规范则以其为准", alt: ["flake8", "pylint"], by: "用户", on: "2026-11-10"}
+      - {k: format,      v: "ruff format --check .", s: confirmed, basis: "同上", by: "用户", on: "2026-11-10"}
+
+    layering:
+      - {k: pattern,     v: "api → services → repositories / clients；schemas 贯穿各层", s: confirmed, basis: "通用预设；团队已有分层规范则以其为准", by: "用户", on: "2026-11-10"}
+      - {k: dirs,        v: "src/app/{api,services,repositories,clients,schemas,core}；tests/ 与 src 同构", s: confirmed, basis: "同上", by: "用户", on: "2026-11-10"}
+      - {k: layer_api,   v: "职责：路由、入参校验、响应转换。禁止：业务判断、直接访问存储或外部服务", s: confirmed, basis: "同上", by: "用户", on: "2026-11-10"}
+      - {k: layer_services, v: "职责：编排业务流程。禁止：拼接存储语句、直接依赖具体外部服务的 SDK", s: confirmed, basis: "同上", by: "用户", on: "2026-11-10"}
+      - {k: layer_repositories, v: "职责：存储读写。禁止：业务判断。仅在存储职责确认后启用", s: confirmed, basis: "同上", by: "用户", on: "2026-11-10"}
+      - {k: layer_clients, v: "职责：对外调用的唯一出口（第三方 API、模型服务等），负责超时、重试、脱敏日志。禁止：业务判断", s: confirmed, basis: "通用预设：外部调用集中管控", by: "用户", on: "2026-11-10"}
+
+    conventions:
+      - {k: naming,      v: "遵循 PEP 8：模块与函数 snake_case，类 PascalCase，常量 UPPER_SNAKE；Pydantic 模型以 Request、Response、Dto 结尾", s: confirmed, basis: "Python 官方规范；类名后缀为预设", by: "用户", on: "2026-11-10"}
+      - {k: comment_language, v: "代码注释与 docstring 使用英文", s: confirmed, basis: "通用预设：便于跨团队阅读；团队习惯不同可改", alt: ["使用中文"], by: "用户", on: "2026-11-10"}
+      - {k: error_handling, v: "业务异常继承统一的 AppError，技术异常在 clients 层捕获并转换；禁止裸 except 与吞异常", s: confirmed, basis: "通用编码原则：不吞异常", by: "用户", on: "2026-11-10"}
+      - {k: logging,     v: "结构化日志；不输出用户提交内容原文和敏感个人信息；每条请求带 request_id", s: confirmed, basis: "通用安全规范：日志脱敏", by: "用户", on: "2026-11-10"}
+      - {k: base_classes, v: "无（新项目不预设公共基类）", s: confirmed, basis: "新建项目无存量代码", by: "用户", on: "2026-11-10"}
+      - {k: audit_fields, v: "若有持久化实体：id、created_at、updated_at", s: confirmed, basis: "通用惯例，随存储职责确认", by: "用户", on: "2026-11-10"}
+      - {k: query_filter, v: "无特殊过滤约定", s: confirmed, basis: "新建项目无存量约定", by: "用户", on: "2026-11-10"}
+
+    constraints:
+      - {id: B-01, level: BLOCK, v: "密钥、凭证只放环境变量或配置中心，不进代码、日志、仓库、测试夹具", s: confirmed, basis: "通用安全规范", by: "用户", on: "2026-11-10"}
+      - {id: B-02, level: BLOCK, v: "数据不得发往批准清单之外的外部服务；对外调用只经 clients 层", s: confirmed, basis: "通用安全规范；批准清单由项目方提供", by: "用户", on: "2026-11-10"}
+      - {id: B-03, level: BLOCK, v: "日志与错误响应不得包含用户提交内容原文或敏感个人信息", s: confirmed, basis: "通用安全规范", by: "用户", on: "2026-11-10"}
+      - {id: B-04, level: BLOCK, v: "解析结果必须经用户在对话中确认后才能写入数据库；识别不到或不确定的字段必须请用户补充，不得猜测补全", s: confirmed, basis: "用户补充：与用户对话校对，信息确认后再保存", by: "用户", on: "2026-11-10"}
+      - {id: B-05, level: BLOCK, v: "每条简历记录必须关联其原始文件（文件存放于项目 file 目录），保存记录与保存文件须保持一致，不得出现有记录无文件或有文件无记录", s: confirmed, basis: "用户补充：简历模型需保存上传原始文件与模型的关联", by: "用户", on: "2026-11-10"}
+      - {id: B-06, level: BLOCK, v: "简历属个人敏感信息：仅允许发送给批准清单内的模型服务；测试与样例只用合成或脱敏简历，不得提交真实简历", s: confirmed, basis: "通用数据安全要求；DeepSeek 是否在客户批准清单内需确认", by: "用户", on: "2026-11-10"}
+
+    design_profile:
+      - {k: has_storage,     v: true, s: confirmed, basis: "通用预设：后端负责数据持久化；没有存储职责则改为 false", by: "用户", on: "2026-11-10"}
+      - {k: interface_form,  v: "REST over HTTP/JSON，契约由 OpenAPI 描述", s: confirmed, basis: "通用预设，随 FastAPI", by: "用户", on: "2026-11-10"}
+      - {k: api_style,       v: "路径前缀 /api/v1，资源名用复数名词，动作用 HTTP 方法表达", s: confirmed, basis: "通用预设；有组织 API 规范则以其为准", by: "用户", on: "2026-11-10"}
+      - {k: request_response_contract, v: "JSON，字段 snake_case，时间用 ISO 8601 UTC；有文件上传时用 multipart/form-data", s: confirmed, basis: "通用预设", by: "用户", on: "2026-11-10"}
+      - {k: error_contract,  v: "统一错误体 {code, message, request_id}，HTTP 状态码表达错误类别，业务码用字符串", s: confirmed, basis: "通用预设", by: "用户", on: "2026-11-10"}
+      - {k: schema_dimensions, v: "实体与关系、字段类型与可空性、审计字段、索引、保留期与清理策略", s: confirmed, basis: "通用 Schema 设计维度", by: "用户", on: "2026-11-10"}
+      - {k: interface_dimensions, v: "路径与方法、请求与响应模型、错误响应、幂等性、分页、超时与重试、契约版本", s: confirmed, basis: "通用接口设计维度", by: "用户", on: "2026-11-10"}
+      - {k: slice_shape,     v: "一个切片是一个纵向能力：schema → service → api → 测试；公共基础任务包括配置加载、日志、错误类型、对外调用客户端", s: confirmed, basis: "通用预设", by: "用户", on: "2026-11-10"}
+      - {k: walkthrough_path, v: "请求入口 api → 入参校验 → services 编排 → clients 或 repositories → 响应转换；重点看对外调用边界、异常处理、敏感数据是否外传", s: confirmed, basis: "通用预设", by: "用户", on: "2026-11-10"}
+      - {k: test_dimensions, v: ["单元（pytest）", "接口契约（TestClient 加 OpenAPI 校验）", "外部调用（mock 或录制回放）", "数据验证（落库内容断言）", "异常路径（外部调用超时、非法输入、边界值）", "安全（无密钥、日志脱敏）"], s: confirmed, basis: "通用预设", by: "用户", on: "2026-11-10"}
+      - {k: test_data,       v: "使用脱敏或公开样例与 fixtures；数据库确认后补造数与清数语法", s: confirmed, basis: "数据安全要求：只用公开或脱敏样例", by: "用户", on: "2026-11-10"}
+      - {k: locate_cmd,      v: "grep -rn \"{keyword}\" src/ --include=*.py；入口目录 src/app/api/", s: confirmed, basis: "随目录结构预设", by: "用户", on: "2026-11-10"}
+      - {k: kickoff_signals, v: "需求涉及接口、业务规则、数据存储、对外调用时，归 backend", s: confirmed, basis: "通用预设", by: "用户", on: "2026-11-10"}
+      - {k: self_test_unit_header, v: "Method / Path / 关联需求 / 关联错误码 / 写入数据源", s: confirmed, basis: "通用预设：按 REST 接口形态", by: "用户", on: "2026-11-10"}
+      - {k: self_test_io,    v: "输入：请求参数 JSON 或上传文件；输出：响应结构、HTTP 状态码、统一错误体", s: confirmed, basis: "随 interface_form 与 error_contract", by: "用户", on: "2026-11-10"}
+      - {k: self_test_verify, v: "pytest 断言接口响应；数据库确认后补充对应的查询语句", s: confirmed, basis: "通用预设", by: "用户", on: "2026-11-10"}
+      - {k: self_test_trace_dims, v: ["接口覆盖", "错误码覆盖", "业务规则覆盖"], s: confirmed, basis: "通用预设", by: "用户", on: "2026-11-10"}
+
+  # ==========================================================
+  # frontend
+  # ==========================================================
+  - key: frontend
+    identity:
+      - {k: name,        v: "frontend", s: confirmed, basis: "框架约定：Workbench 键"}
+      - {k: doc_root,    v: "frontend-docs", s: confirmed, basis: "通用预设的文档目录名", by: "用户", on: "2026-11-10"}
+      - {k: repository,  v: {name: hr-collection-agent-web, description: "HR 信息收集 Web 对话前端：上传简历、对话校对与确认"}, s: confirmed, basis: "仓库名由用户提供；职责描述为整理稿，请确认", by: "用户", on: "2026-11-10"}
+      - {k: code_root_key, v: "frontend", s: confirmed, basis: "框架约定：与 Workbench 键相同"}
+
+    tech:
+      - {k: language,    v: "TypeScript", s: confirmed, basis: "通用预设", alt: ["Python 单栈（Streamlit 或 Gradio）：团队没有前端技术栈时的替代方案"], by: "用户", on: "2026-11-10"}
+      - {k: framework,   v: "React 18 加 Vite", s: confirmed, basis: "通用预设", alt: ["Vue 3 加 Vite"], by: "用户", on: "2026-11-10"}
+      - {k: ui_library,  v: "Ant Design（React 版）", s: confirmed, basis: "采纳背景推断建议：依据 background.in_scope（Web 对话界面、文件上传、对话校对），表单、上传、列表组件开箱即有；与模板建议一致", by: "用户", on: "2026-11-10"}
+      - {k: api_client,  v: "统一的 api 封装层（基于 fetch），组件内不直接发请求", s: confirmed, basis: "通用预设", by: "用户", on: "2026-11-10"}
+      - {k: state_management, v: "不引入状态管理库，用 React 自带的 useState、useReducer；业务数据以后端为准", s: confirmed, basis: "采纳背景推断建议：依据 background.in_scope（单一对话校对流程，无多页面共享业务状态）；与模板建议一致", by: "用户", on: "2026-11-10"}
+      - {k: client_persistence, v: "不在浏览器持久化敏感数据", s: confirmed, basis: "通用安全要求", by: "用户", on: "2026-11-10"}
+      - {k: database,    v: "无：前端不持有数据存储", s: confirmed, basis: "随 has_storage: false", by: "用户", on: "2026-11-10"}
+
+    commands:
+      - {k: install,     v: "npm ci", s: confirmed, basis: "通用预设；使用内网镜像时按团队配置", by: "用户", on: "2026-11-10"}
+      - {k: build,       v: "npm run build", s: confirmed, basis: "Vite 惯例", by: "用户", on: "2026-11-10"}
+      - {k: test,        v: "npm test", s: confirmed, basis: "通用预设：Vitest", by: "用户", on: "2026-11-10"}
+      - {k: test_one,    v: "npx vitest run {file}", s: confirmed, basis: "同上", by: "用户", on: "2026-11-10"}
+      - {k: lint,        v: "npm run lint", s: confirmed, basis: "通用预设：ESLint", by: "用户", on: "2026-11-10"}
+      - {k: format,      v: "随 lint，不单设格式化命令", s: confirmed, basis: "通用预设", by: "用户", on: "2026-11-10"}
+
+    layering:
+      - {k: pattern,     v: "pages → components → hooks → api 封装层", s: confirmed, basis: "通用预设", by: "用户", on: "2026-11-10"}
+      - {k: dirs,        v: "src/{pages,components,hooks,api,types}", s: confirmed, basis: "通用预设", by: "用户", on: "2026-11-10"}
+      - {k: layer_pages,  v: "职责：页面编排与路由。禁止：直接请求接口", s: confirmed, basis: "同上", by: "用户", on: "2026-11-10"}
+      - {k: layer_components, v: "职责：展示与交互。禁止：直接请求接口、持有业务规则", s: confirmed, basis: "同上", by: "用户", on: "2026-11-10"}
+      - {k: layer_hooks, v: "职责：状态与副作用，调用 api 层。禁止：操作 DOM 样式", s: confirmed, basis: "同上", by: "用户", on: "2026-11-10"}
+      - {k: layer_api,   v: "职责：封装对 backend 接口的调用与错误转换，是前端访问后端的唯一出口", s: confirmed, basis: "同上", by: "用户", on: "2026-11-10"}
+
+    conventions:
+      - {k: naming,      v: "组件与文件 PascalCase，hooks 以 use 开头，类型以接口契约命名", s: confirmed, basis: "React 惯例", by: "用户", on: "2026-11-10"}
+      - {k: comment_language, v: "代码注释使用英文", s: confirmed, basis: "同 backend", alt: ["使用中文"], by: "用户", on: "2026-11-10"}
+      - {k: error_handling, v: "api 层统一转换错误；页面必须处理加载态、空态、错误态", s: confirmed, basis: "通用预设", by: "用户", on: "2026-11-10"}
+      - {k: logging,     v: "不在控制台输出用户提交内容和敏感数据", s: confirmed, basis: "通用安全规范", by: "用户", on: "2026-11-10"}
+      - {k: audit_fields, v: "不适用：前端无持久化实体", s: confirmed, basis: "随 has_storage: false", by: "用户", on: "2026-11-10"}
+
+    constraints:
+      - {id: F-01, level: BLOCK, v: "前端不得保存任何密钥或凭证，不得直连外部服务或存储", s: confirmed, basis: "跨 Workbench 约定与通用安全规范", by: "用户", on: "2026-11-10"}
+      - {id: F-02, level: WARN,  v: "不在浏览器本地存储敏感数据", s: confirmed, basis: "同 client_persistence", by: "用户", on: "2026-11-10"}
+      - {id: F-03, level: BLOCK, v: "对话界面必须清楚展示待校对的解析结果，用户明确确认前不得提示“已保存”", s: confirmed, basis: "随 B-04：确认后才保存", by: "用户", on: "2026-11-10"}
+
+    design_profile:
+      - {k: has_storage,     v: false, s: confirmed, basis: "无客户端持久化；数据由 backend 保存", by: "用户", on: "2026-11-10"}
+      - {k: interface_form,  v: "接口消费：调用 backend 的 REST 接口，类型随契约生成或手写对齐", s: confirmed, basis: "通用预设", by: "用户", on: "2026-11-10"}
+      - {k: api_style,       v: "遵循 backend 的接口风格与契约，自身不另立约定", s: confirmed, basis: "跨 Workbench 约定", by: "用户", on: "2026-11-10"}
+      - {k: request_response_contract, v: "以 backend 的 OpenAPI 为准；类型与契约保持一致", s: confirmed, basis: "跨 Workbench 约定", by: "用户", on: "2026-11-10"}
+      - {k: error_contract,  v: "按 backend 统一错误体解析，api 封装层转换为界面可展示的错误", s: confirmed, basis: "跨 Workbench 约定", by: "用户", on: "2026-11-10"}
+      - {k: schema_dimensions, v: "不适用：前端无数据存储职责", s: confirmed, basis: "随 has_storage: false", by: "用户", on: "2026-11-10"}
+      - {k: interface_dimensions, v: "消费的接口清单、请求与响应类型（与 backend OpenAPI 对齐）、加载态与错误态处理、超时与重试", s: confirmed, basis: "通用预设：接口消费方的设计维度", by: "用户", on: "2026-11-10"}
+      - {k: slice_shape,     v: "一个切片是一个用户可见能力：页面或组件 → hook → api 调用 → 测试；公共基础任务包括路由、api 封装、错误边界", s: confirmed, basis: "通用预设", by: "用户", on: "2026-11-10"}
+      - {k: walkthrough_path, v: "用户操作 → 组件事件 → hook → api 封装 → 接口返回 → 渲染；重点看加载态、错误态、空数据展示", s: confirmed, basis: "通用预设", by: "用户", on: "2026-11-10"}
+      - {k: test_dimensions, v: ["组件渲染", "主要交互流程", "加载态、空态与错误态", "接口调用（mock backend 契约）"], s: confirmed, basis: "通用预设", by: "用户", on: "2026-11-10"}
+      - {k: test_data,       v: "接口 mock 与公开样例数据", s: confirmed, basis: "数据安全要求", by: "用户", on: "2026-11-10"}
+      - {k: locate_cmd,      v: "grep -rn \"{keyword}\" src/ --include=*.ts --include=*.tsx", s: confirmed, basis: "随目录结构预设", by: "用户", on: "2026-11-10"}
+      - {k: kickoff_signals, v: "需求涉及页面、交互流程、展示、前端校验时，归 frontend", s: confirmed, basis: "通用预设", by: "用户", on: "2026-11-10"}
+      - {k: self_test_unit_header, v: "组件或页面名 / 路由 / 消费接口 / 关联需求", s: confirmed, basis: "通用预设：按前端形态", by: "用户", on: "2026-11-10"}
+      - {k: self_test_io,    v: "输入：用户操作与接口入参（mock）；输出：界面状态（加载、空、错误、成功）与渲染断言", s: confirmed, basis: "随 test_dimensions", by: "用户", on: "2026-11-10"}
+      - {k: self_test_verify, v: "按 backend 契约 mock 接口，断言请求构造与界面渲染结果", s: confirmed, basis: "前端无数据存储，不写存储查询", by: "用户", on: "2026-11-10"}
+      - {k: self_test_trace_dims, v: ["接口消费覆盖", "界面状态覆盖", "主要交互路径覆盖"], s: confirmed, basis: "通用预设", by: "用户", on: "2026-11-10"}
+
+# ------------------------------------------------------------
+# 五、术语种子（写入 project-memory/project_glossary.md，草稿状态）
+# ------------------------------------------------------------
+# 只写业务名词和它的定义，一个词一行；项目背景写在上面的 background，不写在这里。
+# 没有可以留空列表，运行中由各 Skill 逐步补充。
+# 示例：
+#   - {term: "订单", def: "用户一次下单形成的记录，包含若干订单行", s: assumed, basis: "需求文档"}
+glossary_seed:
+  - {term: "简历模型", def: "系统预设的通用简历结构化字段集合，解析结果按它整理、校对和保存。拟含：基本信息、求职意向、教育经历、工作经历、项目经历、技能、证书、语言能力、自我评价", s: confirmed, basis: "用户补充：使用最常见通用的简历模型，具体字段待确认", by: "用户", on: "2026-11-10"}
+  - {term: "原始文件", def: "用户上传的简历文件（PDF、照片等），保存在项目 file 目录下，并与对应的简历记录关联", s: confirmed, basis: "用户补充信息", by: "用户", on: "2026-11-10"}
+  - {term: "校对", def: "系统把解析结果按简历模型逐项展示，用户在对话中修正并确认的过程；确认后才保存", s: confirmed, basis: "用户补充信息", by: "用户", on: "2026-11-10"}
+
+# ------------------------------------------------------------
+# 初始化记录（project-setup-brief 写入）
+# ------------------------------------------------------------
+# 确认方式：用户答复“全部确认”。解释：第三组全部同意（含第 1 条 key_dependencies 按当前取值，不按调整建议）；
+# 第二组 2-2、2-3 采纳建议；2-1 success_criteria 无建议、用户未提供取值，按“暂不确认”处理（deferred）；
+# 第四组 code-reviewer 测试覆盖门槛按推断。
+inferences_accepted:
+  - {skill: code-reviewer, slot: "测试覆盖门槛", workbench: [backend, frontend], content: "依据各自 test_dimensions 覆盖，并要求 B-04、B-05 必须有测试；不设数值门槛", by: "用户", on: "2026-11-10"}
+open_items:
+  - {k: success_criteria, where: "background", note: "未填写，business-brief.md 中写 TODO"}
+  - {k: key_dependencies, where: "backend", note: "照片文字识别方式、DeepSeek flash 是否支持图像输入、是否在批准清单内均未核实"}

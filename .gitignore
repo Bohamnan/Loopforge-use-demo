@@ -1,0 +1,9 @@
+.DS_Store
+*.pyc
+__pycache__/
+node_modules/
+.idea/
+.vscode/
+local_profile.yaml
+# 代码仓库放在工作台目录内时，不纳入工作台仓库
+code/
