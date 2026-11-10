@@ -62,7 +62,7 @@
 - [x] ESLint 配置与三条自定义约束
 - [x] 安装说明中注明默认 registry 的项目例外
 
-### Task 1.2：应用入口、主题与错误边界
+### Task 1.2：应用入口、主题与错误边界 ✅
 - **关联：** REQ-FE-06.3；design.md §3.5（App / main、ErrorBoundary）、TD-14、§7.1（渲染异常）
 - **内容：** `src/main.tsx`、`src/App.tsx`（Ant Design `ConfigProvider`，主题 token 取自原型 `style.css` 配色：`--navy` `--blue` `--warn` `--ok` `--red` 等）、`src/components/ErrorBoundary.tsx`（通用文案 + “刷新页面”，不输出简历内容）；`App` 暂以占位页面挂载（后续由 2.1 替换为 `ResumeCollectionPage`）。
 - **测试：** `ErrorBoundary`：子组件抛错时显示通用文案且不泄露错误对象内容；`console.error` 调用不含子树文本；`App` 渲染冒烟，主题 token 生效（`ConfigProvider` 存在）。
@@ -71,8 +71,8 @@
 
 #### 子任务
 
-- [ ] 入口与 `ConfigProvider` 主题
-- [ ] `ErrorBoundary` 与测试
+- [x] 入口与 `ConfigProvider` 主题
+- [x] `ErrorBoundary` 与测试
 
 ### Task 1.3：types（与 OpenAPI 0.1.1 同名）
 - **关联：** REQ-FE-06.4、06.5；design.md §3.1、F-02（手写类型）；`interface_spec_resume.md` §四
