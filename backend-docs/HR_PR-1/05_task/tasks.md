@@ -317,7 +317,7 @@
 
 ---
 
-### Task 2.6：草稿清理 CleanupService
+### Task 2.6：草稿清理 CleanupService ✅
 - **关联：** REQ-BE-05.5；D§3.6（`CleanupService`）、D§5.5；S§4.4；ADR-003；O-07
 - **内容：** `services/cleanup_service.py` 的 `run_once()`：① `DELETE FROM drafts WHERE last_active_at < cutoff RETURNING file_path`，随后逐个删除临时文件（失败仅记日志；先删行后删文件）；② 孤儿扫描：`data/drafts/` 中不被任何草稿行引用且修改时间超过 1 天的文件才删除；③ **绝不访问 `file/`**。可注入 `Clock`。
 - **测试：** 7 天边界（恰 7 天不删、7 天 + 1 秒删）；`FakeClock` 控制；孤儿文件 1 天窗口（刚创建的未被引用文件不删，进行中的上传不被误删）；**任何情况下 `file/` 内文件不变**（把文件放入 `file/` 后清理，断言不变）；文件删除失败只记日志不抛出。**数据验证：** 清理前后 `drafts` 行数与 `data/drafts/` 文件列表。
@@ -331,7 +331,7 @@
 
 ---
 
-### Task 2.7：启动编排 lifecycle 与清理调度线程
+### Task 2.7：启动编排 lifecycle 与清理调度线程 ✅
 - **关联：** REQ-BE-04.4、05.5；D§3.2（`core/lifecycle.py`）、D§5.4、D§1“草稿清理调度”“启动顺序”“运行形态约束”
 - **内容：** `core/lifecycle.py` 的 `lifespan`：创建 `DATA_DIR`/`FILE_DIR`/`drafts` 目录 → `init_drafts_db`/`init_resumes_db` → `ReconcileService.run()` → `CleanupService.run_once()` → 启动守护调度线程（`threading.Event` 控制，每 `CLEANUP_INTERVAL_SECONDS` 一次，线程内捕获所有异常并记录）→ 开始接收请求；停止时 `Event.set()` 并 `join(timeout)`；接入 `create_app()`；写明“仅支持单进程单 worker”。
 - **测试：** 启动顺序（以记录调用序列的假对象断言：目录 → 初始化 → 对账 → 清理 → 调度）；对账与清理在首个请求前完成；启动时对账失败不阻止启动；调度线程在间隔到达后再次清理（缩短间隔 + 事件等待，不 sleep 轮询）；调度线程异常不终止线程；停止时线程被 join；`TestClient` 的 `with` 块启动/关闭无资源泄漏。
