@@ -36,7 +36,7 @@ hr-info-collection-doc-workspace/
 └── local_profile.yaml.example
 ```
 
-> **重要**：本仓库不包含任何代码。代码仓库由每位工程师在本地独立管理，路径通过 `local_profile.yaml` 声明。
+> **重要**：本仓库原则上只放文档。**HR_PR-1 例外（DL 2026-11-10 决定，取简单方式）**：backend、frontend 业务代码直接放在本仓库 `codes/hr-collection-agent-backend/`、`codes/hr-collection-agent-frontend/` 下，随工作台分支（feature-backend / feature-frontend → feature）管理，不另建独立代码仓库；路径仍通过 `local_profile.yaml` 的 `code_roots` 声明。
 
 ---
 

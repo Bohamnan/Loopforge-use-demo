@@ -2,10 +2,10 @@
 
 | 项 | 内容 |
 |---|---|
-| 状态 | 待复核（设计有更新） |
+| 状态 | 已确认 |
 | 版本 | v1（技术设计后补全） |
 | 来源 | [solution-design.md](../../01-requirements/HR_PR-1/solution-design.md)（HR_PR-1）；工作台 backend 规范与架构参考；v1 补全依据 [design.md](../../backend-docs/HR_PR-1/04_design/design.md)、[sql_ddl_resume.md](../../backend-docs/HR_PR-1/02_schema/sql_ddl_resume.md)、[openapi.yaml](../../backend-docs/HR_PR-1/03_api/openapi.yaml)（0.1.1）、[tasks.md](../../backend-docs/HR_PR-1/05_task/tasks.md) |
-| 最后更新 | 2026-11-10（v1 补全，待 Dev Lead 复核后改回“已确认”） |
+| 最后更新 | 2026-11-10（v1 补全，Dev Lead 已复核确认） |
 
 ## 项目定位
 
