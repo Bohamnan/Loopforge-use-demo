@@ -6,8 +6,10 @@ import { getSection } from './SectionConfig';
 import {
   buildSectionUpdate,
   coreReady,
+  canConfirmSection,
   currentValue,
   sectionConfirmBlock,
+  sectionConfirmState,
   firstTodoSection,
   hasUnsubmittedEdits,
   orderedFieldKeys,
@@ -237,5 +239,54 @@ describe('buildSectionUpdate: empty experience items', () => {
       educations: [{}, { school: 'x'.repeat(2001) }],
     });
     expect(errors).toEqual({ 'educations[1].school': 'too_long' });
+  });
+});
+
+describe('canConfirmSection / sectionConfirmState (single rule for the button and the quick reply)', () => {
+  it('allows an unconfirmed section and labels it "确认本区"', () => {
+    const state = sectionConfirmState(getSection('intent'), sampleFields(), {});
+    expect(state).toMatchObject({ block: null, dirty: false, label: '确认本区' });
+    expect(canConfirmSection(getSection('intent'), sampleFields(), {})).toBe(true);
+  });
+
+  it('a confirmed section without edits is "已确认" and cannot be confirmed again', () => {
+    const fields = sampleFields();
+    fields.skills.status = 'confirmed';
+    expect(sectionConfirmState(getSection('skills'), fields, {}).label).toBe('已确认');
+    expect(canConfirmSection(getSection('skills'), fields, {})).toBe(false);
+  });
+
+  it('a confirmed section with an edit is "确认修改" and can be confirmed', () => {
+    const fields = sampleFields();
+    fields.skills.status = 'confirmed';
+    expect(sectionConfirmState(getSection('skills'), fields, { skills: ['x'] })).toMatchObject({ dirty: true, label: '确认修改' });
+    expect(canConfirmSection(getSection('skills'), fields, { skills: ['x'] })).toBe(true);
+  });
+
+  it('is blocked by invalid core values, and by a running request', () => {
+    expect(canConfirmSection(getSection('basic'), sampleFields(), { phone: '123' })).toBe(false);
+    expect(sectionConfirmState(getSection('basic'), sampleFields(), { phone: '123' }).block).toBe('请先补充并修正姓名、手机号、邮箱');
+    expect(canConfirmSection(getSection('intent'), sampleFields(), {}, true)).toBe(false);
+  });
+});
+
+describe('buildSectionUpdate: blank text-list rows stay where the user left them', () => {
+  it('reports an error at the visible row index although blank rows are not submitted', () => {
+    const { update, errors } = buildSectionUpdate(getSection('languages'), sampleFields(), { languages: ['', 'ok', 'b'.repeat(1001)] });
+    expect(errors).toEqual({ 'languages[2]': 'too_long' });
+    expect(update.languages).toEqual(['ok', 'b'.repeat(1001)]);
+  });
+
+  it('counts only filled rows against the limit', () => {
+    const rows = [...Array.from({ length: 50 }, (_, i) => `技能${i}`), '', ''];
+    expect(buildSectionUpdate(getSection('skills'), sampleFields(), { skills: rows }).errors).toEqual({});
+  });
+
+  it('nested lists keep the visible index too', () => {
+    const { errors, update } = buildSectionUpdate(getSection('work'), sampleFields(), {
+      work_experiences: [{ company: 'A', responsibilities: ['', 'x'.repeat(2001)] }],
+    });
+    expect(errors).toEqual({ 'work_experiences[0].responsibilities[1]': 'too_long' });
+    expect(update.work_experiences).toEqual([{ company: 'A', responsibilities: ['x'.repeat(2001)] }]);
   });
 });

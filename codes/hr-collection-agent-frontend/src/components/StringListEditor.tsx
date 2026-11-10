@@ -25,7 +25,7 @@ interface StringListEditorProps {
   onChange: (items: string[]) => void;
 }
 
-/** Add / edit / delete for a text list; blank rows are dropped when their input loses focus. */
+/** Add / edit / delete for a text list. Blank rows stay on screen (nothing disappears under the pointer) and are simply not submitted. */
 export default function StringListEditor({
   label,
   fieldKey,
@@ -76,9 +76,6 @@ export default function StringListEditor({
                 disabled={disabled}
                 status={itemError ? 'error' : undefined}
                 onChange={(event) => change(index, event.target.value)}
-                onBlur={() => {
-                  if (item.trim() === '') remove(index);
-                }}
               />
               <Button size="small" type="text" disabled={disabled} aria-label={`删除第${index + 1}项`} onClick={() => remove(index)}>
                 删除

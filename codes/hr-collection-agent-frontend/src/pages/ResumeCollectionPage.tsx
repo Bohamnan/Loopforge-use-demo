@@ -17,7 +17,7 @@ import SectionCard from '../components/SectionCard';
 import UploadProgressNotice from '../components/UploadProgressNotice';
 import WelcomePanel from '../components/WelcomePanel';
 import { getSection, SECTIONS } from '../hooks/model/SectionConfig';
-import { coreReady, sectionConfirmBlock, sectionStatus, unconfirmedCount } from '../hooks/model/SectionView';
+import { canConfirmSection, coreReady, unconfirmedCount } from '../hooks/model/SectionView';
 import { useChatScroll } from '../hooks/useChatScroll';
 import { usePreventFileDropNavigation } from '../hooks/usePreventFileDropNavigation';
 import { useResumeSession } from '../hooks/useResumeSession';
@@ -154,9 +154,7 @@ export default function ResumeCollectionPage() {
   let quickReplies = null;
   if (inSections && state.draft) {
     const section = getSection(state.activeSection);
-    const dirty = section.fields.some((f) => f.key in state.editBuffer);
-    const alreadyConfirmed = sectionStatus(section, state.draft.fields) === 'confirmed' && !dirty;
-    const blocked = busy || alreadyConfirmed || sectionConfirmBlock(section, state.draft.fields, state.editBuffer) !== null;
+    const blocked = !canConfirmSection(section, state.draft.fields, state.editBuffer, busy);
     quickReplies = (
       <QuickReplyChips
         chips={[

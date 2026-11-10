@@ -418,3 +418,23 @@ React 在开发模式下自身会向 console 输出异常信息（含 message）
 
 ### 遗留风险
 形状校验仍只覆盖界面实际读取的部分；未知额外成员被忽略。
+
+## Cleanup-B：长度按码点、空白行不再失焦删除、确认规则去重复（第一批 S2、第二批 S2 / S4）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/hooks/model/FieldRules.ts | 修改 | **第一批 S2**：新增 `charLength`（`Array.from(value).length`，按 Unicode 码点计数，与 OpenAPI `maxLength` 一致），标量、邮箱、手机号、文本列表项、经历子项及子列表项的长度检查全部改用它。空白行不计入条数上限，过长项的下标仍是用户所见的行位置 |
+| codes/hr-collection-agent-frontend/src/components/StringListEditor.tsx | 修改 | **第二批 S4**：去掉失焦时删除空白行（行高变化可能让同一次点击落到相邻的“删除”按钮上）。空白行留在屏幕上，仅在提交时丢弃（`buildSectionUpdate` 早已如此） |
+| codes/hr-collection-agent-frontend/src/hooks/model/SectionView.ts | 修改 | `buildSectionUpdate`：校验在“保留空白行”的版本上进行，所以错误下标与屏幕行一致，提交内容仍不含空白行；新增 `sectionConfirmState`（按钮文案 / 阻断原因 / 是否有未提交编辑）与 `canConfirmSection`（**第二批 S2**） |
+| codes/hr-collection-agent-frontend/src/components/SectionCard.tsx、pages/ResumeCollectionPage.tsx | 修改 | 卡片按钮与“确认无误”快捷指令共用 `canConfirmSection`，删除页面里重复的规则 |
+| 测试 | 新增 / 修改 | `FieldRules.test`（emoji 边界：100/101、500/501、5000/5001、1000/1001、2000/2001、邮箱 254；空白行不计数且下标保持）、`SectionView.test`（`canConfirmSection`、空白行下标）、`StringListEditor.test` / `ObjectListEditor.test` / `ResumeCollectionPage.edit.test`（失焦不删行，空白行不提交） |
+
+### 偏差说明
+第一批 changelog 与实现备注曾约定“文本列表在失焦时丢弃空白行”，现按 DL 要求改为“只在提交时丢弃”；`ObjectListEditor` 中嵌套列表同样。
+
+### 遗留风险
+空白行会一直留在界面直到用户删除或提交；提交后（PATCH 成功）新草稿不含空白行，界面随之刷新。
