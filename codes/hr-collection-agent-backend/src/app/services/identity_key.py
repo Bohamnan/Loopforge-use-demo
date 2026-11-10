@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from app.services.field_validation import strip_phone
 
 _WHITESPACE_RE = re.compile(r"\s+")
-_MAINLAND_RE = re.compile(r"^1\d{10}$")
+_MAINLAND_RE = re.compile(r"^1\d{10}$", re.ASCII)  # ASCII digits only (D-02)
 
 
 def name_key(name: str) -> str:

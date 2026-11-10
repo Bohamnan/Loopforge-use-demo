@@ -11,7 +11,9 @@ from app.core.errors import FieldIssue, IssueReason
 from app.schemas import limits as L
 from app.schemas.resume_fields import ResumeFieldsUpdate
 
-_PHONE_RE = re.compile(L.PHONE_PATTERN)
+# re.ASCII: \d must match only 0-9, like the OpenAPI pattern and the frontend (ECMA-262).
+_PHONE_RE = re.compile(L.PHONE_PATTERN, re.ASCII)
+# Email is intentionally lenient (G-01) and has no \d; \s only rejects whitespace.
 _EMAIL_RE = re.compile(L.EMAIL_PATTERN)
 _PHONE_NOISE_RE = re.compile(r"[\s\-]")
 

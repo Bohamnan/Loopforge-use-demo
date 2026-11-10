@@ -1,9 +1,10 @@
 import json
 import logging
+from pathlib import Path
 
 import pytest
 
-from app.core.logging import log_event, request_id_var
+from app.core.logging import MAX_STACK_CHARS, MAX_STACK_FRAMES, log_event, request_id_var
 
 
 def _last(caplog: pytest.LogCaptureFixture) -> dict:
@@ -60,3 +61,33 @@ def test_level_is_applied(caplog: pytest.LogCaptureFixture) -> None:
     log_event("w", level="warning", count=2)
     assert caplog.records[-1].levelno == logging.WARNING
     assert _last(caplog)["count"] == 2
+
+
+def test_stack_has_no_absolute_paths(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.ERROR, logger="app")
+    try:
+        raise RuntimeError("x")
+    except RuntimeError as exc:
+        log_event("boom", level="error", exc=exc)
+    stack = json.loads(caplog.records[-1].getMessage())["stack"]
+    assert str(Path(__file__).resolve().parents[2]) not in stack
+    assert "/Users/" not in stack and not stack.startswith("/")
+    assert "tests/core/test_logging.py" in stack
+
+
+def test_stack_is_bounded_to_max_frames_and_chars(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.ERROR, logger="app")
+
+    def recurse(n: int) -> None:
+        if n == 0:
+            raise RuntimeError("deep")
+        recurse(n - 1)
+
+    try:
+        recurse(50)
+    except RuntimeError as exc:
+        log_event("boom", level="error", exc=exc)
+    stack = json.loads(caplog.records[-1].getMessage())["stack"]
+    assert stack.count(" in ") <= MAX_STACK_FRAMES
+    assert len(stack) <= MAX_STACK_CHARS
+    assert "in recurse" in stack  # innermost frames are kept

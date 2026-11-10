@@ -5,6 +5,7 @@ import logging
 import sys
 import traceback
 from contextvars import ContextVar
+from pathlib import Path
 
 request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
 
@@ -20,6 +21,10 @@ _LEVELS = {
 }
 _logger = logging.getLogger("app")
 
+MAX_STACK_FRAMES = 12
+MAX_STACK_CHARS = 2000
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]  # codes/hr-collection-agent-backend
+
 
 def configure_logging(level: int = logging.INFO) -> None:
     """Attach a plain stdout handler once; messages are already JSON."""
@@ -31,10 +36,22 @@ def configure_logging(level: int = logging.INFO) -> None:
         _logger.addHandler(handler)
 
 
+def _display_path(filename: str) -> str:
+    """Project-relative path (``src/app/...``); files outside the project show only the name."""
+    try:
+        return Path(filename).resolve().relative_to(_PROJECT_ROOT).as_posix()
+    except ValueError:
+        return Path(filename).name
+
+
 def _safe_stack(exc: BaseException) -> str:
-    """Return frames only (file, line, function); never the exception message."""
-    frames = traceback.extract_tb(exc.__traceback__)
-    return " <- ".join(f"{f.filename}:{f.lineno} in {f.name}" for f in reversed(frames))
+    """Return innermost frames only (relative file, line, function); never the message.
+
+    Bounded to ``MAX_STACK_FRAMES`` frames and ``MAX_STACK_CHARS`` characters.
+    """
+    frames = list(reversed(traceback.extract_tb(exc.__traceback__)))[:MAX_STACK_FRAMES]
+    text = " <- ".join(f"{_display_path(f.filename)}:{f.lineno} in {f.name}" for f in frames)
+    return text[:MAX_STACK_CHARS]
 
 
 def log_event(

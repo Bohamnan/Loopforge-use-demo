@@ -160,3 +160,34 @@ TestClient 来自 fastapi.testclient，运行时有 StarletteDeprecationWarning�
 
 ---
 
+## 第一批审查修复（BLOCK-1、SUGGEST-3、SUGGEST-5、QUESTION-1）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+**依据**：`backend-docs/HR_PR-1/10_review/code_review.md` 及 Dev Lead 裁决
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/services/field_validation.py | 修改 | BLOCK-1：手机号 pattern 以 `re.ASCII` 编译，`\d` 仅匹配 0-9 |
+| codes/hr-collection-agent-backend/src/app/services/identity_key.py | 修改 | BLOCK-1：`+86`/`86` 去前缀用的大陆号正则加 `re.ASCII`，非 ASCII 数字不会被当作大陆号进入去重键 |
+| codes/hr-collection-agent-backend/src/app/core/logging.py | 修改 | SUGGEST-3：`stack` 用相对项目根的路径（`src/app/...`），项目外文件只显示文件名；最多 12 个栈帧（最内层优先）、最多 2000 字符 |
+| codes/hr-collection-agent-backend/tests/services/test_field_validation.py | 修改 | 新增 Unicode 数字反例：1+10 个阿拉伯-印度数字、全角数字、`+`+全角、`+`+天城文数字、`+`+阿拉伯-印度数字、混入单个非 ASCII 数字，均须 `invalid_format`（校验入口 `validate_core_fields` 与 `validate_update` 各验证）；ASCII 正例仍通过 |
+| codes/hr-collection-agent-backend/tests/services/test_identity_key.py | 修改 | 新增：非 ASCII 数字的 `+86` 号码、裸 11 位号码，`phone_key` 原样返回，不去前缀 |
+| codes/hr-collection-agent-backend/tests/core/test_logging.py | 修改 | 新增：stack 不含绝对路径；50 层递归下栈帧数 ≤ 12 且长度 ≤ 2000，且保留最内层帧 |
+| codes/hr-collection-agent-backend/AGENTS.md | 修改 | SUGGEST-5、QUESTION-1（见第二个提交 `docs(backend)`） |
+
+### 偏差说明
+- 改动方式：`PHONE_PATTERN` 常量保持与 OpenAPI 原文逐字一致（既有一致性测试保留），在编译处加 `re.ASCII`；未把常量改成 `[0-9]`，以免与冻结契约字符串不一致。
+- 红灯验证：临时去掉 `re.ASCII` 后新增的 Unicode 反例用例失败，恢复后通过。
+- 其他正则的判断：
+  - `EMAIL_PATTERN`（`^[^\s@]+@[^\s@]+\.[^\s@]+$`）不含 `\d`；G-01 本来就从宽，只排除空白与 `@`，允许 Unicode 字母（国际化邮箱），故不改。
+  - `strip_phone` 用的 `[\s\-]` 与 `identity_key` 的 `\s+`：`\s` 在 Python 中含 Unicode 空白（如不换行空格、全角空格），在手机号上会被当作噪声去掉，属于宽松兜底；去除后仍须满足 ASCII 手机号 pattern，故不会让非 ASCII 数字通过，也不影响去重键。不改。
+  - `db.py` 的 DDL 无 Python 正则。
+- stack 上限取值：12 个栈帧、2000 个字符（常量 `MAX_STACK_FRAMES`、`MAX_STACK_CHARS`）。
+
+### 遗留风险
+- 审查跟踪项（其余 SUGGEST）按 DL 裁决在后续相关任务中顺带处理；PATCH/确认路由必须调用 `validate_update` / `validate_core_fields` 并有接口级测试断言坏手机号 → 422（任务 2.3 / 2.4），本批仍只能证明单点函数正确。
+
+---
+

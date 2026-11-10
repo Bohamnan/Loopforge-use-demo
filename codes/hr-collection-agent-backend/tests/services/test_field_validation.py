@@ -176,3 +176,31 @@ def test_pydantic_issues_are_deduplicated_and_value_free() -> None:
     issues = _errs({"nick": "ZZ-secret", "name": "ZZ" * 100})
     assert all("ZZ" not in repr(i) for i in issues)
     assert len(issues) == len(set(issues))
+
+
+# ---- BLOCK-1: Unicode digits must not satisfy the ASCII-only phone pattern ----------
+
+ARABIC_INDIC = "".join(chr(0x0661 + i % 9) for i in range(10))  # U+0661.. (Arabic-Indic digits)
+FULLWIDTH = "１３８００１３８０００"  # 11 fullwidth digits
+DEVANAGARI = "".join(chr(0x0966 + i % 10) for i in range(8))
+
+
+@pytest.mark.parametrize(
+    "phone",
+    [
+        "1" + ARABIC_INDIC,  # 1 + 10 Arabic-Indic digits
+        FULLWIDTH,
+        "+" + FULLWIDTH[:8],  # + then fullwidth digits
+        "+" + DEVANAGARI,  # + then Devanagari digits
+        "+٨٦١٣٨٠٠١٣٨٠٠٠",
+        "1380013800\u0660",  # ASCII digits with one non-ASCII digit
+    ],
+)
+def test_non_ascii_digits_rejected(phone: str) -> None:
+    assert _fmt(validate_core_fields(GOOD[0], phone, GOOD[2])) == {("phone", "invalid_format")}
+    assert _fmt(validate_update(_u(phone=phone))) == {("phone", "invalid_format")}
+
+
+def test_ascii_digits_still_accepted() -> None:
+    assert validate_core_fields(GOOD[0], "13800138000", GOOD[2]) == []
+    assert validate_core_fields(GOOD[0], "+85212345678", GOOD[2]) == []
