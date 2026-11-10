@@ -103,7 +103,7 @@
 - [x] `ResumeDraftApi`、`ResumeApi`
 - [x] 契约样例的 mock 工厂（供后续切片测试复用，放 `src/test/`）
 
-### Task 1.5：hooks/model 纯逻辑
+### Task 1.5：hooks/model 纯逻辑 ✅
 - **关联：** REQ-FE-01.1、01.2、02.1、02.2、03.4、03.5、04.1、04.2；design.md §3.3、§4.2–§4.4、§6（SectionConfig / FieldRules / UploadPrecheck / SectionView）、§6.1（`FIELD_MAX_LENGTH`）、TD-06、TD-07；G-01、G-02、CR-01、CR-01a
 - **内容：** `src/hooks/model/SectionConfig.ts`（11 个分区、22 字段、控件类型、核心标记、子项字段配置）、`FieldRules.ts`（`normalizePhone`、`PHONE_PATTERN`、`EMAIL_PATTERN`、`EMAIL_MAX_LENGTH = 254`、`FIELD_MAX_LENGTH` 按 design §6.1 逐项取自 OpenAPI 0.1.1、`validateCore`、`reasonText`、字段路径 `a[0].b` 解析）、`UploadPrecheck.ts`（扩展名、MIME、10485760 字节、0 字节、多文件取第一个并提示）、`SectionView.ts`（分区状态汇总优先级 `missing` > `uncertain` > `recognized` > `confirmed`、`firstTodoSection`、`coreReady`、`unconfirmedCount`、`hasUnsubmittedEdits`、分区内高亮排序）。文件均为纯 TS，无 DOM。
 - **测试：** 手机号：`13800138000`、`+85212345678` 通过，10 位 / 含字母 / `+` 位数不足拒绝，`138 0013 8000`、`138-0013-8000` 规范化后通过，提交原值超 32 字符拒绝；邮箱：`a@b.co` 通过，`a@b`、`a b@c.d`、255 字符拒绝；`FIELD_MAX_LENGTH` 每个上限做边界断言（等于通过、超 1 失败），并与 OpenAPI 0.1.1 数值核对；核心三项空白拒绝；`UploadPrecheck`：`.PDF` 通过、`.docx` 拒绝、恰好 10 MB 通过、10 MB + 1 拒绝、0 字节拒绝；`SectionConfig` 的字段集合与 `ResumeFields` 22 键一一对应、分区合计 22；`SectionView`：状态优先级、活跃分区选取（含全部已确认）、`coreReady`、未确认计数、缓冲存在判定。
@@ -112,10 +112,10 @@
 
 #### 子任务
 
-- [ ] `SectionConfig`
-- [ ] `FieldRules`（含上限表）
-- [ ] `UploadPrecheck`
-- [ ] `SectionView`
+- [x] `SectionConfig`
+- [x] `FieldRules`（含上限表）
+- [x] `UploadPrecheck`
+- [x] `SectionView`
 
 ### Task 1.6：SessionReducer（会话状态机）
 - **关联：** REQ-FE-01.5、03.2、04.3–04.8、05.2、05.3；design.md §3.3（SessionReducer）、§5.2、§5.3、§6、TD-02/03/04/05/12；O-02、O-10、D-01

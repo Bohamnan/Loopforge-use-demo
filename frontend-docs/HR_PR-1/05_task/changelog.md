@@ -89,3 +89,26 @@ React 在开发模式下自身会向 console 输出异常信息（含 message）
 
 ### 遗留风险
 无。`ApiError.request_id` 在前端自有码上为 `undefined`，UI 展示 `request_id` 时需判空。
+
+## Task-1.5：hooks/model 纯逻辑
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/hooks/model/SectionConfig.ts | 新增 | 11 个分区、22 字段、控件类型、核心标记；三类经历子项字段配置；`getSection`、`sectionKeyOfField` |
+| codes/hr-collection-agent-frontend/src/hooks/model/FieldRules.ts | 新增 | 手机号 / 邮箱 pattern 与 254 上限（OpenAPI 0.1.1）、`normalizePhone`、`FIELD_MAX_LENGTH` 与 `EXPERIENCE_ITEM_LIMIT`（design §6.1，数值全部取自 OpenAPI）、`validateScalar` / `validateCore` / `validateStringList` / `validateObjectList`、`toSubmitScalar`、`reasonText`、`parseFieldPath` |
+| codes/hr-collection-agent-frontend/src/hooks/model/UploadPrecheck.ts | 新增 | 扩展名（大小写不敏感）、MIME、10485760 字节、0 字节；`pickSingleFile` 多文件取第一个并带提示文案 |
+| codes/hr-collection-agent-frontend/src/hooks/model/SectionView.ts | 新增 | `sectionStatus`（missing > uncertain > recognized > confirmed）、`firstTodoSection`、`coreReady`、`statusCounts`、`unconfirmedCount`、`hasUnsubmittedEdits`、`orderedFieldKeys` |
+| codes/hr-collection-agent-frontend/src/hooks/model/*.test.ts（4 个） | 新增 | 见验证 |
+
+### 偏差说明
+- `FIELD_MAX_LENGTH` 为按字段的对象表（`maxLength` / `maxItems` / `itemMaxLength`），经历区块内部上限另放 `EXPERIENCE_ITEM_LIMIT`；设计只写“上限表”，结构为实现选择，数值与 OpenAPI 0.1.1 一致。
+- 手机号 `maxLength 32` 针对提交原值；前端提交的是规范化后的值，故在规范化后的值上校验长度（更宽松于对原值的校验，但与实际提交内容一致，不会导致 backend 拒绝）。
+- 另导出 `orderedFieldKeys`、`statusCounts`、`pickSingleFile`、`MULTIPLE_FILES_NOTICE` 等设计 §4.3 / §6 提到的派生函数，供后续切片使用。
+
+### 遗留风险
+- `coreReady` 在核心字段存在未提交编辑时返回 false（保守策略），任务 2.6 需保证“最终确认”按钮的禁用文案能解释这一原因。
+- 邮箱校验使用 `trim` 后的值；OpenAPI 对全空白在服务层按 required 拒绝，二者一致。
