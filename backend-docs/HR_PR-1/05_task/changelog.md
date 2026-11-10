@@ -575,3 +575,25 @@ OpenAPI 0.1.1 未改动；无新增依赖；无数据库结构变更（无）。
 
 ### 遗留风险
 对账只在启动时运行（AGENTS.md 已知限制，第七批 SUGGEST-3）；接入 `lifespan` 在 2.7。
+
+---
+
+## Task-2.6：草稿清理 CleanupService
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/services/cleanup_service.py | 新增 | `CleanupService.run_once()`：先删过期行再删文件；孤儿扫描（未被引用且修改时间超过 1 天）；只依赖草稿仓储与草稿文件仓储，返回 `CleanupReport` |
+| codes/hr-collection-agent-backend/tests/services/test_cleanup_service.py | 新增 | 16 个用例：7 天边界、活动续期、先删行后删文件、删除失败不抛出、孤儿 1 天窗口、`file/` 不变、数据库/目录读取失败、日志只含数量 |
+
+### 设计要点
+- 恰好 7 天（`last_active_at == cutoff`）不删，7 天 + 1 秒删；孤儿恰好 1 天不删。
+- 无法读取草稿库或目录时不删任何孤儿（否则全部文件会被误判）；不识别的文件名与符号链接不动、不计失败。
+- `run_once` 对普通异常不抛出，调度线程由 2.7 负责再兜底。
+- 无新依赖，不改 OpenAPI。
+
+### 遗留风险
+清理与确认的竞态沿用 design §5.5 的 POC 接受结论。
