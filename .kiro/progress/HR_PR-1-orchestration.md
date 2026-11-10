@@ -3,7 +3,7 @@
 | 项 | 内容 |
 |---|---|
 | 当前级别 | L3（新项目、跨前后端、外部模型对接） |
-| 状态 | ▶ 接近收尾：代码实现与审查全部通过（backend 十批、frontend 十一批，0 BLOCK）；真实样品联调通过；待办：dev-self-test、test-data-script-generator、跟踪项处置、清理 /tmp/hr_sample、释放全部 worker、交 DL 最终 Review。worker：backend ctx_8d10c20f5e9f、frontend ctx_508402531c47、审查 ctx_779355a3c1cb（均空闲） |
+| 状态 | ✅ 编排完成，等待 DL 最终 Review。DL 决定不做 dev-self-test、造数脚本及三个识别细节（职位内部标记、技能连接词、主要客户字段）。临时样品与截图已删除，所有 worker 已释放 |
 | 最后更新 | 2026-11-10，feature `505d02d` |
 | 权威进度 | `01-requirements/HR_PR-1/_progress.md`（流程表、贡献记录、末尾「暂停恢复清单」） |
 
