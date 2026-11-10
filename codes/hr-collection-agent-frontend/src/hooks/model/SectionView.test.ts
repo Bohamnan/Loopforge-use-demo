@@ -6,6 +6,8 @@ import { getSection } from './SectionConfig';
 import {
   buildSectionUpdate,
   coreReady,
+  currentValue,
+  sectionConfirmBlock,
   firstTodoSection,
   hasUnsubmittedEdits,
   orderedFieldKeys,
@@ -188,5 +190,52 @@ describe('buildSectionUpdate (design §4.4)', () => {
     const { update, errors } = buildSectionUpdate(getSection('self_evaluation'), sampleFields(), {});
     expect(errors).toEqual({});
     expect(update).toEqual({ self_evaluation: null });
+  });
+});
+
+describe('currentValue', () => {
+  it('prefers an unsubmitted edit, including an explicit null or empty list', () => {
+    const fields = sampleFields();
+    expect(currentValue(fields, {}, 'job_title')).toBe('供应链经理');
+    expect(currentValue(fields, { job_title: '新岗位' }, 'job_title')).toBe('新岗位');
+    expect(currentValue(fields, { job_title: null }, 'job_title')).toBeNull();
+    expect(currentValue(fields, { skills: [] }, 'skills')).toEqual([]);
+  });
+});
+
+describe('sectionConfirmBlock', () => {
+  it('blocks the basic section while a core value is empty or invalid and says why', () => {
+    const fields = sampleFields();
+    expect(sectionConfirmBlock(getSection('basic'), fields, {})).toBeNull();
+    expect(sectionConfirmBlock(getSection('basic'), fields, { email: '' })).toBe('请先补充并修正姓名、手机号、邮箱');
+    expect(sectionConfirmBlock(getSection('basic'), fields, { phone: '123' })).toBe('请先补充并修正姓名、手机号、邮箱');
+    fields.email.value = null;
+    expect(sectionConfirmBlock(getSection('basic'), fields, {})).toBe('请先补充并修正姓名、手机号、邮箱');
+  });
+
+  it('never blocks sections without core fields', () => {
+    expect(sectionConfirmBlock(getSection('intent'), sampleFields(), { job_title: '' })).toBeNull();
+    expect(sectionConfirmBlock(getSection('skills'), sampleFields(), { skills: [] })).toBeNull();
+  });
+});
+
+describe('buildSectionUpdate: empty experience items', () => {
+  it('drops items with no content from the submitted list', () => {
+    const { update } = buildSectionUpdate(getSection('work'), sampleFields(), {
+      work_experiences: [{ company: 'A公司' }, {}, { company: '  ', responsibilities: [' '] }, { position: '主管' }],
+    });
+    expect(update.work_experiences).toEqual([{ company: 'A公司' }, { position: '主管' }]);
+  });
+
+  it('can submit an empty list to confirm the section as empty', () => {
+    const { update } = buildSectionUpdate(getSection('project'), sampleFields(), { project_experiences: [{}] });
+    expect(update.project_experiences).toEqual([]);
+  });
+
+  it('reports errors with the indexes the user sees, even when empty items are dropped before them', () => {
+    const { errors } = buildSectionUpdate(getSection('education'), sampleFields(), {
+      educations: [{}, { school: 'x'.repeat(2001) }],
+    });
+    expect(errors).toEqual({ 'educations[1].school': 'too_long' });
   });
 });

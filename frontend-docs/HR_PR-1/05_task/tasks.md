@@ -135,7 +135,7 @@
 
 > 每个切片是用户可见能力：组件 → hook → api 调用 → 测试。HIGH_RISK（受约束 F-03 约束）单独成任务。
 
-### Task 2.1：页面外壳与启动 / 草稿读取（REQ-FE-05 骨架）
+### Task 2.1：页面外壳与启动 / 草稿读取（REQ-FE-05 骨架） ✅
 - **关联：** REQ-FE-05.1、05.3、REQ-FE-06.1；design.md §3.3（useResumeSession）、§3.4（AppShell、NewChatButton、ChatThread、WelcomePanel、NoticeBanner、BootstrapErrorPanel）、§3.5（ResumeCollectionPage）、§5.1（启动分支）、§7.1（启动失败、无可恢复草稿）、TD-08；P-02、P-11；O-12、裁决 F-03
 - **内容：** `src/hooks/useResumeSession.ts`（`useReducer` 驱动；`bootstrap`、`retryBootstrap`；调用 `getCurrentResumeDraft`；StrictMode 下不产生重复请求副作用；`busy` 互斥；epoch 记录），`src/pages/ResumeCollectionPage.tsx`（按 `phase` 编排，不请求接口），`AppShell`（顶栏 Logo + 产品名、左窄栏仅含 `NewChatButton`，无用户信息与历史列表，< 860px 折叠为顶栏）、`NewChatButton`（本任务仅渲染，禁用逻辑与确认流程在 2.7）、`ChatThread`（基础滚动容器）、`WelcomePanel`（空态引导，无填写指南 / 隐私说明 / 示例文件按钮）、`NoticeBanner`（四类文案）、`BootstrapErrorPanel`（可重试，隐藏上传主入口）。`App` 改为挂载页面。
 - **测试：** 页面启动：GET 404 → 空态，**无错误提示、无 `console` 输出**（O-12）；GET 500 / 网络失败 / 非 JSON → 可重试错误态且不是空态、无上传主入口；点击重试后成功进入下一状态；加载态显示；外壳不含用户头像、历史会话、填写指南、隐私说明、示例文件按钮；请求带 `same-origin`；StrictMode 下仅一次有效 GET。
@@ -144,11 +144,11 @@
 
 #### 子任务
 
-- [ ] `useResumeSession`（bootstrap）
-- [ ] 外壳与空态 / 错误态组件
-- [ ] `ResumeCollectionPage` 与 `App` 接线
+- [x] `useResumeSession`（bootstrap）
+- [x] 外壳与空态 / 错误态组件
+- [x] `ResumeCollectionPage` 与 `App` 接线
 
-### Task 2.2：上传简历（REQ-FE-01）
+### Task 2.2：上传简历（REQ-FE-01） ✅
 - **关联：** REQ-FE-01.1–01.6；design.md §3.4（ComposerBar、FileCard、UploadProgressNotice、ErrorAlert、ConfirmDialog）、§5.1、§5.3（上传相关行）、§6、§7.1（上传相关）、TD-04/05/10；P-03、P-05；C-07、C-08、O-02、裁决 F-04
 - **内容：** `ComposerBar`（📎 上传 `accept` 单选、整页拖拽取第一个、底部免责提示、**无文本框**、忙碌态禁用）、`FileCard`、`UploadProgressNotice`（单一加载提示“正在识别，最长约 1 分钟”）、`ErrorAlert`（契约错误只展示 `message`，前端自有码用固定文案，附 `request_id`）、`ConfirmDialog`（本任务启用“覆盖确认”）；`useResumeSession` 增加 `requestUpload`、`confirmOverwriteAndUpload`；上传成功后以占位方式进入 `reviewing`（展示由 2.3 完成）。
 - **测试：** 预校验阻止（类型不支持、10 MB + 1、0 字节、多文件）且不发请求；上传中显示单一加载提示、输入区与“新对话”禁用、无法重复提交；75s 超时（fake timers）→ 提示重新上传；backend 错误（`file_*`、`unsupported_file_type`、`parse_failed`、`parse_unavailable`、`parse_timeout`）只展示 `message`，失败后保留原草稿（O-02）；有草稿时先弹覆盖确认，取消则不发请求，确认后才发；无草稿直接上传；`ComposerBar` 无 `textarea`；日志不含文件内容。
@@ -157,11 +157,11 @@
 
 #### 子任务
 
-- [ ] `ComposerBar`、`FileCard`、`UploadProgressNotice`、`ErrorAlert`
-- [ ] `ConfirmDialog`（覆盖确认）
-- [ ] `useResumeSession` 上传动作
+- [x] `ComposerBar`、`FileCard`、`UploadProgressNotice`、`ErrorAlert`
+- [x] `ConfirmDialog`（覆盖确认）
+- [x] `useResumeSession` 上传动作
 
-### Task 2.3：识别结果展示与草稿恢复展示（REQ-FE-02、05.2）
+### Task 2.3：识别结果展示与草稿恢复展示（REQ-FE-02、05.2） ✅
 - **关联：** REQ-FE-02.1–02.4、05.2；design.md §3.4（FieldStatusTag、ReadOnlySection、ReviewSummary、SectionCard 只读态）、§4.1–§4.3、§6；P-04、P-06、P-10、B-04
 - **内容：** `FieldStatusTag`（待确认 / 不确定、请确认 / 待补充 / 已确认，文字 + 颜色）、`ReadOnlySection`、`ReviewSummary`（四状态计数与待处理分区跳转芯片）、`SectionCard` 只读骨架（11 个分区全部展示，分区内 `missing` / `uncertain` 置顶高亮，`null` 显示“（未提供）”，手机号完整显示）；上传成功与恢复成功后选取活跃分区，恢复时显示“已为你恢复未完成的简历”（`NoticeBanner`）；全部已确认则进入最终确认视图。
 - **测试：** 用覆盖四种状态与空列表的合成 `DraftResponse` 渲染：22 字段全部出现且按 11 区分组；四种状态文案与颜色类正确；`recognized` 不显示为已确认；`missing` / `uncertain` 在分区内置顶；经历类多条展示；手机号完整显示；非核心字段为空不阻塞展示；恢复成功出现恢复提示；上传成功与恢复成功选取同一规则的活跃分区；页面不自行补全任何字段值。
@@ -170,11 +170,11 @@
 
 #### 子任务
 
-- [ ] `FieldStatusTag`、`ReadOnlySection`、`ReviewSummary`
-- [ ] `SectionCard` 只读态与活跃分区选取
-- [ ] 恢复提示接线
+- [x] `FieldStatusTag`、`ReadOnlySection`、`ReviewSummary`
+- [x] `SectionCard` 只读态与活跃分区选取
+- [x] 恢复提示接线
 
-### Task 2.4：分区核对 — 标量与文本列表编辑（REQ-FE-03）
+### Task 2.4：分区核对 — 标量与文本列表编辑（REQ-FE-03） ✅
 - **关联：** REQ-FE-03.1–03.2、03.4–03.6、REQ-FE-02.4；design.md §3.4（FieldRow、StringListEditor、SectionCard 编辑态、QuickReplyChips）、§4.4、§5.3（编辑 / 确认本区行）、§6、§6.1、TD-01/03/09/15；P-01 选 A、P-04；G-01、G-02、D-06、O-11
 - **内容：** `FieldRow`（受控输入、失焦与提交前校验、`FIELD_MAX_LENGTH` 超限提示、字段级后端错误显示且不回显值、“未提交修改”小标记）、`StringListEditor`（行内编辑 / 新增 / 删除，条数达上限禁用新增，删空为 `[]`）、`SectionCard` 编辑态（“确认本区”按钮：核心字段为空或非法时禁用并就地说明，含 `missing` 非核心字段时提示“空项将按留空确认”，已确认无缓冲显示“已确认”，有缓冲显示“确认修改”）、`QuickReplyChips`（“确认无误”“其余都没问题”等价按钮动作，不追加用户消息）；`useResumeSession` 增加 `editField`、`confirmSection`、切换分区；PATCH 请求体按 design §4.4 构造（整区全部字段，手机号规范化，文本 trim，全空白非核心提交 `null`，列表提交完整新列表）；422 `details` 映射到字段。
 - **测试：** 核心三项缺失时引导补充且“确认本区”禁用；手机号 / 邮箱即时提示（OpenAPI 示例与反例、空格 / 连字符规范化后提交的值不含空格与连字符）；超出上限的输入提示“内容过长”；PATCH 请求体只含当前分区字段、未触碰的分区不提交；`missing` 非核心字段按 `null` 提交、列表按 `[]` 提交；成功后以 backend 返回替换草稿并跳到下一个待确认分区；422 `details`（含 `reason` 5 值）在字段旁展示且不回显值；PATCH 失败 / 超时保留缓冲并可重试；同一时刻只有一个在途 PATCH（重复点击被忽略）；快捷指令等价按钮；输入区无文本框。
@@ -183,12 +183,12 @@
 
 #### 子任务
 
-- [ ] `FieldRow`、`StringListEditor`
-- [ ] `SectionCard` 编辑态与 `QuickReplyChips`
-- [ ] `useResumeSession` 编辑与分区提交
-- [ ] 请求体构造与 422 映射
+- [x] `FieldRow`、`StringListEditor`
+- [x] `SectionCard` 编辑态与 `QuickReplyChips`
+- [x] `useResumeSession` 编辑与分区提交
+- [x] 请求体构造与 422 映射
 
-### Task 2.5：分区核对 — 经历类子项编辑（REQ-FE-03.3）
+### Task 2.5：分区核对 — 经历类子项编辑（REQ-FE-03.3） ✅
 - **关联：** REQ-FE-03.3、03.6；design.md §3.4（ObjectListEditor）、§4.4、§6（ObjectListEditor）、§6.1（经历区块上限）；O-11、CR-01a
 - **内容：** `ObjectListEditor`：工作经历、项目经历、教育背景的多条子项新增 / 修改 / 删除（可折叠卡片，无重排）；工作经历子项含 `responsibilities` / `achievements` 两个文本列表（复用 `StringListEditor`）；子项条数上限 20、子项内字符串上限 2000、`responsibilities` / `achievements` 条数上限 30，均取自 `FIELD_MAX_LENGTH`；删除子项后清除该分区下标类 `fieldErrors`；字段路径 `work_experiences[0].start_date` 映射到对应行；列表整块提交。
 - **测试：** 新增 / 修改 / 删除子项后提交体为完整新列表；达到 20 条时新增禁用；子项字符串超 2000 提示；`responsibilities` 超 30 条禁用新增；422 `details` 的下标路径定位到正确子项行；删除子项后旧下标错误被清除；空列表可作为“确认留空”提交；三类经历区块的子项字段与 OpenAPI 的 `WorkExperience` / `ProjectExperience` / `Education` 字段一致。
@@ -197,8 +197,8 @@
 
 #### 子任务
 
-- [ ] `ObjectListEditor` 与子项配置渲染
-- [ ] 下标错误映射与清除
+- [x] `ObjectListEditor` 与子项配置渲染
+- [x] 下标错误映射与清除
 
 ### Task 2.6：最终确认与保存结果（REQ-FE-04，HIGH_RISK：约束 F-03）
 - **关联：** REQ-FE-04.1–04.8；design.md §3.4（FinalReviewCard、SavedResultCard、ConfirmDialog）、§5.1、§5.3（最终确认相关行）、§6、§7.1、§9.2、TD-04/11；B-04、F-03、C-05、C-10、C-11、D-01、D-03、D-04、O-08、O-10、P-09、Q-DL-03

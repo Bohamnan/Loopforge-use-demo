@@ -103,6 +103,45 @@ describe('ApiClient.request', () => {
     expect(((await pending) as ApiError).code).toBe('client_timeout');
   });
 
+  it('maps a timeout during response body reading to client_timeout, not unknown_error (review SUGGEST-1)', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    // Headers arrive at once, but the body never completes until the request is aborted.
+    stubFetch(
+      (_url, init) =>
+        ({
+          ok: true,
+          status: 200,
+          json: () =>
+            new Promise((_resolve, reject) => {
+              init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+            }),
+        }) as unknown as Response,
+    );
+    const pending = request('/x', { method: 'GET' }).catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(DEFAULT_TIMEOUT_MS);
+    expect(((await pending) as ApiError).code).toBe('client_timeout');
+  });
+
+  it('also reports client_timeout when an error response body hangs', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    stubFetch(
+      (_url, init) =>
+        ({
+          ok: false,
+          status: 502,
+          json: () =>
+            new Promise((_resolve, reject) => {
+              init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+            }),
+        }) as unknown as Response,
+    );
+    const pending = request('/x', { method: 'POST', timeoutMs: UPLOAD_TIMEOUT_MS }).catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(UPLOAD_TIMEOUT_MS);
+    expect(((await pending) as ApiError).code).toBe('client_timeout');
+  });
+
   it('exposes the contract timeouts', () => {
     expect(UPLOAD_TIMEOUT_MS).toBe(75_000);
     expect(DEFAULT_TIMEOUT_MS).toBe(30_000);

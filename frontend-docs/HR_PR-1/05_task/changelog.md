@@ -135,3 +135,134 @@ React 在开发模式下自身会向 console 输出异常信息（含 message）
 ### 遗留风险
 - `GO_FINAL_REQUESTED` 在 `view` 已是 `final` 时为幂等空操作。
 - 任务 2.x 的 hook 需用“前后状态对比”（`busy` 由 null 变为 upload / patch / confirm）触发请求，并捕获当时的 `epoch` 回传；该约定已在本文件注释中说明，尚未有 hook 层测试。
+
+## Task-2.1：页面外壳与启动 / 草稿读取
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/hooks/useResumeSession.ts | 新增 | `useReducer` 驱动会话状态机；启动时读取草稿（`bootstrap`，用 in-flight 标志保证 StrictMode 下只发一次 GET）；`retryBootstrap`、`dismissNotice`；`send(action)` 返回动作前后的状态，供后续切片在 `busy` 由 null 变为 upload / patch / confirm 时发起请求并回传 `epoch` |
+| codes/hr-collection-agent-frontend/src/pages/ResumeCollectionPage.tsx | 新增 | 按 `phase` 编排：读取中 / 读取失败（可重试）/ 空态 / 已恢复（仅恢复提示，内容展示见 2.3）；不直接请求接口 |
+| codes/hr-collection-agent-frontend/src/components/AppShell.tsx、NewChatButton.tsx、ChatThread.tsx、WelcomePanel.tsx、NoticeBanner.tsx、BootstrapErrorPanel.tsx | 新增 | 外壳仅含标题与“＋ 新对话”（无用户信息、历史列表、填写指南、隐私说明、示例文件按钮，P-02、P-11）；空态；四类提示文案；启动失败面板（隐藏上传入口，裁决 F-03） |
+| codes/hr-collection-agent-frontend/src/components/ErrorAlert.tsx | 新增 | 错误展示：后端错误只显示 `message` + 请求编号；前端自有码用固定文案；本地错误显示 `message`；`timeoutMessage` 可覆盖超时文案（2.2 使用） |
+| codes/hr-collection-agent-frontend/src/components/Layout.css | 新增 | 原型配色与基础布局（`style.css` 视觉参考） |
+| codes/hr-collection-agent-frontend/src/App.tsx、App.test.tsx | 修改 | 挂载 `ResumeCollectionPage`；`ConfigProvider` 关闭按钮自动插空格（避免“重 试”） |
+| codes/hr-collection-agent-frontend/src/test/setup.ts | 修改 | 补 `matchMedia` 的 jsdom polyfill（Ant Design 需要） |
+| 各组件 / 页面 `*.test.tsx` | 新增 | 见验证 |
+
+### 偏差说明
+- `ErrorAlert` 在 tasks 中归 2.2，因启动失败面板（2.1）需要它，提前到 2.1 实现；2.2 直接复用。
+- “读取草稿”加载提示在 2.1 用 `Spin` 内联；2.2 新增 `UploadProgressNotice` 后，页面保持这一处不变（只在上传时使用该组件）。
+- “＋ 新对话”按钮本任务只渲染并按 `busy` / 启动阶段禁用，点击逻辑与确认框在 2.7；侧栏响应式折叠在 2.8。
+- `reviewing` 阶段本任务只显示恢复提示，字段内容展示在 2.3。
+- `useResumeSession` 用 `useEffect` 同步 `latest` 引用（`react-hooks/refs` 禁止在渲染期写 ref）。
+
+### 遗留风险
+- 在 2.7 前点击“＋ 新对话”无反应（按钮已渲染但未接线）；2.2–2.5 的联调演示需知悉。
+
+## Task-2.2：上传简历（REQ-FE-01）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/api/ApiClient.ts、ApiClient.test.ts | 修改 | **处理审查 SUGGEST-1**：读取响应体（`response.json()`）阶段被超时中止时抛 `client_timeout`，不再落到 `unknown_error`；补两条测试（响应头已到但 body 挂起，成功 / 错误响应各一）。计时器本就覆盖到 body 读取完成，仅分类逻辑改动 |
+| codes/hr-collection-agent-frontend/src/components/ComposerBar.tsx | 新增 | 📎 上传按钮、整页拖拽（document 级 drop，忙碌时移除监听）、单选 `accept`、10 MB 提示、AI 免责文案；**无文本框**；`forwardRef` 暴露 `openPicker`；选择后重置 input 以便再次选择同一文件 |
+| codes/hr-collection-agent-frontend/src/components/FileCard.tsx、UploadProgressNotice.tsx、ConfirmDialog.tsx | 新增 | 文件卡；单一加载提示（`role=status`、`aria-live=polite`，无步骤无耗时，P-05）；通用二次确认框 |
+| codes/hr-collection-agent-frontend/src/hooks/useResumeSession.ts | 修改 | 增加 `requestUpload`（多文件取第一个并给出提示）、`confirmOverwrite`、`cancelOverwrite`；在 `busy` 由 null 变为 `upload` 时发起请求并回传 `epoch` |
+| codes/hr-collection-agent-frontend/src/pages/ResumeCollectionPage.tsx | 修改 | 接入 `ComposerBar`、上传中的文件卡 + 加载提示、`ErrorAlert`（超时文案“识别时间过长，请重新上传。”）、覆盖确认框；欢迎页“上传简历”按钮打开选择器 |
+| codes/hr-collection-agent-frontend/src/components/Layout.css | 修改 | 文件卡、输入区、加载提示样式 |
+| 各组件 / 页面测试 | 新增 | `ComposerBar`、`FileCard`、`UploadProgressNotice`、`ConfirmDialog`、`ResumeCollectionPage.upload.test.tsx` |
+
+### 偏差说明
+- 审查 SUGGEST-1 按 DL 裁决在本任务处理；其余 SUGGEST 与本任务无关（SUGGEST-2 长度按码点、SUGGEST-3 契约漂移检测、SUGGEST-4 ESLint 收紧、SUGGEST-5 audit 跟踪），保留为跟踪项。
+- `reviewing` 阶段此时仅显示文件卡与恢复提示，字段展示在 2.3。
+- 页面测试里 Ant Design Modal 的关闭动画在 jsdom 中不会结束，测试用 `ConfigProvider` 关闭 motion；生产代码不受影响。
+- 页面中同时存在欢迎页的“上传简历”按钮与输入区的“上传简历”按钮（两处入口，原型也有 📎 + 建议芯片）。
+
+### 遗留风险
+- 上传期间“新对话”按钮禁用；上传结束后点击仍无反应，待 2.7。
+- 拖拽监听挂在 `document` 上，仅在 `ComposerBar` 挂载且未禁用时生效；确认框打开期间 `busy` 仍为 null，此时拖入文件会被 reducer 忽略（`dialog` 非空时 `decideUpload` 返回 ignored）。
+
+## Task-2.3：识别结果展示与草稿恢复展示（REQ-FE-02、05.2）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/components/FieldStatusTag.tsx | 新增 | 四种状态：待确认 / 不确定、请确认 / 待补充 / 已确认（文字 + 颜色，带 `data-status`） |
+| codes/hr-collection-agent-frontend/src/components/ReadOnlySection.tsx | 新增 | 分区只读渲染：22 字段全部以 `data-field` 标注；`missing` / `uncertain` 置顶并高亮；`null` 显示“（未提供）”；手机号完整显示（P-10）；文本列表、多条经历子项逐条展示；未提交编辑覆盖显示并带“未提交修改”标记（不是第五种字段状态） |
+| codes/hr-collection-agent-frontend/src/components/ReviewSummary.tsx | 新增 | 四状态计数与“需要处理”跳转芯片（仅含 missing / uncertain 的分区） |
+| codes/hr-collection-agent-frontend/src/components/SectionCard.tsx | 新增 | 分区卡：标题、分区状态徽标、只读字段；非活跃分区带“修改”入口；活跃分区 `aria-current` 高亮（编辑态在 2.4） |
+| codes/hr-collection-agent-frontend/src/hooks/model/SectionView.ts、SectionView.test.ts | 修改 | 新增 `currentValue`（编辑缓冲优先，含显式 null / 空列表） |
+| codes/hr-collection-agent-frontend/src/hooks/useResumeSession.ts | 修改 | 新增 `selectSection` |
+| codes/hr-collection-agent-frontend/src/pages/ResumeCollectionPage.tsx | 修改 | `reviewing` 时渲染文件卡、概览、11 个分区卡；`view=final`（全部已确认）时以只读卡展示、不带“修改”入口（2.6 替换为最终确认卡） |
+| codes/hr-collection-agent-frontend/src/components/Layout.css | 修改 | 分区、字段行、高亮样式 |
+| 各组件 / 页面测试 | 新增 | `FieldStatusTag`、`ReadOnlySection`、`ReviewSummary`、`SectionCard`、`ResumeCollectionPage.review.test.tsx` |
+
+### 偏差说明
+- 单字段且标签与分区标题相同的分区（个人优势、工作经历等 9 个）不重复渲染字段标签行，但仍带 `data-field` 属性，保证 22 字段均可定位。
+- `view=final` 的临时展示（全部已确认的草稿）复用 `SectionCard`，没有“确认提交”按钮；真正的最终确认卡在 2.6。
+
+### 遗留风险
+- 多个 `role="alert"`：Ant Design `Alert` 默认带该角色，恢复提示与错误提示同屏时读屏会连续播报；2.8（无障碍）时统一评估把提示类改为 `role="status"`。
+
+## Task-2.4：分区核对 — 标量与文本列表编辑（REQ-FE-03）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/components/FieldRow.tsx | 新增 | 标量字段就地编辑：受控输入（无 `maxLength` 属性，不静默截断）、核心必填空值立即提示、格式 / 过长在失焦后提示、后端字段级错误（只显示 reason 文案，不回显值）、“未提交修改”标记（不改变状态标签） |
+| codes/hr-collection-agent-frontend/src/components/StringListEditor.tsx | 新增 | 文本列表新增 / 修改 / 删除；**失焦时丢弃空白行**；达到 50 项禁用新增；整表错误与单项错误；新增行自动聚焦 |
+| codes/hr-collection-agent-frontend/src/components/QuickReplyChips.tsx | 新增 | 快捷指令芯片（“确认无误”“其余都没问题”），与卡片按钮等价，不接收自由文本 |
+| codes/hr-collection-agent-frontend/src/components/SectionCard.tsx | 修改 | 活跃分区进入编辑态：缺失 / 不确定字段置顶；“确认本区 / 确认修改 / 已确认”按钮；核心字段不合法时禁用并说明；“空项将按留空确认”提示；分区级错误可重试；经历类字段暂以只读显示（编辑在 2.5） |
+| codes/hr-collection-agent-frontend/src/components/ComposerBar.tsx | 修改 | 增加 `quickReplies` 插槽 |
+| codes/hr-collection-agent-frontend/src/hooks/model/SectionView.ts、SectionView.test.ts | 修改 | 新增 `sectionConfirmBlock`（核心三项缺失 / 非法时不可确认） |
+| codes/hr-collection-agent-frontend/src/hooks/useResumeSession.ts | 修改 | 新增 `editField`、`confirmSection`（`busy` 由 null→patch 时用 `buildSectionUpdate` 生成整区请求体并回传 `epoch`）、`goFinal`、`discardEditsAndGoFinal`、`backToSections`、`dismissDialog` |
+| codes/hr-collection-agent-frontend/src/pages/ResumeCollectionPage.tsx | 修改 | 活跃分区接入编辑；快捷指令；“未提交的修改”确认框；临时“我还要修改”按钮 |
+| codes/hr-collection-agent-frontend/src/test/ApiMocks.ts | 修改 | 新增 `applyPatch`（按后端语义模拟 PATCH：提交的字段变为 confirmed） |
+| codes/hr-collection-agent-frontend/src/components/Layout.css | 修改 | 编辑态样式 |
+| 各组件 / 页面测试 | 新增 | `FieldRow`、`StringListEditor`、`QuickReplyChips`、`SectionCard.edit`、`ResumeCollectionPage.edit` |
+
+### 偏差说明
+- **“未提交的修改”确认框与最终确认视图的临时“我还要修改”按钮提前到 2.4**：“其余都没问题”会走 reducer 的 `unsubmitted_edits` 对话框与 `view=final`，若 UI 不渲染它们，状态机会卡死（`dialog` 非空时忽略后续动作）。该对话框在 2.6 复用；最终确认卡（含“确认提交”）仍在 2.6，届时替换临时按钮。
+- 非核心字段的过长 / 条数错误在点击“确认本区”时由 reducer 本地拦截并显示在字段旁（不发请求）；只有核心字段缺失 / 非法会预先禁用按钮。
+- 文本列表在失焦时丢弃空白行，故 `buildSectionUpdate` 报告的下标与 UI 行一致（兑现第一批实现备注）。
+
+### 遗留风险
+- 编辑缓冲只在内存，刷新页面会丢失未提交编辑（TD-03，已知行为）。
+- 点击“确认本区”时若同一分区已 `confirmed` 且无编辑，按钮为“已确认”且禁用；用户需先改动才能再次提交（符合设计 §6）。
+
+## Task-2.5：分区核对 — 经历类子项编辑（REQ-FE-03.3）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/components/ObjectListEditor.tsx | 新增 | 工作 / 项目 / 教育经历的多条子项新增、修改、删除（可折叠卡片 `<details>`，无重排）；子项字段由 `SectionConfig` 驱动；工作经历内含职责 / 业绩两个文本列表；条数上限 20（取自 `FIELD_MAX_LENGTH`），子列表上限 30、单项 2000（取自 `EXPERIENCE_ITEM_LIMIT`）；字段路径 `work_experiences[1].start_date` 的错误显示在对应子项行；整表错误；提交态锁定 |
+| codes/hr-collection-agent-frontend/src/components/StringListEditor.tsx | 修改 | 支持嵌套使用：`fieldKey` 可为子项路径、`maxItems` 覆盖、`bare` 隐藏状态标签与外层标记；原有行为不变 |
+| codes/hr-collection-agent-frontend/src/components/SectionCard.tsx | 修改 | 经历类字段改用 `ObjectListEditor`（替换 2.4 的只读展示） |
+| codes/hr-collection-agent-frontend/src/hooks/model/SectionView.ts、SectionView.test.ts | 修改 | `buildSectionUpdate`：提交时丢弃“完全为空”的子项（用户新增后未填写）；错误仍按用户所见下标报告 |
+| codes/hr-collection-agent-frontend/src/components/Layout.css | 修改 | 子项卡片样式 |
+| 测试 | 新增 | `ObjectListEditor.test.tsx`、`ResumeCollectionPage.items.test.tsx`；扩充 `SectionView.test.ts` |
+
+### 偏差说明
+- 新增的**空白子项在提交时被丢弃**（设计 §4.4 只写“列表提交完整新列表”）：避免把只点了“添加一条”却没填的占位项存入草稿；全部为空则提交 `[]`（即“确认留空”）。
+- 删除子项后清除下标类字段错误：由 reducer 的 `FIELD_EDITED` 对该字段的全部路径错误一并清除（任何对该列表的编辑都会清掉它的旧错误，下次确认时重新校验），因此不会出现错位提示。
+- 子项以 `<details open>` 折叠，未提供“全部收起 / 展开”。
+
+### 遗留风险
+- 子项无 id、以下标为 key：删除或在中间插入时，已折叠 / 展开的状态会随下标移动（仅影响显示，不影响数据）。
+- 嵌套列表（职责 / 业绩）的 `status` 与“未提交修改”标记显示在外层经历字段上，子项级没有单独状态（契约中整块一个状态，O-11）。
