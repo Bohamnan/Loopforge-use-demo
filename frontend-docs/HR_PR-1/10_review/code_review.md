@@ -279,3 +279,98 @@
 | 偏差 ①–④ | 全部接受。② 的条件是：2.6 替换掉临时按钮，new_chat / unconfirmed 确认框随 2.6/2.7 接线；③ 补写进设计 §4.4 |
 | SUGGEST：拖拽离开页面（ComposerBar.tsx:32-47） | 在下一批（任务 2.6）中修复 |
 | 其余 SUGGEST | 记为跟踪项，归入 2.7 / 2.8 |
+
+---
+
+## 第三批审查（任务 2.6：最终确认与保存，HIGH_RISK：F-03）
+
+- 日期：2026-11-10；Review 模式：Ticket-aware Review；Reviewer：Yin Yang（dev-lead，审查 agent 代行）
+- 审查对象：提交 2bdd002（合并 c76cdb1）；本 worktree 已 `git merge feature`。
+- 本批结论：**PASS_WITH_SUGGESTIONS**（0 BLOCK / 0 QUESTION / 5 SUGGEST）
+- 上下文限制：未做浏览器实机交互；以源码走读、用例与构建结果为证据。`new_chat` 对话框与“＋ 新对话”接线属 2.7，不在本批。
+
+### Review Scope
+| 文件 | 风险 |
+|---|---|
+| `components/FinalReviewCard.tsx`、`components/SavedResultCard.tsx` | **高**（F-03） |
+| `hooks/useResumeSession.ts`（`confirmResume`、`proceedUnconfirmed`、`startConfirm`、`uploadNext`、`backToSections(section?)`）、`pages/ResumeCollectionPage.tsx` | **高** |
+| `hooks/usePreventFileDropNavigation.ts`、`components/ComposerBar.tsx` | 中（拖拽离开页面） |
+| `components/NoticeBanner.tsx` | 低 |
+| 测试：`ResumeCollectionPage.final.test.tsx`（30 例）、`FinalReviewCard/SavedResultCard/usePreventFileDropNavigation/ComposerBar` 测试 | — |
+| `design.md`（v1.2）、`changelog.md` | — |
+
+### 1. REQ-FE-04.1–04.8 逐条核对
+| AC | 实现证据 | 测试证据 | 结论 |
+|---|---|---|---|
+| 04.1 独立最终确认；核心三项就绪才可点（D-03） | `FinalReviewCard` 的“确认提交”`disabled={!coreReady || busy}`；`coreReady` 要求三项均 `confirmed`、值合法、无未提交编辑；reducer `CONFIRM_REQUESTED` 对 `!coreReady` 直接忽略（双重防线） | final.test “04.1”组 4 例；`FinalReviewCard.test` | ✅ |
+| 04.2 有未确认字段先提示；继续即确认当前显示的全部内容（D-03） | `unconfirmed` 对话框已接线（`ResumeCollectionPage.tsx`：标题“还有字段未确认”，文案“继续将视为确认当前显示的全部内容”，`proceedUnconfirmed`）；`unsubmitted_edits` 对话框保留 | “04.2”组：取消不发请求、继续发一次、无未确认字段不弹窗、放弃修改 | ✅ |
+| 04.3 成功前不显示“已保存”，不做乐观更新（F-03） | 见下文第 2 节 | “04.3”组 | ✅ |
+| 04.4（v1.2）成功后清空内容，仅留姓名/文件名/保存时间；“上传下一份” | `CONFIRM_SUCCEEDED` 置 `draft:null/editBuffer:{}`，只保留 `savedSummary{name,filename,saved_at}`；`SavedResultCard`；结果阶段不渲染 composer | “04.4”组：三项展示、页面文本不含手机号/邮箱、无 `data-field`、无记录编号、上传下一份回空态 | ✅ |
+| 04.5 `already_saved=true` 只显示一句话（D-04、P-09） | `SavedResultCard` 的 `alreadySaved` 分支只渲染“该简历已保存过”；`savedSummary:null` | “04.5”组：无姓名/文件名/手机号/邮箱；只按字段判断（201+true、200+false 两个交叉用例，O-08） | ✅ |
+| 04.6 超时/网络失败不提示成功，可直接重试，不查询状态（C-05） | `CONFIRM_FAILED` 停留 `final`、按钮保持可点；失败文案“未收到保存结果，尚未确认保存成功，可直接重试。” | “04.6”组：请求序列恰为 `GET current → POST → POST`，无任何状态查询 | ✅（见第 5 节关于重试结果的说明） |
+| 04.7 `draft_not_found` → “可能已保存，请重新上传核实”（D-01） | reducer `CONFIRM_FAILED` 的 `draft_not_found` → 空态 + `maybe_saved`，不进入成功态 | “04.7”组：提示出现、无成功态、内容清空、可重新上传 | ✅ |
+| 04.8 请求期间防重复点击 | `busy='confirm'`：按钮 disabled+loading；reducer/`confirmResume` 在 `busy≠null` 时忽略；“我还要修改”同时禁用 | “04.8”组：多次点击只发 1 个 POST | ✅ |
+| C-10 幂等键、C-11 确认后不可改、P-09 不展示记录编号 | 前端不构造/展示幂等键、`resume_id`、记录编号；保存后不提供任何修改入口 | 04.4/04.5 组断言无记录编号 | ✅ |
+
+### 2. F-03 路径核对（HIGH_RISK）
+- **唯一入口**：非测试源码中 `phase: 'saved'` 只在 `SessionReducer.ts` 的 `CONFIRM_SUCCEEDED` 分支设置（行 337–342）；`SavedResultCard` 只在 `case 'saved'` 渲染；`CONFIRM_SUCCEEDED` 只在 `useResumeSession.startConfirm` 里 `createResume()` 的 fulfilled 回调派发。该分支还要求 `busy==='confirm'`、epoch 匹配且 `draft!==null`，过期响应被丢弃。
+- **无乐观更新**：派发“请求”动作时只置 `busy='confirm'`，页面此时仍是 `reviewing/final`；“已保存”字样在非测试源码中只出现于 `SavedResultCard`（成功后）以及 `FinalReviewCard` 里“当前不能确认是否已保存”的否定提示，后者不是成功提示。
+- **请求体恰为 `{confirmed:true}`**：`ResumeApi.createResume` 固定构造 `{ confirmed: true }`；final.test 断言请求体 `{"confirmed":true}` 与 `credentials: 'same-origin'`。
+- **各失败路径无成功态**（final.test “04.3”组逐一断言无 `saved-result`、无“已保存”）：进行中、500 `save_failed`、500 `internal_error`、422 `confirmation_required`、502 非 JSON、网络失败、超时（fake timers）。2xx 但非 JSON 由 `ApiClient.request` 抛 `unknown_error`（第一批已有用例）。
+- **例外风险**：2xx 且为 JSON 但形状不对的响应，见 SUGGEST-2。
+
+### 3. 拖拽修复
+- `usePreventFileDropNavigation`（`ResumeCollectionPage` 顶层调用）在 `document` 上取消 `dragover/drop` 默认行为，覆盖读取中/读取失败/结果页等没有 composer 的阶段，卸载时清理监听；有单测。
+- `ComposerBar.tsx`：监听器不再因 `disabled` 而卸载，`preventDefault()` 始终执行，仅 `!disabled` 时才把文件交给 `onFiles`；有“禁用时仍取消默认行为且不调用 `onFiles`”的用例。
+- 结论：第二批 SUGGEST-1 **已关闭**。小问题见 SUGGEST-3。
+
+### 4. 偏差落实
+| 项 | 结论 |
+|---|---|
+| 偏差 ② | **已落实**：`FinalReviewCard` 替换了临时“我还要修改”按钮；`unsubmitted_edits`、`unconfirmed` 两个对话框都已接线；`new_chat` 未渲染，留 2.7（reducer 中该动作当前无入口）。 |
+| 偏差 ③ | **已补写**：`design.md` 版本 v1.2，§4.4 新增“空子项处理”（丢弃全空子项、全空则提交 `[]`、校验在丢弃前按用户所见下标进行），变更履历追加 v1.2。第二批 SUGGEST-6 已关闭。 |
+
+### 5. worker 提出的 4 个审查点
+1. **F-03 路径**：见第 2 节，通过。
+2. **确认时 422 回到分区视图并在活跃分区显示字段错误**：合理。`CONFIRM_FAILED` 的 `validation_failed` 把 `fieldErrors` 设为后端 `details`、切回 `sections` 视图并按第一个出错路径定位分区，错误卡复用 2.4 的分区级展示，用户能在字段旁看到原因并重新“确认本区”。`confirmation_required`（422，无 details）走 confirm 级错误，留在最终确认卡内显示（有用例）。**接受**。
+3. **“去确认基本信息”入口**：合理且无副作用。`backToSections('basic')` 依次发 `BACK_TO_SECTIONS`、`SECTION_SELECTED`，仅在核心未就绪时出现，避免“我还要修改”落到无关分区的死路。**接受**。
+4. **“超时后重试，如果其实已保存，会得到 `already_saved=true`”——核实结果：该说法错误，主 agent 的判断正确；前端的实际行为是对的，错的是 changelog 的文字。**
+   - 契约依据：openapi.yaml `createResume` 描述：两种成功情形都会删除草稿并使令牌过期（C-11）；“草稿不存在/令牌无效（**含‘首次已成功但响应丢失后的重试’**）→ 404 `draft_not_found`（D-01）”；ADR-004 缺点一栏同样写明“确认成功后响应丢失的重试会得到 `draft_not_found`”。`already_saved=true` 只出现在“同一身份此前已保存，且本次仍持有有效草稿”的情形（例如重新上传同一人后确认）。
+   - 前端实际行为：重试得到 404 时，`CONFIRM_FAILED`→`maybe_saved`（“可能已保存，请重新上传核实”）+ 空态，不进入成功态，行为正确（用例“04.7”组覆盖）。
+   - 不正确之处：（a）changelog Task-2.6“遗留风险”第 2 条写“已保存但响应丢失的情形，重试会得到 `already_saved=true`”；（b）“04.6”组两条用例只覆盖“第一次确实没保存、重试成功”这一种，没有覆盖“第一次已保存但响应丢失 → 重试 404 → `maybe_saved`”这条与契约一致的路径（单独的 04.7 用例用的是首发就 404）；（c）`FinalReviewCard` 的提示“当前不能确认是否已保存，可直接重试（重复提交不会产生重复记录）”对用户略有误导：重试可能得到“可能已保存，请重新上传核实”而不是成功。未发现代码注释里有同样的错误说法。
+   - 处理：不构成缺陷，列为 SUGGEST-1（更正文字并补一条用例），不升级为 QUESTION/BLOCK。
+
+### 6. `NoticeBanner` 的 `role` 调整
+**合理，接受。** `restored`、`already_saved` 为信息提示，改 `role="status"`（礼貌播报）；`draft_expired`、`maybe_saved` 是需要用户采取行动的警告，保留 `alert`。同时 `SavedResultCard` 本身是 `role="status"`。这兑现了第二批 SUGGEST-5 的一半（连续播报）；`ErrorAlert` 仍是 `alert`，符合“错误需立即告知”。
+
+### BLOCKING Issues
+无。
+
+### QUESTIONS
+无。
+
+### SUGGESTIONS
+- **第三批-SUGGEST-1（更正 ④ 的文字并补用例）**：更正 changelog 的错误说法为“已保存但响应丢失时，重试得到 404 `draft_not_found`，界面显示‘可能已保存，请重新上传核实’（D-01）”；在 final.test 的 04.6 组追加“首次超时 → 重试返回 404 → 出现 `maybe_saved`、无成功态”用例；可把 `FinalReviewCard` 提示改为“可再试一次；若提示草稿不存在，则可能已保存，请重新上传核实”。
+- **第三批-SUGGEST-2（成功响应形状校验，F-03 加固）**：`ApiClient.request` 对 2xx 只做 `payload as T`。如果某个代理/网关返回 `200` 的 JSON（如 `{}`、`null`、`[]`），`createResume` 会被当作成功：`CONFIRM_SUCCEEDED` 中 `response.already_saved` 为 `undefined`，走“新保存”分支，界面显示“已保存”和无效的保存时间。这违反“只在 backend 返回成功后才提示已保存”的精神（按代码推断，未单独构造该响应运行）。建议在 `createResume`（以及两个草稿接口）里做最小形状校验：`typeof resume_id==='string' && typeof already_saved==='boolean' && typeof saved_at==='string'`，不满足抛 `unknown_error`，并补用例。改动很小，建议在 2.7 或随下一次提交一起做；不阻断 2.6 标 ✅。
+- **第三批-SUGGEST-3（全局取消 drop 会影响文本拖拽）**：`usePreventFileDropNavigation` 与 `ComposerBar` 对所有 `dragover/drop` 都 `preventDefault`，页面内把选中文字拖进输入框这类原生操作也会被取消。建议只在 `event.dataTransfer?.types` 包含 `'Files'` 时取消。
+- **第三批-SUGGEST-4（保存时间文案）**：`formatSavedAt` 对无法解析的值直接显示原始文本；配合 SUGGEST-2 的校验后可去掉该回退，避免“已保存 + 乱码时间”的组合。
+- **第三批-SUGGEST-5（遗留）**：“＋ 新对话”在 `saved`/`empty` 阶段点击仍无反应（2.7）；`NoticeBanner` 里 `already_saved` 条目现已不再被页面使用（由 `SavedResultCard` 展示同一句话），2.7 收尾时可清理或统一为一处。
+
+### 测试与验证证据
+| 命令 | 结果 |
+|---|---|
+| `npm ci --registry=https://registry.npmjs.org` | ✅ 成功 |
+| `npm run lint`（`--max-warnings 0`） | ✅ 退出码 0 |
+| `npm test` | ✅ **42 个测试文件、453 个用例全部通过**（上一批 38/405） |
+| `npm run build`（`tsc --noEmit && vite build`） | ✅ 1435 modules transformed |
+| `npm audit --omit=dev` | ✅ 0 vulnerabilities |
+| 密钥与真实简历 | ✅ 未发现；测试数据为合成 |
+
+### 2.6 的 HIGH_RISK 审查结论
+**建议 DL 将任务 2.6 标 ✅。** F-03 路径单一且可审计（`CONFIRM_SUCCEEDED` 是 `saved` 与“已保存”文案的唯一来源）；无乐观更新；请求体、失败与超时/网络/非 JSON 各路径无成功态均有测试；REQ-FE-04.1–04.8 全部有实现与用例对应；D-01/D-03/D-04/C-05/C-10/C-11/P-09 均符合。建议随后尽快完成 SUGGEST-2（成功响应形状校验）和 SUGGEST-1（更正文档并补用例），均为小改动，不阻断标 ✅。
+
+### 正向反馈
+- 把“成功态”收敛到 reducer 的单一分支，并对每条失败路径逐一断言无成功态，审计成本很低。
+- 最终确认卡全文只读、状态标签原样展示，且卡内不出现任何成功措辞。
+- 请求序列断言（`GET → POST → POST`）直接证明了“不查询状态”。
+- 偏差与遗留风险如实披露；只有 ④ 的因果描述需要更正。
