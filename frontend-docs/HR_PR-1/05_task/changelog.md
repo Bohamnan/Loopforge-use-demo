@@ -213,3 +213,32 @@ React 在开发模式下自身会向 console 输出异常信息（含 message）
 
 ### 遗留风险
 - 多个 `role="alert"`：Ant Design `Alert` 默认带该角色，恢复提示与错误提示同屏时读屏会连续播报；2.8（无障碍）时统一评估把提示类改为 `role="status"`。
+
+## Task-2.4：分区核对 — 标量与文本列表编辑（REQ-FE-03）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/components/FieldRow.tsx | 新增 | 标量字段就地编辑：受控输入（无 `maxLength` 属性，不静默截断）、核心必填空值立即提示、格式 / 过长在失焦后提示、后端字段级错误（只显示 reason 文案，不回显值）、“未提交修改”标记（不改变状态标签） |
+| codes/hr-collection-agent-frontend/src/components/StringListEditor.tsx | 新增 | 文本列表新增 / 修改 / 删除；**失焦时丢弃空白行**；达到 50 项禁用新增；整表错误与单项错误；新增行自动聚焦 |
+| codes/hr-collection-agent-frontend/src/components/QuickReplyChips.tsx | 新增 | 快捷指令芯片（“确认无误”“其余都没问题”），与卡片按钮等价，不接收自由文本 |
+| codes/hr-collection-agent-frontend/src/components/SectionCard.tsx | 修改 | 活跃分区进入编辑态：缺失 / 不确定字段置顶；“确认本区 / 确认修改 / 已确认”按钮；核心字段不合法时禁用并说明；“空项将按留空确认”提示；分区级错误可重试；经历类字段暂以只读显示（编辑在 2.5） |
+| codes/hr-collection-agent-frontend/src/components/ComposerBar.tsx | 修改 | 增加 `quickReplies` 插槽 |
+| codes/hr-collection-agent-frontend/src/hooks/model/SectionView.ts、SectionView.test.ts | 修改 | 新增 `sectionConfirmBlock`（核心三项缺失 / 非法时不可确认） |
+| codes/hr-collection-agent-frontend/src/hooks/useResumeSession.ts | 修改 | 新增 `editField`、`confirmSection`（`busy` 由 null→patch 时用 `buildSectionUpdate` 生成整区请求体并回传 `epoch`）、`goFinal`、`discardEditsAndGoFinal`、`backToSections`、`dismissDialog` |
+| codes/hr-collection-agent-frontend/src/pages/ResumeCollectionPage.tsx | 修改 | 活跃分区接入编辑；快捷指令；“未提交的修改”确认框；临时“我还要修改”按钮 |
+| codes/hr-collection-agent-frontend/src/test/ApiMocks.ts | 修改 | 新增 `applyPatch`（按后端语义模拟 PATCH：提交的字段变为 confirmed） |
+| codes/hr-collection-agent-frontend/src/components/Layout.css | 修改 | 编辑态样式 |
+| 各组件 / 页面测试 | 新增 | `FieldRow`、`StringListEditor`、`QuickReplyChips`、`SectionCard.edit`、`ResumeCollectionPage.edit` |
+
+### 偏差说明
+- **“未提交的修改”确认框与最终确认视图的临时“我还要修改”按钮提前到 2.4**：“其余都没问题”会走 reducer 的 `unsubmitted_edits` 对话框与 `view=final`，若 UI 不渲染它们，状态机会卡死（`dialog` 非空时忽略后续动作）。该对话框在 2.6 复用；最终确认卡（含“确认提交”）仍在 2.6，届时替换临时按钮。
+- 非核心字段的过长 / 条数错误在点击“确认本区”时由 reducer 本地拦截并显示在字段旁（不发请求）；只有核心字段缺失 / 非法会预先禁用按钮。
+- 文本列表在失焦时丢弃空白行，故 `buildSectionUpdate` 报告的下标与 UI 行一致（兑现第一批实现备注）。
+
+### 遗留风险
+- 编辑缓冲只在内存，刷新页面会丢失未提交编辑（TD-03，已知行为）。
+- 点击“确认本区”时若同一分区已 `confirmed` 且无编辑，按钮为“已确认”且禁用；用户需先改动才能再次提交（符合设计 §6）。

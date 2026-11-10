@@ -1,5 +1,5 @@
 import { Button } from 'antd';
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, type ReactNode } from 'react';
 
 const ACCEPT = '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png';
 
@@ -13,6 +13,8 @@ interface ComposerBarProps {
   disabled?: boolean;
   /** Short notice under the bar, e.g. "several files selected". */
   notice?: string;
+  /** Quick-reply chips shown above the upload bar. */
+  quickReplies?: ReactNode;
 }
 
 /**
@@ -20,7 +22,7 @@ interface ComposerBarProps {
  * There is no text input and no free-text parsing (ADR-006, P-01).
  */
 const ComposerBar = forwardRef<ComposerBarHandle, ComposerBarProps>(function ComposerBar(
-  { onFiles, disabled = false, notice },
+  { onFiles, disabled = false, notice, quickReplies },
   ref,
 ) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -48,6 +50,7 @@ const ComposerBar = forwardRef<ComposerBarHandle, ComposerBarProps>(function Com
   return (
     <div className="composer-wrap">
       <div className="composer">
+        {quickReplies}
         {notice ? <div className="composer-notice">{notice}</div> : null}
         <div className="composer-bar">
           <Button shape="round" disabled={disabled} onClick={() => inputRef.current?.click()}>

@@ -150,3 +150,17 @@ export function buildSectionUpdate(
 export function currentValue(fields: ResumeFields, buffer: ResumeFieldsUpdate, key: ResumeFieldKey): unknown {
   return key in buffer ? (buffer as Record<string, unknown>)[key] : fields[key].value;
 }
+
+/**
+ * Why the "confirm section" action is unavailable, or null when it is allowed.
+ * Only the section holding name / phone / email can be blocked (they must be present and valid, REQ-FE-03.4).
+ */
+export function sectionConfirmBlock(section: SectionConfig, fields: ResumeFields, buffer: ResumeFieldsUpdate): string | null {
+  if (!section.hasCore) return null;
+  const errors = validateCore({
+    name: currentValue(fields, buffer, 'name') as string | null,
+    phone: currentValue(fields, buffer, 'phone') as string | null,
+    email: currentValue(fields, buffer, 'email') as string | null,
+  });
+  return Object.keys(errors).length > 0 ? '请先补充并修正姓名、手机号、邮箱' : null;
+}

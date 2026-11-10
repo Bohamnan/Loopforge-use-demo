@@ -90,3 +90,15 @@ export function sampleCreateResumeResponse(overrides: Partial<CreateResumeRespon
     ...overrides,
   };
 }
+
+/**
+ * Mimics the backend PATCH semantics for tests: every submitted field gets the submitted value and becomes confirmed;
+ * missing scalars / empty lists stay "missing" only if they were not submitted.
+ */
+export function applyPatch(draft: DraftResponse, fields: Record<string, unknown>): DraftResponse {
+  const next = structuredClone(draft);
+  for (const [key, value] of Object.entries(fields)) {
+    (next.fields as unknown as Record<string, { value: unknown; status: string }>)[key] = { value, status: 'confirmed' };
+  }
+  return next;
+}

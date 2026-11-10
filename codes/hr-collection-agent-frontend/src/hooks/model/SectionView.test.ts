@@ -7,6 +7,7 @@ import {
   buildSectionUpdate,
   coreReady,
   currentValue,
+  sectionConfirmBlock,
   firstTodoSection,
   hasUnsubmittedEdits,
   orderedFieldKeys,
@@ -199,5 +200,21 @@ describe('currentValue', () => {
     expect(currentValue(fields, { job_title: '新岗位' }, 'job_title')).toBe('新岗位');
     expect(currentValue(fields, { job_title: null }, 'job_title')).toBeNull();
     expect(currentValue(fields, { skills: [] }, 'skills')).toEqual([]);
+  });
+});
+
+describe('sectionConfirmBlock', () => {
+  it('blocks the basic section while a core value is empty or invalid and says why', () => {
+    const fields = sampleFields();
+    expect(sectionConfirmBlock(getSection('basic'), fields, {})).toBeNull();
+    expect(sectionConfirmBlock(getSection('basic'), fields, { email: '' })).toBe('请先补充并修正姓名、手机号、邮箱');
+    expect(sectionConfirmBlock(getSection('basic'), fields, { phone: '123' })).toBe('请先补充并修正姓名、手机号、邮箱');
+    fields.email.value = null;
+    expect(sectionConfirmBlock(getSection('basic'), fields, {})).toBe('请先补充并修正姓名、手机号、邮箱');
+  });
+
+  it('never blocks sections without core fields', () => {
+    expect(sectionConfirmBlock(getSection('intent'), sampleFields(), { job_title: '' })).toBeNull();
+    expect(sectionConfirmBlock(getSection('skills'), sampleFields(), { skills: [] })).toBeNull();
   });
 });

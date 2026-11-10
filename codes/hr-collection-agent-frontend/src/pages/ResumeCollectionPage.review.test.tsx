@@ -48,7 +48,7 @@ describe('recognised result display (REQ-FE-02, REQ-FE-05.2)', () => {
   it('shows the full phone number and the restored file card', async () => {
     restore();
     renderPage();
-    expect(await screen.findByText('13800138000')).toBeInTheDocument();
+    expect(await screen.findByDisplayValue('13800138000')).toBeInTheDocument(); // full number, not masked (P-10)
     expect(screen.getByText('合成简历.pdf')).toBeInTheDocument();
   });
 

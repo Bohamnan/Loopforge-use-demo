@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { ApiError } from '../api/ApiError';
-import { createResumeDraft, getCurrentResumeDraft } from '../api/ResumeDraftApi';
-import type { SectionKey } from './model/SectionConfig';
+import { createResumeDraft, getCurrentResumeDraft, updateCurrentResumeDraft } from '../api/ResumeDraftApi';
+import type { ResumeFieldsUpdate } from '../types/ResumeModel';
+import { getSection, type SectionKey } from './model/SectionConfig';
+import { buildSectionUpdate } from './model/SectionView';
 import { initialState, sessionReducer, type SessionAction, type SessionState } from './model/SessionReducer';
 import { MULTIPLE_FILES_NOTICE, pickSingleFile } from './model/UploadPrecheck';
 
@@ -110,10 +112,54 @@ export function useResumeSession() {
     [send],
   );
 
+  const editField = useCallback(
+    (update: ResumeFieldsUpdate) => {
+      send({ type: 'FIELD_EDITED', update });
+    },
+    [send],
+  );
+
+  /** Confirms one section: validates locally (in the reducer) and then sends one PATCH with the whole section. */
+  const confirmSection = useCallback(
+    (section: SectionKey) => {
+      const { before, after } = send({ type: 'SECTION_CONFIRM_REQUESTED', section });
+      if (before.busy !== null || after.busy !== 'patch' || after.draft === null) return;
+      const { update } = buildSectionUpdate(getSection(section), after.draft.fields, after.editBuffer);
+      const epoch = after.epoch;
+      void updateCurrentResumeDraft(update).then(
+        (draft) => send({ type: 'PATCH_SUCCEEDED', draft, section, epoch }),
+        (error: unknown) => send({ type: 'PATCH_FAILED', error: toApiError(error), epoch }),
+      );
+    },
+    [send],
+  );
+
+  const goFinal = useCallback(() => {
+    send({ type: 'GO_FINAL_REQUESTED' });
+  }, [send]);
+
+  const discardEditsAndGoFinal = useCallback(() => {
+    send({ type: 'DISCARD_EDITS_AND_GO_FINAL' });
+  }, [send]);
+
+  const backToSections = useCallback(() => {
+    send({ type: 'BACK_TO_SECTIONS' });
+  }, [send]);
+
+  const dismissDialog = useCallback(() => {
+    send({ type: 'DIALOG_DISMISSED' });
+  }, [send]);
+
   return {
     state,
     retryBootstrap,
     selectSection,
+    editField,
+    confirmSection,
+    goFinal,
+    discardEditsAndGoFinal,
+    backToSections,
+    dismissDialog,
     dismissNotice,
     requestUpload,
     confirmOverwrite,

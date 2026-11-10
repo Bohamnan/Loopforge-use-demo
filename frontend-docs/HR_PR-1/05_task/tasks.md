@@ -174,7 +174,7 @@
 - [x] `SectionCard` 只读态与活跃分区选取
 - [x] 恢复提示接线
 
-### Task 2.4：分区核对 — 标量与文本列表编辑（REQ-FE-03）
+### Task 2.4：分区核对 — 标量与文本列表编辑（REQ-FE-03） ✅
 - **关联：** REQ-FE-03.1–03.2、03.4–03.6、REQ-FE-02.4；design.md §3.4（FieldRow、StringListEditor、SectionCard 编辑态、QuickReplyChips）、§4.4、§5.3（编辑 / 确认本区行）、§6、§6.1、TD-01/03/09/15；P-01 选 A、P-04；G-01、G-02、D-06、O-11
 - **内容：** `FieldRow`（受控输入、失焦与提交前校验、`FIELD_MAX_LENGTH` 超限提示、字段级后端错误显示且不回显值、“未提交修改”小标记）、`StringListEditor`（行内编辑 / 新增 / 删除，条数达上限禁用新增，删空为 `[]`）、`SectionCard` 编辑态（“确认本区”按钮：核心字段为空或非法时禁用并就地说明，含 `missing` 非核心字段时提示“空项将按留空确认”，已确认无缓冲显示“已确认”，有缓冲显示“确认修改”）、`QuickReplyChips`（“确认无误”“其余都没问题”等价按钮动作，不追加用户消息）；`useResumeSession` 增加 `editField`、`confirmSection`、切换分区；PATCH 请求体按 design §4.4 构造（整区全部字段，手机号规范化，文本 trim，全空白非核心提交 `null`，列表提交完整新列表）；422 `details` 映射到字段。
 - **测试：** 核心三项缺失时引导补充且“确认本区”禁用；手机号 / 邮箱即时提示（OpenAPI 示例与反例、空格 / 连字符规范化后提交的值不含空格与连字符）；超出上限的输入提示“内容过长”；PATCH 请求体只含当前分区字段、未触碰的分区不提交；`missing` 非核心字段按 `null` 提交、列表按 `[]` 提交；成功后以 backend 返回替换草稿并跳到下一个待确认分区；422 `details`（含 `reason` 5 值）在字段旁展示且不回显值；PATCH 失败 / 超时保留缓冲并可重试；同一时刻只有一个在途 PATCH（重复点击被忽略）；快捷指令等价按钮；输入区无文本框。
@@ -183,10 +183,10 @@
 
 #### 子任务
 
-- [ ] `FieldRow`、`StringListEditor`
-- [ ] `SectionCard` 编辑态与 `QuickReplyChips`
-- [ ] `useResumeSession` 编辑与分区提交
-- [ ] 请求体构造与 422 映射
+- [x] `FieldRow`、`StringListEditor`
+- [x] `SectionCard` 编辑态与 `QuickReplyChips`
+- [x] `useResumeSession` 编辑与分区提交
+- [x] 请求体构造与 422 映射
 
 ### Task 2.5：分区核对 — 经历类子项编辑（REQ-FE-03.3）
 - **关联：** REQ-FE-03.3、03.6；design.md §3.4（ObjectListEditor）、§4.4、§6（ObjectListEditor）、§6.1（经历区块上限）；O-11、CR-01a

@@ -261,3 +261,37 @@ body {
   flex-shrink: 0;
   color: var(--muted);
 }
+
+/* Editing */
+.field-edit {
+  align-items: flex-start;
+}
+.field-error {
+  color: var(--red);
+  font-size: 12px;
+  margin-top: 2px;
+}
+.list-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.list-row .ant-input {
+  flex: 1;
+  min-width: 160px;
+}
+.section-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 6px 4px;
+}
+.quick-replies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
