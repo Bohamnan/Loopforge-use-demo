@@ -1,0 +1,12 @@
+# Runtime data and secrets (never commit)
+data/
+file/
+.env
+
+# Python / tooling
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/

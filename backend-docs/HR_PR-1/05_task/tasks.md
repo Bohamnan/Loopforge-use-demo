@@ -58,7 +58,7 @@
 
 > 多个切片共用的工程骨架、core、schemas、校验逻辑、api 基础、clients 与存储层。基础任务之间的依赖较松，1.2/1.3 完成后其余可并行。
 
-### Task 1.1：工程初始化（uv、pytest、ruff、.gitignore、测试基座）
+### Task 1.1：工程初始化（uv、pytest、ruff、.gitignore、测试基座） ✅
 - **关联：** REQ-BE-06.1、06.6；D§1“依赖清单”、D§3.1、D§3.8、D§9.1
 - **内容：** 在 `codes/hr-collection-agent-backend/` 建立 Python 3.11 + uv 工程；搭建 `src/app/{api,services,repositories,clients,schemas,core}` 包骨架与 `tests/` 同构目录；建立 pytest 测试基座与禁网夹具。
 - **测试：** 空工程下 `uv run pytest` 能收集并通过一个冒烟用例；禁网夹具用例：任何 `socket.connect` 调用立即失败；`tmp_path` 派生的 `DATA_DIR`/`FILE_DIR` 夹具可用。
@@ -67,13 +67,13 @@
 
 #### 子任务
 
-- [ ] `pyproject.toml`：`requires-python = ">=3.11,<3.12"`；运行依赖 `fastapi`、`uvicorn`、`pydantic`、`pydantic-settings`、`httpx`、`python-multipart`；开发依赖 `pytest`、`ruff`、`jsonschema`、`pyyaml`（读取 `openapi.yaml` 用，评估后确认）；pytest/ruff 配置（`pythonpath = src`）
-- [ ] **依赖锁定精确版本**：`uv lock` 生成 `uv.lock`；`pyproject.toml` 中依赖写精确版本（`==`），不使用开放区间
-- [ ] **本地直接安装**：使用 uv 默认索引（公共 PyPI），`uv sync` 按 `uv.lock` 安装；不配置私有索引或索引凭证（DL 决定的项目例外，2026-11-10）；`uv.lock` 提交前检查不含任何带凭证的 URL（B-01）
-- [ ] 新增依赖（`pydantic-settings`、`httpx`、`python-multipart`、`jsonschema`）逐个评估安全性（维护状态、已知漏洞），结论记入任务完成说明
-- [ ] `.gitignore`：追加 `data/`、`file/`、`.env`、`.venv/`、`__pycache__/`、`.pytest_cache/`（O-06）
-- [ ] `.env.example`：仅占位符，键清单见 D§3.1（`DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL=deepseek-flash`、`DATA_DIR`、`FILE_DIR`、`MODEL_TIMEOUT_SECONDS=60`、`DRAFT_TTL_DAYS=7`、`CLEANUP_INTERVAL_SECONDS=3600`、`COOKIE_SECURE=false`），不含任何真实凭证
-- [ ] `tests/conftest.py`：禁网 autouse 夹具、临时目录夹具、合成简历字节生成函数（PDF/JPEG/PNG 最小合法头部）；`FakeClock`、`FakeParserClient` 在 1.2、1.8 补入
+- [x] `pyproject.toml`：`requires-python = ">=3.11,<3.12"`；运行依赖 `fastapi`、`uvicorn`、`pydantic`、`pydantic-settings`、`httpx`、`python-multipart`；开发依赖 `pytest`、`ruff`、`jsonschema`、`pyyaml`（读取 `openapi.yaml` 用，评估后确认）；pytest/ruff 配置（`pythonpath = src`）
+- [x] **依赖锁定精确版本**：`uv lock` 生成 `uv.lock`；`pyproject.toml` 中依赖写精确版本（`==`），不使用开放区间
+- [x] **本地直接安装**：使用 uv 默认索引（公共 PyPI），`uv sync` 按 `uv.lock` 安装；不配置私有索引或索引凭证（DL 决定的项目例外，2026-11-10）；`uv.lock` 提交前检查不含任何带凭证的 URL（B-01）
+- [x] 新增依赖（`pydantic-settings`、`httpx`、`python-multipart`、`jsonschema`）逐个评估安全性（维护状态、已知漏洞），结论记入任务完成说明
+- [x] `.gitignore`：追加 `data/`、`file/`、`.env`、`.venv/`、`__pycache__/`、`.pytest_cache/`（O-06）
+- [x] `.env.example`：仅占位符，键清单见 D§3.1（`DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL=deepseek-flash`、`DATA_DIR`、`FILE_DIR`、`MODEL_TIMEOUT_SECONDS=60`、`DRAFT_TTL_DAYS=7`、`CLEANUP_INTERVAL_SECONDS=3600`、`COOKIE_SECURE=false`），不含任何真实凭证
+- [x] `tests/conftest.py`：禁网 autouse 夹具、临时目录夹具、合成简历字节生成函数（PDF/JPEG/PNG 最小合法头部）；`FakeClock`、`FakeParserClient` 在 1.2、1.8 补入
 
 ---
 

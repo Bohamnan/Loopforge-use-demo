@@ -1,0 +1,38 @@
+[project]
+name = "hr-collection-agent-backend"
+version = "0.1.0"
+description = "HR resume collection backend (HR_PR-1)"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "fastapi==0.162.2",
+    "uvicorn==0.54.0",
+    "pydantic==2.14.3",
+    "pydantic-settings==2.16.2",
+    "httpx==0.28.1",
+    "python-multipart==0.0.33",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==9.2.0",
+    "pytest-cov==7.1.0",
+    "ruff==0.17.4",
+    "jsonschema==4.26.0",
+    "pyyaml==6.0.3",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
