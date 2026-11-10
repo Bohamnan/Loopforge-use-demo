@@ -746,3 +746,77 @@
 
 ### 最终结论
 **通过，建议 DL 将 2.5 标 ✅。** 四情形、幂等、局部失败隔离、aborted 零删除、只碰 `file/` 与日志脱敏均有测试并被变异验证；与 2.4 的三类提交后故障已联调到“终态文件内容正确、tmp 消失、记录不变”。放行前提：2.7 按上文三条前置要求落实（尤其“对账同步完成于首个请求之前”）；SUGGEST-1/2 建议在 2.7 之前或同期处理。
+
+## 第九批审查（任务 2.6 草稿清理 CleanupService + 2.7 启动编排 lifecycle）
+
+- 日期：2026-11-10；Reviewer：Yin Yang（dev-lead，审查 agent 代行）；Review 模式：Ticket-aware Review
+- 审查对象：`40f00c5`（2.6）、`88f3099`（2.7），合并提交 `5a6080f`（两者 `merge-base --is-ancestor` 均为真）。对照 tasks 2.6/2.7、design §3.2/5.4/5.5、D§1 启动顺序、第八批「2.7 前置要求」。对账（2.5）已审过的路径不重复，只看本批对 `reconcile_service.py` 的改动。
+- **本批结论：通过（0 BLOCK / 0 QUESTION / 3 SUGGEST）。建议 DL 将 2.6、2.7 标 ✅。对账“保险丝”建议接受（附一条文档同步要求，不需 DL 额外裁决，仅知会）。**
+- 上下文限制：未做 uvicorn 真实进程启动演练（作者已披露，生命周期以 `TestClient` 的 `with` 块验证）；调度线程“间隔到达再次清理”用缩短间隔 + 事件等待验证，未做长时间运行；清理与确认的竞态沿用 design §5.5 的 POC 接受结论，我未重新论证。
+
+### 第八批「2.7 前置要求」逐条落实
+| 要求 | 结论 | 证据 |
+|---|---|---|
+| 对账在 yield 前**同步**执行且仅一次 | ✅ | `lifespan` 先调 `lifecycle.start()`，`start()` 依次 `prepare_directories → init_databases → reconcile → cleanup → start_scheduler`，之后才 `yield`。`reconcile()` 在启动线程内直接调用，不起线程。用例：`test_reconcile_runs_synchronously_in_the_starting_thread`、`test_requests_start_after_the_whole_sequence`、`test_real_start_reconciles_before_the_first_request`（真实步骤，请求前已修复） |
+| 不与清理调度并行 | ✅ | 调度线程 `_schedule` 只调 `self.cleanup()`；`test_reconcile_is_called_once_even_when_the_scheduler_ticks` 在多次 tick 后断言对账仅 1 次；`test_only_the_lifecycle_module_uses_the_reconcile_service` 用源码扫描固定“只有 lifecycle.py 引用 ReconcileService” |
+| 单进程单 worker 说明 | ✅ | `lifecycle.py` 模块头与 AGENTS.md（运行形态、对账约束）均写明 `--workers 1`，并解释原因（对账会删无记录文件） |
+| 两库先于对账初始化、请求与启动共用同一目录配置 | ✅ | `init_databases` 在 `reconcile` 之前；`test_requests_and_start_up_share_the_same_directories`；`test_real_start_with_missing_database_never_wipes_the_archive` |
+| 对账/清理失败不阻止启动；建目录/初始化失败终止启动 | ✅ | `reconcile()`、`cleanup()` 各自 `try/except Exception` 记日志；`test_reconcile_failure_does_not_block_start…`、`test_database_initialisation_failure_stops_the_start`（此时调度线程尚未创建，无泄漏） |
+| 调度线程异常不终止、停止时 join | ✅ | `cleanup()` 吞普通异常，循环继续（`test_cleanup_failure_does_not_block_start_and_does_not_kill_the_thread`）；`stop()` 先 `Event.set()` 再 `join(5s)`，超时记 `scheduler_stop_timeout`，守护线程不会拖住退出；`stop()` 幂等；`with TestClient` 无线程泄漏用例 |
+
+### 2.6 CleanupService
+| 检查项 | 结论 | 证据 |
+|---|---|---|
+| 只清草稿（库行 + 草稿文件），不碰 `file/` | ✅ | 构造器只收 `DraftRepository`、`DraftFileStore`、`Clock`（源码扫描用例固定）；`test_archive_directory_is_never_changed` 往 `file/` 放文件，清理前后目录不变；`DraftFileStore.delete` 对非草稿命名/符号链接抛 `ValueError`，被当作“不属于我们”跳过 |
+| 过期判断与 `is_draft_expired` 一致 | ✅ | 清理用 `DELETE … WHERE last_active_at < cutoff`（cutoff = now − ttl 天，`format_utc` 固定宽度字符串，字典序等价时间序）；`is_draft_expired` 是 `parse_utc(last_active_at) < now − ttl`。同为严格小于：恰好 7 天保留、+1 秒删除，用例固化 |
+| 先删行后删文件 | ✅ | `delete_expired(...RETURNING file_path)` 先提交，再逐个删文件；崩溃只留孤儿文件，不留指向缺失文件的行（`test_rows_are_deleted_before_their_files`） |
+| 孤儿 1 天窗口 | ✅ | 文件被引用或 `modified_at >= now−1d` 一律不删；上传“先写文件后写行”的进行中保护成立 |
+| 读取失败不删孤儿 | ✅ | `list_files()`/`list_file_paths()` 任一失败 → 返回 (0,1)，不删任何文件（`test_unreadable_row_list_means_no_orphan_is_deleted`） |
+| 单条失败不影响其余、普通异常不抛出 | ✅ | 每个文件删除各自捕获并计 `failed`；行删除失败整体捕获 |
+| 日志无内容 | ✅ | 事件只带 `count` 与异常类/栈帧；`test_logs_contain_only_counts` |
+| 幂等 | ✅ | `test_cleanup_is_idempotent` |
+
+### 重点评估 (a)：先写实现后补测试，测试是否真能转红
+我对 lifecycle/清理逐一做变异，**全部被杀**（共 8 处；还原后 `git status --short` 无变更）：
+| 变异 | 结果 |
+|---|---|
+| A 对账与清理换序 | ✅ `test_start_order_…`、`test_requests_start_after_the_whole_sequence` 失败 |
+| B 对账放入后台线程 | ✅ `test_reconcile_runs_synchronously_in_the_starting_thread`、`test_real_start_reconciles_before_the_first_request` 失败 |
+| H 对账先于数据库初始化 | ✅ 启动顺序用例失败 |
+| F 调度线程里调用对账 | ✅ `test_reconcile_is_called_once_even_when_the_scheduler_ticks` 失败 |
+| E `stop()` 不置位事件 | ✅ `test_stop_joins_the_scheduler_thread` 失败 |
+| C 取消保险丝 | ✅ `test_real_start_with_missing_database_never_wipes_the_archive`、`test_final_files_are_kept_when_there_are_no_records_at_all` 失败 |
+| D 去掉孤儿 1 天窗口 | ✅ `test_orphan_window_is_one_day` 等 2 个失败 |
+| G 去掉“被引用文件不删” | ✅ 5 个用例失败（含 `test_referenced_file_is_never_an_orphan_however_old`） |
+
+结论：测试并非“事后贴合实现”，有断言顺序、线程归属、调用次数的行为级用例，且 A/B/F/H 使用记录调用序列的假对象与真实步骤两种口径。作者在 changelog 中也披露了 8 处自检变异，与我的结果一致。
+
+### 重点评估 (b)：对账“保险丝”（零记录不删终态文件）
+**判断：合理，建议接受（需知会 DL，不需要额外裁决）。**
+- 理由：终态文件只在事务提交之后才会出现，且本期没有删除记录的功能，所以“零记录但有终态文件”不可能由正常运行产生，只会来自误删/换成空库/配置指向错误目录。此时按 Schema §4.2 字面执行会一次性、不可逆地清空整个归档，风险远大于残留几个文件。保险丝只改变这一种状态，tmp 仍照常处理，情形①④与“有记录”时的③不变。
+- 孤儿会不会永久残留？仅在**记录数恒为 0** 时残留，而此状态只有在上述外部原因下存在；一旦出现任何一条记录，下次启动③恢复正常删除。每次启动都会写 `reconcile_conflicts`（含数量），AGENTS.md 运维表给了处置步骤（先核对 `DATA_DIR`/`FILE_DIR`，确认后人工清理）。所以不是静默残留。
+- 残余缺口（不阻断）：库被替换成“只有少量记录的库”时，保险丝不触发，其余终态文件仍会被删。这是该保险丝的固有边界，见 SUGGEST-1。
+- 文档：Schema §4.2 的表格仍是原字面，本批只改了 AGENTS.md。要求在 `sql_ddl_resume.md` §4.2 情形③加一句脚注（零记录例外，引用本节），否则文档与行为不一致，见 SUGGEST-2。
+
+### 对账改动（本批新增）核对
+- SUGGEST-1（先 `scan()` 再 `list_refs()`）：✅ 已落实且有读取顺序用例，我的变异覆盖到顺序语义在 2.5 评审中已说明。
+- SUGGEST-3（中途异常保留已累计计数并 `aborted`）：✅ `counts` 提到 `run()` 里，异常时 `counts.report(aborted=True)`，`counts.log()` 在 try 之外，日志仍输出。
+- 2 个原用例补了“一条无关记录”以避开保险丝：改动合理，不是放宽断言（被测行为不变）。
+
+### SUGGESTIONS（不阻断）
+- **第九批-SUGGEST-1（保险丝的残余缺口）**：可再加一条比例保险丝（例如孤儿终态文件数超过记录数的 N 倍、或超过某绝对值时只告警不删）；POC 约 5 人规模可不做，已在 AGENTS.md 范围内说明即可。
+- **第九批-SUGGEST-2（文档同步）**：在 `sql_ddl_resume.md` §4.2 情形③及 design §5.4 增加“零记录时终态文件保留并告警”的注记；`tasks.md` 2.5 的“情形③”描述同步。
+- **第九批-SUGGEST-3（未覆盖行）**：`lifecycle.py` 第 76 行（`scheduler_stop_timeout` 告警）未覆盖；可补一个让清理阻塞超过 join 超时的用例，或接受（仅日志）。
+
+### 本批复跑
+| 命令 | 结果 |
+|---|---|
+| `uv sync --frozen` | ✅ Checked 36 packages |
+| `compileall src`（先清 `__pycache__`） | ✅ 45 行 `Compiling` |
+| `uv run pytest` | ✅ **876 passed**，1 warning（既有），与基线一致 |
+| `ruff check .` / `ruff format --check .` | ✅ All checks passed / 99 files already formatted |
+| 覆盖率 | `uv run pytest --cov=… --cov-branch`（本地 pytest-cov，全量用例）：`cleanup_service.py` 行 65/65、分支 6/6 = 100%；`reconcile_service.py` 100%；`lifecycle.py` 97%（缺第 76 行）。CRAP 未用 `~/tools/crapper`（不读 Python `.coverage`），手工估算各方法复杂度 ≤ 5，< 10，未经工具实测 |
+| 工作区状态 | 变异全部还原，`git status --short` 无变更 |
+
+### 最终结论
+**通过。** 2.7 的三条前置要求全部落实并被变异验证；2.6 只清草稿、过期规则与 `is_draft_expired` 一致、失败隔离且日志脱敏。保险丝改变了 Schema §4.2 情形③在“零记录”时的字面行为，评估为合理的安全加固，建议接受并补文档注记（SUGGEST-2）。建议 DL 将 2.6、2.7 标 ✅。
