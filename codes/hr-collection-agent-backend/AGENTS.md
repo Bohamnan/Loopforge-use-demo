@@ -144,6 +144,9 @@ codes/hr-collection-agent-backend/
 - 禁止裸 `except` 或吞异常；模型客户端技术异常须显式转换为应用错误并脱敏。
 - 日志只记白名单字段（`request_id`、`draft_id`、`resume_id`、状态码、耗时、业务码、异常类名、`count`、`stack`、`prompt_tokens`、`completion_tokens`）；`prompt_tokens`/`completion_tokens` 为模型响应 usage 中的数字，仅用于成本监控；`count` 用于对账告警等数量统计；`stack` 只含栈帧（项目相对路径、行号、函数名），不含异常消息和绝对路径，最多 12 帧、2000 字符；文件名、字段值、模型响应、令牌一律不记（B-03；design §1“日志策略”）。
 - 保存顺序：复制到 tmp → 单事务写库 → 原子重命名；启动时对账；幂等键为规范化的 姓名+手机号+邮箱（ADR-005、ADR-004）。
+- 已知限制（第七批审查 SUGGEST-3，不改代码）：对账只在启动时运行；提交后重命名失败的窗口内 `file/` 只有 tmp，用户再次确认会得到 `already_saved=true`，直到重启对账 roll-forward 才补齐终态文件。提交后抛普通异常同样保留 tmp 交给对账（不删除）。
+- 跟踪项：第七批 SUGGEST-4（design/openapi 补写 `confirmed` 非布尔 → `confirmation_required`、Pillow 安全公告跟踪方式）、SUGGEST-5（重复分支返回已有 `resume_id`/`saved_at` 可被用于存在性探测；若将来对外暴露需重新评估）。
+- 图像预处理口径：LLM 请求体上限按 10^6 字节计并扣除 4 KB 头部余量（`MAX_REQUEST_BYTES = 995,904`）；源图上限 25,000,000 像素，只解码 PNG/JPEG。
 
 ## 待确认清单
 
