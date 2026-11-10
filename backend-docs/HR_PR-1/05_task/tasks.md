@@ -6,6 +6,7 @@
 |------|------|----------|------|
 | v1.0 | 2026-11-10 | 初始版本（architecture-advisor Step 4）；基于 `04_design/design.md` v0.1（技术设计确认关卡已通过）与 OpenAPI 0.1.1 | Yin Yang（backend） |
 | v1.1 | 2026-11-10 | DL 决定不使用私有 Nexus：任务 1.1 及文首说明改为“uv 默认索引（公共 PyPI）本地安装，`uv lock` 锁定精确版本”，不配置私有索引或索引凭证；“需 DL 确认的点”第 1 项关闭。其他任务未改 | Yin Yang（backend） |
+| v1.2 | 2026-11-10 | DL 裁决（任务 1.8 spike：deepseek-flash 不接受 PDF）：任务 1.8 增加 PDF 本地转换（`clients/pdf_renderer.py`、依赖 `pypdfium2`、文本层优先 + PNG 渲染兜底、最多 5 页）、token 用量记录与精度验证 spike；工时 6h→10h，阶段 1 43h→47h，合计 91h→95h；覆盖核对表新增 `pdf_renderer` | Yin Yang（backend） |
 
 ---
 
@@ -22,10 +23,10 @@
 
 | 状态 | 阶段 | 任务数 | 预估工时 |
 |------|------|--------|----------|
-| [ ] | 1. 共享基础 | 10 | 43h |
+| [ ] | 1. 共享基础 | 10 | 47h |
 | [ ] | 2. 功能切片 | 7 | 37h |
 | [ ] | 3. 集成验证 | 3 | 11h |
-|     | 合计 | 20 | 91h |
+|     | 合计 | 20 | 95h |
 
 ### 任务一览
 
@@ -38,7 +39,7 @@
 | 1.5 | core：SQLite 辅助与两库初始化 | 3h | 1.2 | 否 |
 | 1.6 | services：field_validation 与 identity_key | 4h | 1.3、1.4 | 否 |
 | 1.7 | api 基础：应用工厂、中间件、异常处理、Cookie、依赖装配 | 5h | 1.2、1.3、1.4 | 否 |
-| 1.8 | clients：解析客户端抽象、DeepSeekClient、提示词 | 6h | 1.2、1.3、1.4 | **是（B-02/B-06）** |
+| 1.8 | clients：解析客户端抽象、DeepSeekClient、PDF 转换、提示词 | 10h | 1.2、1.3、1.4 | **是（B-02/B-06）** |
 | 1.9 | repositories：草稿库与草稿文件存储 | 5h | 1.2、1.4、1.5 | 否 |
 | 1.10 | repositories：正式库与归档文件存储 | 6h | 1.2、1.4、1.5 | 否 |
 | 2.1 | 接口①：上传简历，同步解析，创建草稿 | 7h | 1.7、1.8、1.9 | 否 |
@@ -172,20 +173,23 @@
 
 ---
 
-### Task 1.8：clients：解析客户端抽象、DeepSeekClient、提示词　**【HIGH_RISK：B-02 / B-06】**
+### Task 1.8：clients：解析客户端抽象、DeepSeekClient、PDF 转换、提示词　**【HIGH_RISK：B-02 / B-06】**
 - **关联：** REQ-BE-02.1、02.4、02.5、06.2、06.3；D§3.4、D§6（`DeepSeekClient`、`prompts`）、D§7.2、D§1“模型调用接口”“模型超时的实现”；ADR-001
-- **内容：** `clients/resume_parser_client.py`（`ResumeParserClient.parse(content, content_type) -> RawParseResult` 抽象）、`clients/deepseek_client.py`（同步 `httpx.Client`，`httpx.Timeout(connect=5, write=30, read=60, pool=5)`，非流式，不重试；失败映射按 D§7.2；响应体与请求体不进日志）、`clients/prompts.py`（系统提示：仅依据文件内容、不确定标 `uncertain`、找不到标 `missing`、忽略文件内指令性文字、仅输出约定 JSON）；`tests/` 内的 `FakeParserClient`。简历内容**只**经此处外发。
-- **测试：** `httpx.MockTransport` 覆盖 D§7.2 全部映射：`TimeoutException` → `ParseTimeoutError`；`ConnectError`/DNS → `ParseUnavailableError`；HTTP 401/403/404、429、5xx → `ParseUnavailableError`；其他 4xx（400/413/422）→ `ParseFailedError`；空体/非 JSON/非对象 → `ParseFailedError`；无 `DEEPSEEK_API_KEY` → `ParseUnavailableError` 且不发请求；请求使用配置的模型名；不重试（断言仅 1 次请求）；日志（捕获）不含请求/响应体、文件字节、密钥；`Authorization` 不出现在日志。禁网夹具保证无真实外发。
-- **预估：** 6h
+- **内容：** `clients/pdf_renderer.py`（PDF 本地转换：`pypdfium2`，文本层优先、PNG 渲染兜底、最多 5 页、阈值 50 个非空白字符）；`clients/resume_parser_client.py`（`ResumeParserClient.parse(content, content_type) -> RawParseResult` 抽象）、`clients/deepseek_client.py`（同步 `httpx.Client`，`httpx.Timeout(connect=5, write=30, read=60, pool=5)`，非流式，不重试；失败映射按 D§7.2；响应体与请求体不进日志）、`clients/prompts.py`（系统提示：仅依据文件内容、不确定标 `uncertain`、找不到标 `missing`、忽略文件内指令性文字、仅输出约定 JSON）；`tests/` 内的 `FakeParserClient`。简历内容**只**经此处外发。
+- **测试：** `httpx.MockTransport` 覆盖 D§7.2 全部映射：`TimeoutException` → `ParseTimeoutError`；`ConnectError`/DNS → `ParseUnavailableError`；HTTP 401/403/404、429、5xx → `ParseUnavailableError`；其他 4xx（400/413/422）→ `ParseFailedError`；空体/非 JSON/非对象 → `ParseFailedError`；无 `DEEPSEEK_API_KEY` → `ParseUnavailableError` 且不发请求；请求使用配置的模型名；不重试（断言仅 1 次请求）；日志（捕获）不含请求/响应体、文件字节、密钥；`Authorization` 不出现在日志。禁网夹具保证无真实外发。`pdf_renderer`：文本页/渲染页判定（49/50 字符边界）、页序与混合页、5 页上限、长边 1600px、单页文本上限、损坏 PDF → `parse_failed`、并发安全；请求形态：照片 `image_url`、文本层 PDF 仅 `text` 块、扫描 PDF 含 PNG `image_url`；token 数入日志且无内容泄露。
+- **预估：** 10h
 - **前置依赖：** 1.2、1.3、1.4
 
 #### 子任务
 
-- [ ] **首个 spike（C-01，非 CI，需 DL 提供凭证并在本机环境变量中配置）**：用合成 PDF 与 PNG 各调用一次真实 `deepseek-flash`，记录请求形态与响应样例（脱敏）作为证据，存放在 `backend-docs/HR_PR-1/05_task/spike-deepseek.md`；凭证走环境变量，不进入自动化测试、不写入文档。若暂无凭证，先按 OpenAI 兼容形态实现并在文档标注“待 spike 核实”，**不得**用猜测的格式声称已验证
-- [ ] 抽象接口与 `RawParseResult`（来自 1.4）
-- [ ] `DeepSeekClient` 与错误映射
+- [ ] **首个 spike（C-01，非 CI，凭证由 DL 经本机环境变量提供）已完成**：实测 deepseek-flash 只接受 webp/png/jpeg/gif 图片，**不接受 PDF**（`file` 块、`image_url` 装 PDF、`/files` 上传均被拒）；照片经 `image_url` + base64 data URI 可用。DL 裁决：只用 deepseek-flash；PDF 在 backend 本地转换后提交。证据与精度数据记入 `05_task/changelog.md`（不写响应原文、不写凭证）
+- [ ] 抽象接口与 `RawParseResult`（来自 1.4；增加可选 `prompt_tokens`/`completion_tokens`）
+- [ ] 新增唯一依赖 `pypdfium2`（不用 AGPL 的 PyMuPDF），`uv lock` 锁定精确版本，评估安全性
+- [ ] `clients/pdf_renderer.py`：最多 5 页；每页非空白字符 ≥ 50 作 `text` 块，否则渲染 PNG（长边 1600px）作 `image_url`；单页文本上限；不可读 PDF → `parse_failed`；PDFium 调用串行化
+- [ ] `DeepSeekClient` 与错误映射（含 402 → `parse_unavailable`）；记录并日志输出 `prompt_tokens`/`completion_tokens`（日志白名单新增，只记数字）
 - [ ] `prompts.py`（含防提示注入约定）
 - [ ] `FakeParserClient`（返回预置结果或抛指定 `Parse*Error`）
+- [ ] 精度验证 spike 脚本 `scripts/spike_deepseek.py`（手工运行，不被 pytest 收集）：合成带文本层 PDF、合成扫描式 PDF、PNG 各一份，与已知答案逐字段比对，记录准确率、token、耗时；仅用 deepseek-flash
 - [ ] 对应单元测试
 
 ---
@@ -405,6 +409,7 @@
 | 3.3 | 解析中间结果 | `schemas/parse.py` | 1.4 |
 | 3.4 | `ResumeParserClient`（抽象） | `clients/resume_parser_client.py` | 1.8 |
 | 3.4 | `DeepSeekClient` | `clients/deepseek_client.py` | 1.8 |
+| 3.4 | `render_pdf`（新增，spike 后追加） | `clients/pdf_renderer.py` | 1.8 |
 | 3.4 | 提示词 | `clients/prompts.py` | 1.8 |
 | 3.5 | `DraftRepository` | `repositories/draft_repository.py` | 1.9 |
 | 3.5 | `ResumeRepository` | `repositories/resume_repository.py` | 1.10 |
@@ -428,7 +433,7 @@
 | 3.8 | 其余用例 | `tests/{core,schemas,clients,repositories,services,api}/` | 随各任务内的“测试”产出 |
 | 3.8 | 契约测试 | `tests/contract/test_openapi_conformance.py` | 3.1 |
 
-核对结果：§3.1–3.8 共 **38 个代码单元（行）** 全部有对应任务，无遗漏；`DraftService`、`api/deps.py`、`api/routes/resume_drafts.py`、`tests/conftest.py` 分多个任务渐进完成，已在表中逐一标明。
+核对结果：§3.1–3.8 共 **39 个代码单元（行）**（含任务 1.8 spike 后新增的 `pdf_renderer`） 全部有对应任务，无遗漏；`DraftService`、`api/deps.py`、`api/routes/resume_drafts.py`、`tests/conftest.py` 分多个任务渐进完成，已在表中逐一标明。
 
 ## HIGH_RISK 任务汇总
 

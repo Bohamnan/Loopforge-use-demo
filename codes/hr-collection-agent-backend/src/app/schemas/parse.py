@@ -9,3 +9,5 @@ class RawParseResult:
     """Untrusted dictionary parsed from the model output; normalised by ParseNormalizer."""
 
     data: dict[str, Any]
+    prompt_tokens: int | None = None  # reported by the provider, for cost monitoring
+    completion_tokens: int | None = None

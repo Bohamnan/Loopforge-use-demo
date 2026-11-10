@@ -11,7 +11,17 @@ request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
 
 # Only these fields may be logged. User content, filenames and tokens are never allowed.
 ALLOWED_FIELDS = frozenset(
-    {"draft_id", "resume_id", "status_code", "duration_ms", "code", "exception_class", "count"}
+    {
+        "draft_id",
+        "resume_id",
+        "status_code",
+        "duration_ms",
+        "code",
+        "exception_class",
+        "count",
+        "prompt_tokens",
+        "completion_tokens",
+    }
 )
 _LEVELS = {
     "debug": logging.DEBUG,
@@ -29,6 +39,9 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[3]  # codes/hr-collection-agent
 def configure_logging(level: int = logging.INFO) -> None:
     """Attach a plain stdout handler once; messages are already JSON."""
     _logger.setLevel(level)
+    # Third-party HTTP loggers can print request details at low levels; keep them quiet.
+    for name in ("httpx", "httpcore"):
+        logging.getLogger(name).setLevel(logging.WARNING)
     if not any(getattr(h, "_app_handler", False) for h in _logger.handlers):
         handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(logging.Formatter("%(message)s"))

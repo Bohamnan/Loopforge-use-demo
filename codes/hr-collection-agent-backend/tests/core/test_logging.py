@@ -91,3 +91,19 @@ def test_stack_is_bounded_to_max_frames_and_chars(caplog: pytest.LogCaptureFixtu
     assert stack.count(" in ") <= MAX_STACK_FRAMES
     assert len(stack) <= MAX_STACK_CHARS
     assert "in recurse" in stack  # innermost frames are kept
+
+
+def test_token_counts_are_loggable(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.INFO, logger="app")
+    log_event("model_call", prompt_tokens=1200, completion_tokens=300)
+    data = json.loads(caplog.records[-1].getMessage())
+    assert data["prompt_tokens"] == 1200 and data["completion_tokens"] == 300
+
+
+def test_configure_logging_quiets_http_libraries() -> None:
+    from app.core.logging import configure_logging
+
+    logging.getLogger("httpx").setLevel(logging.DEBUG)
+    configure_logging()
+    assert logging.getLogger("httpx").level == logging.WARNING
+    assert logging.getLogger("httpcore").level == logging.WARNING

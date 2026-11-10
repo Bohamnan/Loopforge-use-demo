@@ -25,3 +25,18 @@ class SequentialIdGenerator:
     def new_id(self) -> str:
         self._n += 1
         return f"00000000-0000-4000-8000-{self._n:012d}"
+
+
+class FakeParserClient:
+    """ResumeParserClient double: returns a preset result or raises a preset error."""
+
+    def __init__(self, result: object = None, error: Exception | None = None) -> None:
+        self.result = result
+        self.error = error
+        self.calls: list[tuple[bytes, str]] = []
+
+    def parse(self, content: bytes, content_type: str) -> object:
+        self.calls.append((content, content_type))
+        if self.error is not None:
+            raise self.error
+        return self.result
