@@ -10,7 +10,7 @@
 |------|------|
 | **PRD** | `01-requirements/HR_PR-1/prd.md` |
 | **当前 Skill** | feature-developer |
-| **当前阶段** | frontend 3.1 + 跟踪项清理；backend 存储加固 + 2.1–2.3 进行中 |
+| **当前阶段** | backend 存储加固 + 2.1–2.3 审查中；frontend 3.1 + 跟踪项清理进行中 |
 | **状态** | 🔄 feature-developer 进行中 |
 | **最后更新** | 2026-11-10 |
 
@@ -53,7 +53,7 @@
 | 技术设计 | architecture-advisor | 各 Workbench 工程师 | ✅ backend / ✅ frontend（2026-11-10） | 2026-11-10 | `backend-docs/HR_PR-1/04_design/design.md`；`frontend-docs/HR_PR-1/04_design/design.md` |
 | 任务拆分 | architecture-advisor | 各 Workbench 工程师 | ✅ backend（20 任务 / 91h）/ ✅ frontend（15 任务 / 79h） | 2026-11-10 | `backend-docs/HR_PR-1/05_task/tasks.md`；`frontend-docs/HR_PR-1/05_task/tasks.md` |
 | 仓库约定补全与复核（仅新项目 Workbench） | architecture-advisor（Step 5） | 各 Workbench 工程师/Dev Lead | ✅ backend / ✅ frontend（已确认） | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
-| 代码实现 | feature-developer | 各 Workbench 工程师 | 🔄 backend 10/20 → 2.1–2.3 / frontend 14/15（2.7–2.8 审查中） | — | `codes/hr-collection-agent-backend/`、`codes/hr-collection-agent-frontend/` |
+| 代码实现 | feature-developer | 各 Workbench 工程师 | 🔄 backend 13/20（2.1–2.3 审查中）/ frontend 14/15 → 3.1 | — | `codes/hr-collection-agent-backend/`、`codes/hr-collection-agent-frontend/` |
 | 代码审查 | code-reviewer | 各 Workbench 工程师 | 🔄 第一批 ✅、1.8 ✅、2.1–2.6 ✅；后续批次待审 | — | `backend-docs/HR_PR-1/10_review/code_review.md`；`frontend-docs/HR_PR-1/10_review/code_review.md` |
 | 开发自测用例 | dev-self-test | 各 Workbench 工程师 | — | — | — |
 | 造数脚本 | test-data-script-generator | 各 Workbench 工程师/QA | — | — | — |
@@ -148,6 +148,7 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 frontend 2.6 标 ✅（a8f4020）、SUGGEST-2/1（5be3727、bdb7316）、2.7（8966bb0）、2.8（a012693）：复跑 50 文件 577 例通过、lint 0、build 1439 modules |
 | 2026-11-10 | Yin Yang（Dev Lead） | code-reviewer | frontend 第五批审查（6ab7ad8）：PASS_WITH_SUGGESTIONS（0/0/4），F-03 误报路径关闭、2.7/2.8 符合 P-08/C-07/TD-13；两个 DL 确认点建议接受 |
 | 2026-11-10 | Yin Yang（Dev Lead） | feature-developer | DL 确认 frontend 2.7、2.8 标 ✅，两个确认点接受；下发 frontend 3.1 及跟踪项清理 |
+| 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 backend 存储加固（6295fe5）与 2.1–2.3（fb1210f、bac0405、71785cc）：复跑 pytest 721 passed、ruff 通过、无密钥；交审查 agent 做第六批审查 |
 
 ---
 
