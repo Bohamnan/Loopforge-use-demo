@@ -51,6 +51,10 @@ export async function request<T>(path: string, options: RequestOptions): Promise
       try {
         payload = await response.json();
       } catch {
+        // The timer also covers reading the body: an abort here is a timeout, not a malformed body.
+        if (timedOut) {
+          throw ApiError.timeout();
+        }
         payloadOk = false;
       }
     } catch {

@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { ApiError } from '../api/ApiError';
-import { getCurrentResumeDraft } from '../api/ResumeDraftApi';
+import { createResumeDraft, getCurrentResumeDraft } from '../api/ResumeDraftApi';
 import { initialState, sessionReducer, type SessionAction, type SessionState } from './model/SessionReducer';
+import { MULTIPLE_FILES_NOTICE, pickSingleFile } from './model/UploadPrecheck';
 
 /** Anything thrown by the api layer is already an ApiError; guard anyway so the UI never sees raw errors. */
 function toApiError(error: unknown): ApiError {
@@ -61,7 +62,56 @@ export function useResumeSession() {
     send({ type: 'NOTICE_DISMISSED' });
   }, [send]);
 
-  return { state, retryBootstrap, dismissNotice, send };
+  // Small hint under the composer, e.g. when several files were dropped at once.
+  const [selectionNotice, setSelectionNotice] = useState<string | undefined>(undefined);
+
+  const startUpload = useCallback(
+    async (file: File, epoch: number) => {
+      try {
+        const draft = await createResumeDraft(file);
+        send({ type: 'UPLOAD_SUCCEEDED', draft, epoch });
+      } catch (error) {
+        send({ type: 'UPLOAD_FAILED', error: toApiError(error), epoch });
+      }
+    },
+    [send],
+  );
+
+  /** A file selection from the picker or a drop. Only one file is used; the rest are ignored with a notice. */
+  const requestUpload = useCallback(
+    (files: File[]) => {
+      const { file, multiple } = pickSingleFile(files);
+      if (!file) return;
+      setSelectionNotice(multiple ? MULTIPLE_FILES_NOTICE : undefined);
+      const { before, after } = send({ type: 'FILE_SELECTED', file });
+      if (before.busy === null && after.busy === 'upload') {
+        void startUpload(file, after.epoch);
+      }
+    },
+    [send, startUpload],
+  );
+
+  const confirmOverwrite = useCallback(() => {
+    const { before, after } = send({ type: 'OVERWRITE_CONFIRMED' });
+    if (before.busy === null && after.busy === 'upload' && after.pendingFile) {
+      void startUpload(after.pendingFile, after.epoch);
+    }
+  }, [send, startUpload]);
+
+  const cancelOverwrite = useCallback(() => {
+    send({ type: 'OVERWRITE_CANCELLED' });
+  }, [send]);
+
+  return {
+    state,
+    retryBootstrap,
+    dismissNotice,
+    requestUpload,
+    confirmOverwrite,
+    cancelOverwrite,
+    selectionNotice,
+    send,
+  };
 }
 
 export type ResumeSession = ReturnType<typeof useResumeSession>;

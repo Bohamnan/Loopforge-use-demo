@@ -162,3 +162,29 @@ React 在开发模式下自身会向 console 输出异常信息（含 message）
 
 ### 遗留风险
 - 在 2.7 前点击“＋ 新对话”无反应（按钮已渲染但未接线）；2.2–2.5 的联调演示需知悉。
+
+## Task-2.2：上传简历（REQ-FE-01）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/api/ApiClient.ts、ApiClient.test.ts | 修改 | **处理审查 SUGGEST-1**：读取响应体（`response.json()`）阶段被超时中止时抛 `client_timeout`，不再落到 `unknown_error`；补两条测试（响应头已到但 body 挂起，成功 / 错误响应各一）。计时器本就覆盖到 body 读取完成，仅分类逻辑改动 |
+| codes/hr-collection-agent-frontend/src/components/ComposerBar.tsx | 新增 | 📎 上传按钮、整页拖拽（document 级 drop，忙碌时移除监听）、单选 `accept`、10 MB 提示、AI 免责文案；**无文本框**；`forwardRef` 暴露 `openPicker`；选择后重置 input 以便再次选择同一文件 |
+| codes/hr-collection-agent-frontend/src/components/FileCard.tsx、UploadProgressNotice.tsx、ConfirmDialog.tsx | 新增 | 文件卡；单一加载提示（`role=status`、`aria-live=polite`，无步骤无耗时，P-05）；通用二次确认框 |
+| codes/hr-collection-agent-frontend/src/hooks/useResumeSession.ts | 修改 | 增加 `requestUpload`（多文件取第一个并给出提示）、`confirmOverwrite`、`cancelOverwrite`；在 `busy` 由 null 变为 `upload` 时发起请求并回传 `epoch` |
+| codes/hr-collection-agent-frontend/src/pages/ResumeCollectionPage.tsx | 修改 | 接入 `ComposerBar`、上传中的文件卡 + 加载提示、`ErrorAlert`（超时文案“识别时间过长，请重新上传。”）、覆盖确认框；欢迎页“上传简历”按钮打开选择器 |
+| codes/hr-collection-agent-frontend/src/components/Layout.css | 修改 | 文件卡、输入区、加载提示样式 |
+| 各组件 / 页面测试 | 新增 | `ComposerBar`、`FileCard`、`UploadProgressNotice`、`ConfirmDialog`、`ResumeCollectionPage.upload.test.tsx` |
+
+### 偏差说明
+- 审查 SUGGEST-1 按 DL 裁决在本任务处理；其余 SUGGEST 与本任务无关（SUGGEST-2 长度按码点、SUGGEST-3 契约漂移检测、SUGGEST-4 ESLint 收紧、SUGGEST-5 audit 跟踪），保留为跟踪项。
+- `reviewing` 阶段此时仅显示文件卡与恢复提示，字段展示在 2.3。
+- 页面测试里 Ant Design Modal 的关闭动画在 jsdom 中不会结束，测试用 `ConfigProvider` 关闭 motion；生产代码不受影响。
+- 页面中同时存在欢迎页的“上传简历”按钮与输入区的“上传简历”按钮（两处入口，原型也有 📎 + 建议芯片）。
+
+### 遗留风险
+- 上传期间“新对话”按钮禁用；上传结束后点击仍无反应，待 2.7。
+- 拖拽监听挂在 `document` 上，仅在 `ComposerBar` 挂载且未禁用时生效；确认框打开期间 `busy` 仍为 null，此时拖入文件会被 reducer 忽略（`dialog` 非空时 `decideUpload` 返回 ignored）。

@@ -148,7 +148,7 @@
 - [x] 外壳与空态 / 错误态组件
 - [x] `ResumeCollectionPage` 与 `App` 接线
 
-### Task 2.2：上传简历（REQ-FE-01）
+### Task 2.2：上传简历（REQ-FE-01） ✅
 - **关联：** REQ-FE-01.1–01.6；design.md §3.4（ComposerBar、FileCard、UploadProgressNotice、ErrorAlert、ConfirmDialog）、§5.1、§5.3（上传相关行）、§6、§7.1（上传相关）、TD-04/05/10；P-03、P-05；C-07、C-08、O-02、裁决 F-04
 - **内容：** `ComposerBar`（📎 上传 `accept` 单选、整页拖拽取第一个、底部免责提示、**无文本框**、忙碌态禁用）、`FileCard`、`UploadProgressNotice`（单一加载提示“正在识别，最长约 1 分钟”）、`ErrorAlert`（契约错误只展示 `message`，前端自有码用固定文案，附 `request_id`）、`ConfirmDialog`（本任务启用“覆盖确认”）；`useResumeSession` 增加 `requestUpload`、`confirmOverwriteAndUpload`；上传成功后以占位方式进入 `reviewing`（展示由 2.3 完成）。
 - **测试：** 预校验阻止（类型不支持、10 MB + 1、0 字节、多文件）且不发请求；上传中显示单一加载提示、输入区与“新对话”禁用、无法重复提交；75s 超时（fake timers）→ 提示重新上传；backend 错误（`file_*`、`unsupported_file_type`、`parse_failed`、`parse_unavailable`、`parse_timeout`）只展示 `message`，失败后保留原草稿（O-02）；有草稿时先弹覆盖确认，取消则不发请求，确认后才发；无草稿直接上传；`ComposerBar` 无 `textarea`；日志不含文件内容。
@@ -157,9 +157,9 @@
 
 #### 子任务
 
-- [ ] `ComposerBar`、`FileCard`、`UploadProgressNotice`、`ErrorAlert`
-- [ ] `ConfirmDialog`（覆盖确认）
-- [ ] `useResumeSession` 上传动作
+- [x] `ComposerBar`、`FileCard`、`UploadProgressNotice`、`ErrorAlert`
+- [x] `ConfirmDialog`（覆盖确认）
+- [x] `useResumeSession` 上传动作
 
 ### Task 2.3：识别结果展示与草稿恢复展示（REQ-FE-02、05.2）
 - **关联：** REQ-FE-02.1–02.4、05.2；design.md §3.4（FieldStatusTag、ReadOnlySection、ReviewSummary、SectionCard 只读态）、§4.1–§4.3、§6；P-04、P-06、P-10、B-04
