@@ -86,7 +86,7 @@
 | TC-FE-001-AC-01 | 新浏览器、无 Cookie | 打开 `{变量:baseUrl}` | 页面打开即发 1 次 `GET /api/v1/resume-drafts/current`，同源，不带自定义令牌头 | 网络：包装 fetch 记录 `GET /api/v1/resume-drafts/current` 次数 = 1；`document.cookie` 不含 `draft_token`（HttpOnly） | 05.1、06.1 | E: + U:ResumeDraftApi.test.ts | ✅ E 通过：启动 GET 次数=1 |
 | TC-FE-001-RD-01 | GET 延迟 | 注入 GET 延迟 3 秒后打开页面 | 显示「正在读取草稿…」，此时无上传入口可用 | DOM：`innerText` 含「正在读取草稿…」；上传按钮不可点 | 05.1 | U:ResumeCollectionPage.test.tsx | ✅ U 文件级通过（Vitest 650/650；未逐条核对用例名） |
 | TC-FE-001-ST-01 | 无草稿（404 `draft_not_found`） | 打开页面 | 空态：欢迎页「你好，我是简历录入助手」+ 上传入口；无错误提示 | DOM 含欢迎语；`role=alert` 数量 = 0；console 无 error（O-12） | 05.3 | E: + U:ResumeCollectionPage.test.tsx | ✅ E 通过：欢迎页空态，无 alert |
-| TC-FE-001-IA-01 | 已上传样品、校对中 | 刷新页面 | 自动恢复；提示「已为你恢复未完成的简历」；字段值与状态与刷新前一致 | DOM 含提示；`{变量:draftJson}` 前后状态计数一致；刷新后恢复的核心三项为 recognized 状态文案「待确认」 | 05.2、02.1 | E: | ⏸ 未执行（本轮范围收缩，见汇总） |
+| TC-FE-001-IA-01 | 已上传样品、校对中 | 刷新页面 | 自动恢复；提示「已为你恢复未完成的简历」；字段值与状态与刷新前一致 | DOM 含提示；`{变量:draftJson}` 前后状态计数一致；刷新后恢复的核心三项为 recognized 状态文案「待确认」 | 05.2、02.1 | E: | ✅ E 通过：校对中刷新，显示「已为你恢复未完成的简历」，项目经历 4 条恢复 |
 | TC-FE-001-IA-02 | 已进入最终确认阶段 | 刷新页面 | 恢复到可继续的状态（以 backend 草稿为准：回到校对/确认视图，不出现「已保存」） | DOM 不含「已保存」；有「确认本区」或「确认提交」入口 | 05.2、04.3 | E: | ⏸ 未执行（本轮范围收缩，见汇总） |
 | TC-FE-001-ST-02 | GET 返回 500（故障注入） | 打开页面 | 可重试错误态，**不当空态**；提示「未能读取已有草稿，请重试。…」；上传不可用，防止覆盖 | DOM 含该提示且含重试按钮；无上传入口；恢复后点重试 → 进入正常态 | 05.3（DD-04 补充） | E:（注入）+ U:BootstrapErrorPanel.test.tsx | ✅ U 文件级通过（Vitest 650/650；未逐条核对用例名） |
 | TC-FE-001-ST-03 | GET 网络失败（fetch reject） | 同上 | 同 ST-02，文案为网络异常通用文案 | DOM 含「网络异常，请检查网络后重试。」或 BootstrapErrorPanel 文案；不显示空态欢迎语 | 05.3 | U:ResumeCollectionPage.test.tsx | ✅ U 文件级通过（Vitest 650/650；未逐条核对用例名） |
@@ -108,18 +108,18 @@
 | TC-FE-002-AC-01 | 同上 | 观察上传请求 | `POST /api/v1/resume-drafts`，multipart，字段名 `file`，未手设 Content-Type（由浏览器带 boundary），`credentials: same-origin` | 网络：包装 fetch 记录 method/path/`body instanceof FormData`/`headers['Content-Type']` 为空 | 01.3、06.1 | E: + U:ResumeDraftApi.test.ts | ✅ E 通过：POST 记录=2 |
 | TC-FE-002-IA-02 | 上传进行中 | 加载期间再次点击上传 / 选文件 | 上传入口被禁用，POST 只发 1 次 | 包装 fetch：`POST .../resume-drafts` 计数 = 1；按钮 `disabled` | 01.3 | E: + U:ResumeCollectionPage.upload.test.tsx | ✅ E 通过：加载提示=True 唯一=True 上传禁用=True |
 | TC-FE-002-ST-01 | 空态 | 选 `{变量:synthDir}/a.txt` | 前端拦截，提示「仅支持 PDF、JPG、JPEG、PNG 格式。」，不发请求 | DOM 含该文案；POST 计数 = 0 | 01.2 | E: + U:UploadPrecheck（hooks/model） | ✅ U 文件级通过（Vitest 650/650；未逐条核对用例名） |
-| TC-FE-002-ST-02 | 空态 | 选 `big.png`（10485761 B） | 拦截，提示「文件超过 10 MB，请压缩后重试。」；不发请求 | 同上 | 01.2 | E: | ⏸ 未执行（本轮范围收缩，见汇总） |
-| TC-FE-002-ST-03 | 空态 | 选 `zero.pdf`（0 B） | 拦截（对应 `file_empty`），不发请求 | POST 计数 = 0；有错误提示 | 01.2 | E: | ⏸ 未执行（本轮范围收缩，见汇总） |
-| TC-FE-002-ST-04 | 空态 | 选 `edge.png`（恰 10485760 B，内容非真实图片） | **放行**到 backend（边界），backend 判内容不符并返回错误；界面只显示 backend `message` | POST 计数 = 1；DOM 含 backend message；DB drafts 行数 = 0 | 01.2、01.6 | E: | ⏸ 未执行（本轮范围收缩，见汇总） |
+| TC-FE-002-ST-02 | 空态 | 选 `big.png`（10485761 B） | 拦截，提示「文件超过 10 MB，请压缩后重试。」；不发请求 | 同上 | 01.2 | E: | ✅ E 通过：big.png(10485761B) 拦截「文件超过 10 MB，请压缩后重试。」，POST 0 次 |
+| TC-FE-002-ST-03 | 空态 | 选 `zero.pdf`（0 B） | 拦截（对应 `file_empty`），不发请求 | POST 计数 = 0；有错误提示 | 01.2 | E: | ✅ E 通过：zero.pdf 拦截「文件内容为空，请重新选择。」，POST 0 次 |
+| TC-FE-002-ST-04 | 空态 | 选 `edge.png`（恰 10485760 B，内容非真实图片） | **放行**到 backend（边界），backend 判内容不符并返回错误；界面只显示 backend `message` | POST 计数 = 1；DOM 含 backend message；DB drafts 行数 = 0 | 01.2、01.6 | E: | ✅ E 通过：edge.png(恰 10485760B) 放行，POST 1 次，backend 返回内容与格式不符，界面显示 message+请求编号；草稿仍为 404 |
 | TC-FE-002-ST-05 | 空态 | 选大写扩展名 `UP.PNG`（内容为真实 PNG 缩略） | 前端放行（扩展名大小写不敏感） | POST 计数 = 1 | 01.1 | E: + U:UploadPrecheck | ✅ U 文件级通过（Vitest 650/650；未逐条核对用例名） |
 | TC-FE-002-ST-06 | 空态 | 一次选择多个文件（拖拽路径） | 提示「一次只能上传一个文件，已选择第一个。」，只处理第一个 | DOM 含提示；POST 计数 ≤ 1 | 01.1 | U:ResumeCollectionPage.upload.test.tsx | ✅ U 文件级通过（Vitest 650/650；未逐条核对用例名） |
-| TC-FE-002-ST-07 | **SUGGEST-1**：已在校对阶段（页面内容很长） | 滚动到页面顶部，选 `a.txt` 上传 | 错误提示固定显示在底部输入区，**当下在视口内可见**；整页只有 1 个 `role=alert` | DOM：`getBoundingClientRect()` 的 `top>=0 && bottom<=innerHeight`；`querySelectorAll('[role=alert]').length === 1`；在 360/1440 各验一次 | 01.2、01.6 | E: + U:ResumeCollectionPage.upload.test.tsx | ✅ U 文件级通过（Vitest 650/650；未逐条核对用例名） |
-| TC-FE-002-ST-08 | 空态 | 选 `fake.pdf`（扩展名 pdf，内容为文本） | 前端放行；backend 返回 `file_content_mismatch`；只展示 `message`，无文件内容；保持上传态可重选 | DOM 含 message；console 无文件名外的内容；GET 草稿仍为 404 | 01.6 | E: | ⏸ 未执行（本轮范围收缩，见汇总） |
+| TC-FE-002-ST-07 | **SUGGEST-1**：已在校对阶段（页面内容很长） | 滚动到页面顶部，选 `a.txt` 上传 | 错误提示固定显示在底部输入区，**当下在视口内可见**；整页只有 1 个 `role=alert` | DOM：`getBoundingClientRect()` 的 `top>=0 && bottom<=innerHeight`；`querySelectorAll('[role=alert]').length === 1`；在 360/1440 各验一次 | 01.2、01.6 | E: + U:ResumeCollectionPage.upload.test.tsx | ✅ E 通过（SUGGEST-1 实机复测）：校对阶段滚到顶部上传 a.txt，提示在输入区内且在视口内；1280×900 与 360×640 均为 alert=1、inView=true、inComposer=true |
+| TC-FE-002-ST-08 | 空态 | 选 `fake.pdf`（扩展名 pdf，内容为文本） | 前端放行；backend 返回 `file_content_mismatch`；只展示 `message`，无文件内容；保持上传态可重选 | DOM 含 message；console 无文件名外的内容；GET 草稿仍为 404 | 01.6 | E: | ✅ E 通过：fake.pdf 放行，backend file_content_mismatch，只显示 message，保持上传态 |
 | TC-FE-002-ST-09 | 上传请求超过 75 秒 | 假定时器推进 75 s | 结束等待，提示「请求超时，请重试。」并允许重新上传；不假定草稿状态 | DOM 含提示；上传入口恢复可用 | 01.4 | U:ResumeDraftApi.test.ts、ResumeCollectionPage.upload.test.tsx（真实超时无法在不改 backend 下制造，沿用联调结论） | ✅ U 文件级通过（Vitest 650/650；未逐条核对用例名） |
-| TC-FE-002-IA-03 | 已有草稿 | 再次选 `{变量:sampleFile}` | 先弹「覆盖当前草稿」确认框；确认前不发请求 | DOM 含确认框文案「将用新文件覆盖当前未确认的简历内容…」；POST 计数 = 0 | 01.5 | E: | ⏸ 未执行（本轮范围收缩，见汇总） |
-| TC-FE-002-IA-04 | 同上 | 点「取消」 | 关闭对话框，原草稿与编辑状态保留，无请求 | 草稿 JSON 不变；POST 计数 = 0 | 01.5 | E: | ⏸ 未执行（本轮范围收缩，见汇总） |
-| TC-FE-002-IA-05 | 同上 | 点继续 | 提交上传，识别后替换为新草稿；draft 库始终 1 行 | `select count(*) from drafts` = 1 | 01.5 | E: | ⏸ 未执行（本轮范围收缩，见汇总） |
-| TC-FE-002-ST-10 | 空态（无草稿） | 上传合法文件 | **不**弹覆盖确认，直接上传 | 无确认框；POST 计数 = 1 | 01.5 | E: | ⏸ 未执行（本轮范围收缩，见汇总） |
+| TC-FE-002-IA-03 | 已有草稿 | 再次选 `{变量:sampleFile}` | 先弹「覆盖当前草稿」确认框；确认前不发请求 | DOM 含确认框文案「将用新文件覆盖当前未确认的简历内容…」；POST 计数 = 0 | 01.5 | E: | ✅ E 通过：已有草稿再上传，弹「覆盖当前草稿」，确认前 POST 0 次 |
+| TC-FE-002-IA-04 | 同上 | 点「取消」 | 关闭对话框，原草稿与编辑状态保留，无请求 | 草稿 JSON 不变；POST 计数 = 0 | 01.5 | E: | ✅ E 通过：取消后对话框关闭、POST 0、草稿内容长度不变、校对视图保留 |
+| TC-FE-002-IA-05 | 同上 | 点继续 | 提交上传，识别后替换为新草稿；draft 库始终 1 行 | `select count(*) from drafts` = 1 | 01.5 | E: | ✅ E 通过：继续上传后 POST 1 次并替换，drafts 表始终 1 行 |
+| TC-FE-002-ST-10 | 空态（无草稿） | 上传合法文件 | **不**弹覆盖确认，直接上传 | 无确认框；POST 计数 = 1 | 01.5 | E: | ✅ E 通过：无草稿时多次上传（样品、错误文件）均未弹覆盖确认 |
 | TC-FE-002-ST-11 | 校对中，backend 不可用 | 停掉 backend 后上传 `{变量:sampleFile}` | 通用错误文案（网络/代理失败），草稿内容保持不变；可重试 | DOM 有错误提示；校对视图仍在；恢复 backend 后 GET 仍返回原草稿 | 01.6 | E: | ⏸ 未执行（本轮范围收缩，见汇总） |
 
 ---
@@ -182,8 +182,8 @@
 | TC-FE-005-AC-01 | 同上 | 双击/连点「确认提交」 | 只发 1 次 `POST /api/v1/resumes`，体为 `{confirmed:true}` | 包装 fetch：POST 计数 = 1；body 键集合 = `confirmed` | 04.8 | E: + U:FinalReviewCard.test.tsx | ✅ E 通过：POST /resumes 次数=1 |
 | TC-FE-005-IA-04 | 正常保存 | 等待 201 | 显示「已保存」+「上传下一份」；保存卡仅保留姓名、原始文件名、保存时间；运行时内存清空 | DOM：不含邮箱、手机号、其他字段文本（以 `draftJson` 中的值做包含检测，输出仅 true/false）；有保存卡三项 | 04.4 | E: + U:SavedResultCard.test.tsx | ✅ E 通过：显示已保存 + 上传下一份 |
 | TC-FE-005-AC-02 | 保存后 | 只读查库与文件 | resumes +1；子表条数与校对一致；`{变量:editField}` 的修改值已入库；原始文件存在且 sha256 与样品一致；drafts = 0；无 `.tmp` | `sqlite3 -readonly {变量:dataDir}/resumes.db "select count(*) from resumes"`；`select job_title from resumes where id={变量:recordId}`（只比对后缀）；`sha256` 对比；`ls {变量:fileDir}` | 04.4 | E: | ✅ E 通过：resumes=1 修改值入库=True drafts=0 文件数=1 tmp=0 |
-| TC-FE-005-IA-05 | 保存后 | 点「上传下一份」 | 回到欢迎态，可再次上传；无旧内容 | DOM 含欢迎语；上传入口可用 | 04.4 | E: | ⏸ 未执行（本轮范围收缩，见汇总） |
-| TC-FE-005-IA-06 | 同一人再次上传样品并确认提交 | 走到提交 | 仅显示「该简历已保存过」文字，不展示已有记录内容；资料库不新增 | DOM 含提示；`select count(*) from resumes` 不变；`select count(*) from drafts`=0 | 04.5 | E: | ⏸ 未执行（本轮范围收缩，见汇总） |
+| TC-FE-005-IA-05 | 保存后 | 点「上传下一份」 | 回到欢迎态，可再次上传；无旧内容 | DOM 含欢迎语；上传入口可用 | 04.4 | E: | ✅ E 通过：保存后点「上传下一份」回到欢迎态，无旧内容 |
+| TC-FE-005-IA-06 | 同一人再次上传样品并确认提交 | 走到提交 | 仅显示「该简历已保存过」文字，不展示已有记录内容；资料库不新增 | DOM 含提示；`select count(*) from resumes` 不变；`select count(*) from drafts`=0 | 04.5 | E: | ✅ E 通过：同一人再次上传并提交，显示「该简历已保存过」，页面无项目等记录内容，resumes 仍 1 行，drafts 0 |
 | TC-FE-005-ST-02 | POST 网络失败（注入 reject） | 点提交 | **不提示成功**；显示「未收到保存结果，尚未确认保存成功，可直接重试。」；按钮恢复；不调用任何状态查询（无 GET `/resumes*`） | DOM 无「已保存」；包装 fetch 无 `GET /api/v1/resumes`；再点一次可成功 | 04.6 | E: + U:ResumeCollectionPage.final.test.tsx | ✅ U 文件级通过（Vitest 650/650；未逐条核对用例名） |
 | TC-FE-005-ST-03 | POST 超过 30 s | 假定时器 | 同 ST-02，`client_timeout` 文案「请求超时，请重试。」，不提示成功 | 渲染断言 | 04.6 | U:ResumeCollectionPage.final.test.tsx | ✅ U 文件级通过（Vitest 650/650；未逐条核对用例名） |
 | TC-FE-005-ST-04 | 删除 drafts.db 草稿行（夹具）后提交 | 点提交 | POST 返回 `draft_not_found` → 提示「可能已保存，请重新上传核实」，**不显示成功**，不回空态 | DOM 含提示（NoticeBanner 文案「当前不能确认是否已保存…」）；无「已保存」 | 04.7 | E: | ⏸ 未执行（本轮范围收缩，见汇总） |
@@ -222,7 +222,7 @@
 | TC-FE-007-RS-03 | 同上 | 视口 768×1024 | 不溢出、不截断；仍为折叠外壳（< 860） | 同上 | TD-13 | E: | ✅ E 通过：768×1024 无溢出/越界/截断，确认本区在视口内（按钮 32px 高，≥600 不适用 44px 规则） |
 | TC-FE-007-RS-04 | 同上 | 视口 1440×900 | 左侧栏 + 主区，不溢出 | 同上 | TD-13 | E: | ✅ E 通过：1440×900 无溢出/越界/截断 |
 | TC-FE-007-RS-05 | 全流程 | 在 360 / 390 / 768 / 1440 下各完成「识别后的校对页→确认本区→最终确认视图→确认提交按钮可见可点」的关键步骤 | 每个视口下关键控件在视口内可点；对话区独立滚动、输入区固定 | 元素 `getBoundingClientRect` 在视口内；`scrollTop` 变化发生在对话区而非 body | TD-13 | E: | ✅ E 通过：360 宽走完 逐区确认→确认提交（在视口内，44×44）→已保存，resumes=1；390/768/1440 校对页确认按钮在视口内 |
-| TC-FE-007-RS-06 | 360 宽校对页 | 枚举所有可见 `button` 的尺寸 | 全部 ≥ 44×44；若仍有 <44px 的按钮，定位其所属组件（联调遗留：1/24） | 脚本输出 `tag/class/容器/宽高` 列表（无文本） | TD-13、SUGGEST-3 | E: | ✅ E 通过：360/390 校对页可见按钮 <44px 为 0（联调遗留的 1 个未复现；已在新对话弹窗打开状态另测，见 006） |
+| TC-FE-007-RS-06 | 360 宽校对页 | 枚举所有可见 `button` 的尺寸 | 全部 ≥ 44×44；若仍有 <44px 的按钮，定位其所属组件（联调遗留：1/24） | 脚本输出 `tag/class/容器/宽高` 列表（无文本） | TD-13、SUGGEST-3 | E: | ✅ E 通过（定位完成）：360/390 校对页可见 button <44px 为 0；联调遗留的“未定位”按钮为 antd 弹窗关闭按钮 .ant-modal-close（32×32，打开覆盖/新对话确认框时出现；drill 的 metrics 把它排除在外）。不属 button.ant-btn 规则，记为 SUGGEST，未修 |
 | TC-FE-007-RS-07 | 360×640 | 测输入区高度 | 不超过视口高度约 27% | `composerH / innerHeight` | TD-13、SUGGEST-3 | E: | ✅ E 通过：360×640 输入区高 169px = 26.4% ≤ 27% |
 | TC-FE-007-RS-08 | 临界宽度 | 依次设宽 859 / 860 与 599 / 600 | 859 折叠、860 展开；599 起热区 44px、600 恢复 | `getComputedStyle` 与布局类 | TD-13 | E: + U:AppShell.responsive.test.tsx、Layout.responsive.test.ts | ✅ U 文件级通过（Vitest 650/650；未逐条核对用例名） |
 | TC-FE-007-RD-01 | 上传/保存/错误各一次 | 检查 aria | 加载、错误、保存结果使用 `aria-live` / `role=alert`；同一时刻仅 1 个 alert | DOM 查询 | TD-13 | E: + U:ResumeCollectionPage.a11y.test.tsx | ✅ U 文件级通过（Vitest 650/650；未逐条核对用例名） |
