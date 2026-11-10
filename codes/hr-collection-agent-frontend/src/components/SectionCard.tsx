@@ -109,7 +109,9 @@ export default function SectionCard({
   return (
     <section className={`section-card${active ? ' section-active' : ''}`} aria-current={active ? 'true' : undefined}>
       <header className="section-head">
-        <h3>{section.title}</h3>
+        <h3 data-focus-key={`section:${section.key}`} tabIndex={-1}>
+          {section.title}
+        </h3>
         <span data-testid="section-status">
           <FieldStatusTag status={status} />
         </span>

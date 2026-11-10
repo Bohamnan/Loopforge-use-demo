@@ -210,7 +210,7 @@ describe('REQ-FE-04.4 保存成功：已保存 + 上传下一份，只保留姓�
     expect(within(card).getByText('已保存')).toBeInTheDocument();
     expect(within(card).getByText('测试用户甲')).toBeInTheDocument();
     expect(within(card).getByText('合成简历.pdf')).toBeInTheDocument();
-    expect(within(card).getByText(formatSavedAt('2026-11-10T09:00:00Z'))).toBeInTheDocument();
+    expect(within(card).getByText(formatSavedAt('2026-11-10T09:00:00Z') as string)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '上传下一份' })).toBeInTheDocument();
     // everything else is gone from the page
     expect(document.body.textContent).not.toContain('13800138000');

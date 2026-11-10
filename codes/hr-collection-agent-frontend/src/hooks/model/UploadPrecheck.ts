@@ -49,3 +49,12 @@ export function precheckFile(file: File): PrecheckResult {
 export function pickSingleFile(files: ArrayLike<File>): { file: File | null; multiple: boolean } {
   return { file: files[0] ?? null, multiple: files.length > 1 };
 }
+
+/**
+ * True when a drag carries files. While dragging, browsers expose only `types` (files are readable on drop),
+ * so `types` is checked first. Text and link drags are left alone (review SUGGEST-3).
+ */
+export function isFileDrag(transfer: Pick<DataTransfer, 'types' | 'files'> | null | undefined): boolean {
+  if (!transfer) return false;
+  return Array.from(transfer.types ?? []).includes('Files') || (transfer.files?.length ?? 0) > 0;
+}

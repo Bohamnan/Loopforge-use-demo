@@ -72,6 +72,13 @@ describe('FinalReviewCard', () => {
     expect(screen.queryByText(/项字段未确认/)).not.toBeInTheDocument();
   });
 
+  it('announces the unconfirmed-fields hint politely instead of as an alert, and marks the heading as a focus target', () => {
+    setup({ unconfirmedCount: 3 });
+    expect(screen.getByRole('status')).toHaveTextContent('还有 3 项字段未确认');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '最终确认' })).toHaveAttribute('data-focus-key', 'final');
+  });
+
   it('goes back through "我还要修改"', async () => {
     const { onBack } = setup();
     await userEvent.click(screen.getByRole('button', { name: '我还要修改' }));

@@ -18,6 +18,7 @@ import UploadProgressNotice from '../components/UploadProgressNotice';
 import WelcomePanel from '../components/WelcomePanel';
 import { getSection, SECTIONS } from '../hooks/model/SectionConfig';
 import { coreReady, sectionConfirmBlock, sectionStatus, unconfirmedCount } from '../hooks/model/SectionView';
+import { useChatScroll } from '../hooks/useChatScroll';
 import { usePreventFileDropNavigation } from '../hooks/usePreventFileDropNavigation';
 import { useResumeSession } from '../hooks/useResumeSession';
 
@@ -47,6 +48,7 @@ export default function ResumeCollectionPage() {
     selectionNotice,
   } = useResumeSession();
   usePreventFileDropNavigation(); // also covers phases without a composer
+  const focusKey = useChatScroll({ phase: state.phase, view: state.view, activeSection: state.activeSection });
   const composerRef = useRef<ComposerBarHandle>(null);
   const busy = state.busy !== null;
   const bannerKind = state.notice && state.notice !== 'already_saved' ? state.notice : null;
@@ -179,7 +181,7 @@ export default function ResumeCollectionPage() {
         ) : null
       }
     >
-      <ChatThread>
+      <ChatThread focusKey={focusKey}>
         {content}
         {uploadError ? <ErrorAlert error={uploadError} timeoutMessage={UPLOAD_TIMEOUT_TEXT} /> : null}
       </ChatThread>

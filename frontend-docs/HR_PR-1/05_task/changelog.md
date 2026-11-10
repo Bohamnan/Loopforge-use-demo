@@ -358,3 +358,41 @@ React 在开发模式下自身会向 console 输出异常信息（含 message）
 
 ### 遗留风险
 “新对话”后刷新页面会恢复旧草稿（TD-12，已知行为，对话框已明示）。
+
+## Task-2.8：无障碍与响应式（TD-13）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/hooks/useChatScroll.ts | 新增 | 纯函数 `focusKeyOf` + 薄封装 `useChatScroll`：只返回“该滚动 / 聚焦的区块 key”（`section:<key>` / `final` / `saved` / null），不碰 DOM |
+| codes/hr-collection-agent-frontend/src/components/ChatThread.tsx | 修改 | 按 `focusKey` 查找 `[data-focus-key]`，`scrollIntoView`（环境没有该方法时跳过）并 `focus({ preventScroll: true })`；key 不变不重复聚焦 |
+| codes/hr-collection-agent-frontend/src/components/SectionCard.tsx、FinalReviewCard.tsx、SavedResultCard.tsx | 修改 | 标题加 `data-focus-key` 与 `tabIndex={-1}` 作为聚焦目标 |
+| codes/hr-collection-agent-frontend/src/hooks/useNarrowScreen.ts、components/AppShell.tsx | 新增 / 修改 | `matchMedia('(max-width: 859px)')`：窄屏时侧栏收起，“＋ 新对话”移到标题栏，仍唯一且可达；侧栏 `aria-label="会话操作"` |
+| codes/hr-collection-agent-frontend/src/hooks/model/UploadPrecheck.ts | 修改 | `isFileDrag`：`types` 含 `Files`（拖拽过程中文件尚不可读）或已有文件 |
+| codes/hr-collection-agent-frontend/src/hooks/usePreventFileDropNavigation.ts、components/ComposerBar.tsx | 修改 | **SUGGEST-3**：只取消文件拖拽的默认行为，文本 / 链接拖拽不受影响；`ComposerBar` 提示用 `role="status"` |
+| codes/hr-collection-agent-frontend/src/components/SavedResultCard.tsx | 修改 | **SUGGEST-4**：`formatSavedAt` 无法解析时返回 `null`，结果卡隐藏“保存时间”行，不再显示原始乱码（保存响应的 `saved_at` 已在 api 层校验为可解析日期） |
+| codes/hr-collection-agent-frontend/src/hooks/useStableKeys.ts、components/ObjectListEditor.tsx、StringListEditor.tsx | 新增 / 修改 | 子项 / 文本行改用稳定 key（随新增 / 删除同步，外部长度变化时重置）：删除中间项后其余卡片保持同一 DOM（折叠状态不错位） |
+| codes/hr-collection-agent-frontend/src/components/FinalReviewCard.tsx | 修改 | “还有 n 项字段未确认”提示改 `role="status"` |
+| codes/hr-collection-agent-frontend/src/pages/ResumeCollectionPage.tsx | 修改 | 使用 `useChatScroll` 与 `ChatThread` 的 `focusKey` |
+| 测试 | 新增 | `useChatScroll`、`useStableKeys`、`ChatThread`、`AppShell.responsive`、`ObjectListEditor.keys`、`ResumeCollectionPage.a11y`，并扩充 `ComposerBar`、`usePreventFileDropNavigation`、`SavedResultCard`、`FinalReviewCard`、`UploadPrecheck` |
+
+### 跟踪项处理情况
+| 跟踪项 | 处理 |
+|---|---|
+| alert 连续播报 | 已处理：恢复提示（2.6）、未确认字段提示、输入区提示均为 `role="status"`；页面上只有真正的错误（`ErrorAlert`）与需行动的警告（草稿失效、可能已保存）是 `alert`。测试断言“有恢复提示时错误仍只有一个 alert” |
+| 子项用下标作为 key | 已处理（`useStableKeys`，经历子项与文本行） |
+| SUGGEST-3 全局拦截 drop 影响文本拖拽 | 已处理 |
+| SUGGEST-4 `formatSavedAt` 回退 | 已处理 |
+| 屏幕阅读器专项验收 | 不做（Q-DL-05 已裁定范围：基础键盘 + `aria-live`，不做读屏专项）；已验证标签、焦点、`status`/`alert` 角色，但没有用真实读屏软件验证 |
+| 窄屏用 Drawer | 未用：直接把“＋ 新对话”放进标题栏（设计 §6 允许“顶栏按钮承载”），避免新增交互层 |
+
+### 偏差说明
+- 焦点会在“有草稿显示出来”（恢复或上传成功）时移到当前待核对分区标题，这是设计 TD-13 的“跨分区推进后焦点移到新分区标题”的延伸；页面刚打开且读取失败 / 空态时不移动焦点。
+- 其余按设计实现。
+
+### 遗留风险
+- 字段级错误文本通过 `aria-describedby` 关联到输入框，没有单独 `role="alert"`（避免多个错误同时连续播报）；未经真实读屏验证。
+- 浏览器兼容只在 jsdom 中验证，未在 Chrome / Edge / Safari / Firefox 实机验证（任务 3.1 之后的人工验收项）。

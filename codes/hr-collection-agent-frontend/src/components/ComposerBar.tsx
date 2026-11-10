@@ -1,4 +1,5 @@
 import { Button } from 'antd';
+import { isFileDrag } from '../hooks/model/UploadPrecheck';
 import { forwardRef, useEffect, useImperativeHandle, useRef, type ReactNode } from 'react';
 
 const ACCEPT = '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png';
@@ -29,17 +30,21 @@ const ComposerBar = forwardRef<ComposerBarHandle, ComposerBarProps>(function Com
 
   useImperativeHandle(ref, () => ({ openPicker: () => inputRef.current?.click() }), []);
 
-  // The page-wide listeners stay attached even while disabled: a drop must always be cancelled, otherwise the
+  // The page-wide listeners stay attached even while disabled: a file drop must always be cancelled, otherwise the
   // browser opens the file and leaves the page, losing unsubmitted edits. Files are only used when enabled.
+  // Drags that do not carry files (selected text, links) are not touched.
   useEffect(() => {
     const onDrop = (event: DragEvent) => {
+      if (!isFileDrag(event.dataTransfer)) return;
       event.preventDefault();
       const files = event.dataTransfer?.files;
       if (!disabled && files && files.length > 0) {
         onFiles(Array.from(files));
       }
     };
-    const onDragOver = (event: DragEvent) => event.preventDefault();
+    const onDragOver = (event: DragEvent) => {
+      if (isFileDrag(event.dataTransfer)) event.preventDefault();
+    };
     document.addEventListener('drop', onDrop);
     document.addEventListener('dragover', onDragOver);
     return () => {
@@ -52,7 +57,7 @@ const ComposerBar = forwardRef<ComposerBarHandle, ComposerBarProps>(function Com
     <div className="composer-wrap">
       <div className="composer">
         {quickReplies}
-        {notice ? <div className="composer-notice">{notice}</div> : null}
+        {notice ? <div className="composer-notice" role="status">{notice}</div> : null}
         <div className="composer-bar">
           <Button shape="round" disabled={disabled} onClick={() => inputRef.current?.click()}>
             📎 上传简历

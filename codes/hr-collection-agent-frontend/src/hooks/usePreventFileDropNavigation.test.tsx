@@ -22,3 +22,21 @@ describe('usePreventFileDropNavigation', () => {
     expect(fireEvent.drop(document, { dataTransfer: { files: [file()] } })).toBe(true);
   });
 });
+
+describe('only file drags are cancelled (review SUGGEST-3)', () => {
+  it('leaves a text drag alone so selected text can still be dragged around', () => {
+    render(<Probe />);
+    expect(fireEvent.dragOver(document, { dataTransfer: { types: ['text/plain'], files: [] } })).toBe(true);
+    expect(fireEvent.drop(document, { dataTransfer: { types: ['text/plain'], files: [] } })).toBe(true);
+  });
+
+  it('cancels a drag-over that carries Files even though the files are not readable yet', () => {
+    render(<Probe />);
+    expect(fireEvent.dragOver(document, { dataTransfer: { types: ['Files'], files: [] } })).toBe(false);
+  });
+
+  it('cancels a drop that carries files', () => {
+    render(<Probe />);
+    expect(fireEvent.drop(document, { dataTransfer: { types: ['Files'], files: [file()] } })).toBe(false);
+  });
+});

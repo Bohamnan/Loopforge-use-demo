@@ -43,9 +43,11 @@ export default function FinalReviewCard({
   const outcomeUnknown = error !== null && 'code' in error && ['client_timeout', 'network_error', 'unknown_error'].includes(error.code);
   return (
     <div className="final-card">
-      <h2>最终确认</h2>
+      <h2 data-focus-key="final" tabIndex={-1}>
+        最终确认
+      </h2>
       <p className="value-empty">请核对下面的全部内容；点击“确认提交”后才会保存。</p>
-      {unconfirmedCount > 0 ? <Alert type="warning" showIcon message={`还有 ${unconfirmedCount} 项字段未确认。`} /> : null}
+      {unconfirmedCount > 0 ? <Alert type="warning" showIcon role="status" message={`还有 ${unconfirmedCount} 项字段未确认。`} /> : null}
       {SECTIONS.map((section) => (
         <SectionCard key={section.key} section={section} fields={fields} buffer={buffer} active={false} />
       ))}

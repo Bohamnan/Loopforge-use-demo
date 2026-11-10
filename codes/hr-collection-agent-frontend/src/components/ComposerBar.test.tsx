@@ -90,3 +90,37 @@ describe('ComposerBar', () => {
     expect(onFiles).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('ComposerBar drag types (review SUGGEST-3)', () => {
+  it('does not touch text drags, enabled or disabled', () => {
+    const { rerender } = render(<ComposerBar onFiles={() => undefined} />);
+    expect(fireEvent.drop(document, { dataTransfer: { types: ['text/plain'], files: [] } })).toBe(true);
+    expect(fireEvent.dragOver(document, { dataTransfer: { types: ['text/plain'], files: [] } })).toBe(true);
+    rerender(<ComposerBar onFiles={() => undefined} disabled />);
+    expect(fireEvent.drop(document, { dataTransfer: { types: ['text/plain'], files: [] } })).toBe(true);
+  });
+
+  it('cancels file drags, and hands over files only when enabled', () => {
+    const onFiles = vi.fn();
+    render(<ComposerBar onFiles={onFiles} />);
+    expect(fireEvent.dragOver(document, { dataTransfer: { types: ['Files'], files: [] } })).toBe(false);
+    expect(fireEvent.drop(document, { dataTransfer: { types: ['Files'], files: [pdf()] } })).toBe(false);
+    expect(onFiles).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ComposerBar accessibility', () => {
+  it('announces its notice politely', () => {
+    render(<ComposerBar onFiles={() => undefined} notice="一次只能上传一个文件，已选择第一个。" />);
+    expect(screen.getByRole('status')).toHaveTextContent('一次只能上传一个文件');
+  });
+
+  it('the upload button works from the keyboard', async () => {
+    const { container } = render(<ComposerBar onFiles={() => undefined} />);
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const click = vi.spyOn(input, 'click');
+    screen.getByRole('button', { name: /上传简历/ }).focus();
+    await userEvent.keyboard('{Enter}');
+    expect(click).toHaveBeenCalledTimes(1);
+  });
+});

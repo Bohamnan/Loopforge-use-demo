@@ -1,5 +1,6 @@
 import { Button, Input, Tag } from 'antd';
 import { useEffect, useRef } from 'react';
+import { useStableKeys } from '../hooks/useStableKeys';
 import { FIELD_MAX_LENGTH, reasonText } from '../hooks/model/FieldRules';
 import type { ErrorReason } from '../types/Errors';
 import type { FieldStatus } from '../types/ResumeModel';
@@ -40,6 +41,7 @@ export default function StringListEditor({
   const maxItems = maxItemsOverride ?? (FIELD_MAX_LENGTH as Record<string, { maxItems?: number }>)[fieldKey]?.maxItems;
   const atLimit = maxItems !== undefined && value.length >= maxItems;
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
+  const rows = useStableKeys(value.length);
   const focusLast = useRef(false);
 
   // After "add", move focus to the new row.
@@ -51,7 +53,10 @@ export default function StringListEditor({
   }, [value.length]);
 
   const change = (index: number, text: string) => onChange(value.map((item, i) => (i === index ? text : item)));
-  const remove = (index: number) => onChange(value.filter((_, i) => i !== index));
+  const remove = (index: number) => {
+    rows.remove(index);
+    onChange(value.filter((_, i) => i !== index));
+  };
 
   return (
     <div className={bare ? 'list-edit' : 'field-row field-edit list-edit'} data-field={bare ? undefined : fieldKey}>
@@ -61,7 +66,7 @@ export default function StringListEditor({
         {value.map((item, index) => {
           const itemError = errors[`${fieldKey}[${index}]`];
           return (
-            <div className="list-row" key={index}>
+            <div className="list-row" key={rows.keys[index] ?? index}>
               <Input
                 ref={(node) => {
                   inputs.current[index] = node?.input ?? null;
@@ -87,6 +92,7 @@ export default function StringListEditor({
           size="small"
           disabled={disabled || atLimit}
           onClick={() => {
+            rows.add();
             onChange([...value, '']);
             focusLast.current = true;
           }}
