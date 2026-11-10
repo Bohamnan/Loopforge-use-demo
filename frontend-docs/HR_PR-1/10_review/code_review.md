@@ -374,3 +374,90 @@
 - 最终确认卡全文只读、状态标签原样展示，且卡内不出现任何成功措辞。
 - 请求序列断言（`GET → POST → POST`）直接证明了“不查询状态”。
 - 偏差与遗留风险如实披露；只有 ④ 的因果描述需要更正。
+
+---
+
+## 第五批审查（SUGGEST 修复 + 2.7–2.8）
+
+- 日期：2026-11-10；Review 模式：Ticket-aware Review；Reviewer：Yin Yang（dev-lead，审查 agent 代行）
+- 审查对象：a8f4020（2.6 标 ✅）、5be3727（保存/草稿响应形状校验）、bdb7316（文案与用例）、8966bb0（2.7 新对话）、a012693（2.8 无障碍与响应式），已合并 feature（73b345e）；本 worktree 已 `git merge feature`。
+- 本批结论：**PASS_WITH_SUGGESTIONS**（0 BLOCK / 0 QUESTION / 4 SUGGEST；另有 2 个 worker 提出的 DL 确认点，我的建议均为“接受”）
+- 上下文限制：未做浏览器实机与真实读屏验证（changelog 同样声明）；窄屏与 ≥360px 只在 jsdom 中验证。
+
+### 1. 第三批 SUGGEST-2（响应形状校验）——已关闭
+- **实现**：`api/ResponseShapes.ts`；`ApiClient.request` 新增 `validate`，2xx 且校验失败 → `ApiError.unknown(status)`，不作为成功（`ApiClient.ts`：`!payloadOk || (validate && !validate(payload))`）。`createResume` 用 `isCreateResumeResponse`，三个草稿接口（上传、GET current、PATCH）用 `isDraftResponse`。
+- **F-03 误报路径**：`resume_id` 非空字符串、`already_saved` 严格 boolean、`saved_at` 为可解析日期；`ResumeApi.test.ts` 逐项覆盖 200 `{}`、201 `{}`、`null`、`[]`、缺 `already_saved`、`already_saved` 为字符串、空 `resume_id`、缺 `saved_at`（共 8 个）→ `unknown_error`，且断言日志不含响应内容；`ResponseShapes.test.ts` 另覆盖 15 种反例。形状错误的保存响应因此不可能进入 `CONFIRM_SUCCEEDED`。
+- **`saved_at` 必须可解析（比建议略严）——建议接受（DL 确认点①）**：后端时间格式固定为 `YYYY-MM-DDTHH:MM:SSZ`（`core/clock.py`），所有主流浏览器都能解析；即使将来某个合法成功响应被误拒，退化路径也是“显示 unknown_error → 用户重试 → 404 `draft_not_found` → ‘可能已保存，请重新上传核实’”（D-01），不会丢数据也不会误报成功，属于安全方向的失败。`Date.parse` 本身较宽松（如 `"2026"` 也能解析），不影响安全性。
+- **不误伤合法响应**：逐字段对照 OpenAPI 0.1.1 的 `DraftResponse`/`ResumeFields`：22 个字段都要求 `{value,status}`，`status` 属 4 种枚举；标量 `value` 为 `string | null`（符合 `type: [string,'null']`，null 通过）；7 个列表字段 `value` 必须是数组（空数组通过，符合 `type: array`）；`original_file.filename`、`draft_id`、`expires_at` 要求非空字符串（后端上传时文件名必有扩展名且非空）；多余字段不拒绝（未设 `additionalProperties` 限制）。没有发现会拒绝契约合法响应的条件。
+- **读取草稿形状错误 → 可重试错误而非“无草稿”**：`getCurrentResumeDraft` 只把 404 `draft_not_found` 映射为 `null`，形状错误抛 `unknown_error` → `bootstrap_failed` 面板（可重试、隐藏上传入口）；`ResumeDraftApi.test.ts` 的 “restore with … is an error, not ‘no draft’” 3 例覆盖。
+- **残余**：见 SUGGEST-1（列表元素类型、`size_bytes`、`content_type` 未校验）、SUGGEST-3（上传响应形状错误时服务端其实已替换草稿）。
+
+### 2. 第三批 SUGGEST-1——已关闭
+`FinalReviewCard` 文案改为“当前不能确认是否已保存。可以再试一次；如果提示草稿不存在，说明可能已经保存，请重新上传核实。”；`final.test` 新增“超时 → 重试 → 404 → maybe_saved”用例（该文件 +55 行）。与 openapi `createResume` 的 D-01 描述一致。
+
+### 3. 任务 2.7（P-08、C-07、Q-DL-04）
+| 检查项 | 结论 | 证据 |
+|---|---|---|
+| 有草稿时二次确认 | ✅ | reducer 的 `NEW_CHAT_REQUESTED`：`reviewing` → `dialog:'new_chat'`；页面对话框“开始新对话”，文案写明：界面清空、未确认草稿仍保留、刷新会恢复、再次上传会覆盖；有未提交编辑时追加“未提交的修改将丢失”。包括最终确认页（用例“also asks on the final review screen”） |
+| 无草稿/结果页直接清空 | ✅ | `empty`/`saved` 直接 `resetToEmpty`，不弹框（用例） |
+| 取消保留草稿与未提交编辑 | ✅ | `dismissDialog`；用例“cancelling keeps the draft and the unsubmitted edits” |
+| 确认后清空界面，不调接口 | ✅ | 用例“confirming clears the screen and calls no API (there is no discard endpoint)” |
+| 下一次上传覆盖原草稿，不再二次确认 | ✅ | `overwriteAcknowledged=true`；用例“the next upload overwrites the old draft without asking a second time” |
+| 刷新仍恢复旧草稿 | ✅（已知行为，Q-DL-04/TD-12） | 对话框已明示；用例“after a reload the old draft is restored again (known behaviour)” |
+| 请求进行中不可点 | ✅ | `newChatDisabled={busy || …}`；用例“is locked while a request is running” |
+| 偏差 ② 的 `new_chat` 框已接线 | ✅ | `ResumeCollectionPage.tsx` 新增 `ConfirmDialog open={state.dialog==='new_chat'}`；至此 `overwrite`、`unconfirmed`、`unsubmitted_edits`、`new_chat` 四个对话框全部接线，偏差 ② 完全落实 |
+| 第三批 SUGGEST-5（已保存提示重复/新对话） | ✅ 已关闭 | `NoticeBanner` 的 `BannerKind` 排除 `already_saved`，该句只由 `SavedResultCard` 显示；新对话已接线 |
+
+### 4. 任务 2.8（TD-13）
+| 检查项 | 结论 | 证据 |
+|---|---|---|
+| < 860px 布局 | ✅（jsdom） | `useNarrowScreen`（`matchMedia('(max-width: 859px)')` + `useSyncExternalStore`）：窄屏不渲染侧栏、“＋ 新对话”移入标题栏且全页只有一个；宽屏在侧栏（`AppShell.responsive.test.tsx`）。注意 `Layout.css` 没有 `@media` 规则，窄屏行为完全靠此 hook；≥360px 的实际排版未在真实浏览器验证（SUGGEST-4） |
+| 焦点移动 | ✅ | `focusKeyOf`：`reviewing`+`sections` → `section:<活跃分区>`，`final` → `final`，`saved` → `saved`，其余 `null`；`ChatThread` 仅在 key 变化时 `scrollIntoView` + `focus({preventScroll:true})`，标题带 `tabIndex={-1}`。编辑过程中 key 不变，不会抢焦点；用例覆盖展示草稿、确认后下一个分区、点“修改”、进入最终确认与结果页 |
+| aria-live / role | ✅ | 加载提示 `status`；恢复提示、未确认字段提示、输入区提示、保存结果卡为 `status`；只有 `ErrorAlert`（真实错误）与需用户采取行动的 `draft_expired`、`maybe_saved` 为 `alert`。用例断言“有恢复提示时错误仍只有一个 `alert`”。`draft_expired`/`maybe_saved` 保留 `alert` 可以接受：二者都会立刻把界面清空回到空态，需要即时告知 |
+| `useStableKeys` 替代下标 key | ✅ | 随 `add/remove` 同步，外部长度变化时整体重置（自愈）；`ObjectListEditor`、`StringListEditor` 已使用；4 个单测 + `ObjectListEditor.keys.test` 验证删除中间项后其余卡片保持同一 DOM。渲染期 `setStored` 是 React 文档认可的“按渲染派生重置”写法；模块级计数器在 StrictMode 下会跳号，无影响 |
+| 第二批/三批 SUGGEST-3 只取消含 Files 的拖拽 | ✅ 已关闭 | `isFileDrag`（`types` 含 `Files` 或已有 `files`）；`usePreventFileDropNavigation` 与 `ComposerBar` 都先判断；文本/链接拖拽不受影响，有用例 |
+| 第三批 SUGGEST-4 `formatSavedAt` | ✅ 已关闭 | 无法解析时返回 `null`，结果卡隐藏“保存时间”行，不再显示原始文本 |
+| 焦点自动移动的范围（DL 确认点②）——建议接受 | ✅ | 在“有草稿显示出来”（恢复或上传成功）时把焦点移到待核对分区标题，是 TD-13“跨分区推进后焦点移到新分区标题”的合理延伸；空态、读取中、读取失败不移动，不会抢走用户焦点。建议加上 `prefers-reduced-motion` 时不用平滑滚动（SUGGEST-2） |
+
+### 5. 前面各批跟踪项的去向
+| 来源 | 项 | 状态 |
+|---|---|---|
+| 第一批 | QUESTION-1（Node 范围）、QUESTION-2（依赖追认）、自报偏差 | 已由 DL 裁决（保持 `>=24` 并记已知风险；追认 6 个包） |
+| 第一批 | SUGGEST-1（body 超时） | 已关闭（2.2） |
+| 第一批 | SUGGEST-2（长度按码点） | **未处理**，`FieldRules.ts` 仍用 `.length`；建议在 3.1 前随一次校验相关改动处理 |
+| 第一批 | SUGGEST-3（契约漂移检测）、SUGGEST-4（ESLint 收紧）、SUGGEST-5（audit 跟踪） | **未处理**，建议归入 3.x 的集成/验收（契约测试、lint 规则）与发布前依赖复查；`npm audit --omit=dev` 本批仍为 0 |
+| 第二批 | SUGGEST-1（拖拽）、SUGGEST-3（新对话）、SUGGEST-5（alert 播报、下标 key）、SUGGEST-6（设计回写） | 已关闭 |
+| 第二批 | SUGGEST-2（`canConfirmSection` 去重复） | **未处理**，代码中仍无该函数，页面与 `SectionCard` 各有一份规则；建议下一次改动 `SectionView.ts` 时顺带做 |
+| 第二批 | SUGGEST-4（失焦删空行可能误点） | **未处理**，`StringListEditor.tsx:79` 仍在 `onBlur` 删除；建议 3.x 手工验收时重点点测，必要时改成 `onMouseDown` 防抢焦点 |
+| 第三批 | SUGGEST-1、2、3、4、5 | 全部已关闭 |
+
+### BLOCKING Issues
+无。
+
+### QUESTIONS
+无。
+
+### SUGGESTIONS
+- **第五批-SUGGEST-1（形状校验的残余覆盖）**：`isDraftResponse` 不检查列表元素类型（经历列表的每个元素应是对象、文本列表的每个元素应是字符串）以及 `original_file.size_bytes`/`content_type`。`ObjectListEditor` 的 `itemTitle(item)` 对 `null` 元素会抛 `TypeError`（被 `ErrorBoundary` 兜底）。后端契约保证了这些，所以只是纵深防御；若要补，加几行元素类型检查即可，不要过严以免误伤。
+- **第五批-SUGGEST-2（`prefers-reduced-motion`）**：`ChatThread` 的 `scrollIntoView({behavior:'smooth'})` 未考虑用户的“减少动态效果”设置，建议在该设置下改用 `auto`。
+- **第五批-SUGGEST-3（上传响应形状错误时的提示）**：上传 201 但形状错误时，服务端实际已替换草稿而界面保留旧草稿并提示 `unknown_error`。这是极端情形，安全方向正确（不展示不完整数据）；可在文案中提示“刷新页面可恢复最新草稿”，降低困惑。
+- **第五批-SUGGEST-4（窄屏验证）**：响应式完全依赖 `useNarrowScreen`，`Layout.css` 没有 `@media`；请在 3.x 的人工验收中用 Chrome/Edge/Safari/Firefox 最近两个主版本分别验证 360px 与 859/860px 边界，并留一条回归记录。
+
+### 测试与验证证据
+| 命令 | 结果 |
+|---|---|
+| `npm ci --registry=https://registry.npmjs.org` | ✅ 成功 |
+| `npm run lint`（`--max-warnings 0`） | ✅ 退出码 0 |
+| `npm test` | ✅ **50 个测试文件、577 个用例全部通过**（上一批 42/453） |
+| `npm run build`（`tsc --noEmit && vite build`） | ✅ 1439 modules transformed |
+| `npm audit --omit=dev` | ✅ 0 vulnerabilities |
+| 密钥与真实简历 | ✅ 未发现；测试数据合成 |
+
+### 对 2.7、2.8 的审查结论
+**建议 DL 将 2.7、2.8 标 ✅**（同时 2.6 的 SUGGEST-1/2 已关闭，建议保持 ✅）。无 BLOCK/QUESTION；两个 DL 确认点（`saved_at` 必须可解析、焦点移动范围）我的建议均为接受。frontend 阶段 2 的“编码任务”到此完成，剩余跟踪项（第一批 SUGGEST-2/3/4/5，第二批 SUGGEST-2/4，第五批 SUGGEST-1–4）建议在阶段 3 的验收前统一排期。
+
+### 正向反馈
+- 形状校验放在 api 层的 `validate` 钩子上，所有读写接口共用，且保持 `status` 不变、日志不含响应内容。
+- 对“保存成功但响应被判无效”的退化路径设计正确（重试 → 404 → 可能已保存），不丢数据、不误报。
+- 焦点、角色与键盘可达性的测试按行为编写（焦点落在哪里、alert 数量），不是只断言属性。
+- `useStableKeys` 有自愈机制，避免了常见的“外部更新后 key 错位”问题。
