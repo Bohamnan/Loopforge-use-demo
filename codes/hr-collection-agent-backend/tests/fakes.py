@@ -1,5 +1,6 @@
 """Test doubles shared across test modules."""
 
+import threading
 from datetime import UTC, datetime, timedelta
 
 
@@ -21,10 +22,12 @@ class SequentialIdGenerator:
 
     def __init__(self) -> None:
         self._n = 0
+        self._lock = threading.Lock()
 
     def new_id(self) -> str:
-        self._n += 1
-        return f"00000000-0000-4000-8000-{self._n:012d}"
+        with self._lock:
+            self._n += 1
+            return f"00000000-0000-4000-8000-{self._n:012d}"
 
 
 class FakeParserClient:

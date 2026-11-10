@@ -37,6 +37,11 @@ _BLOCK_FIELDS = {
 }
 
 
+def is_draft_expired(record: DraftRecord, now: datetime, ttl_days: int) -> bool:
+    """Idle for more than the retention period (same rule as the cleanup job)."""
+    return parse_utc(record.last_active_at) < now - timedelta(days=ttl_days)
+
+
 @dataclass(frozen=True)
 class CreatedDraft:
     """Result of an upload: the draft to return and the new access token for the cookie."""
@@ -206,7 +211,7 @@ class DraftService:
 
     def _is_expired(self, record: DraftRecord, now: datetime) -> bool:
         """Same rule as the cleanup job: idle for more than the retention period."""
-        return parse_utc(record.last_active_at) < now - timedelta(days=self._ttl_days)
+        return is_draft_expired(record, now, self._ttl_days)
 
     def _discard_file(self, file_path: str, event: str) -> None:
         try:

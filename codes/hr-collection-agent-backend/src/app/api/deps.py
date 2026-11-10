@@ -10,9 +10,12 @@ from app.clients.resume_parser_client import ResumeParserClient
 from app.core.clock import Clock
 from app.core.config import Settings
 from app.core.ids import IdGenerator
+from app.repositories.archive_file_store import ArchiveFileStore
 from app.repositories.draft_file_store import DraftFileStore
 from app.repositories.draft_repository import DraftRepository
+from app.repositories.resume_repository import ResumeRepository
 from app.services.draft_service import DraftService
+from app.services.resume_service import ResumeService
 
 _PARSER_LOCK = threading.Lock()
 
@@ -56,5 +59,20 @@ def get_draft_service(
         parser=parser,
         clock=clock,
         ids=ids,
+        ttl_days=settings.draft_ttl_days,
+    )
+
+
+def get_resume_service(
+    request: Request, settings: Settings = Depends(get_settings)
+) -> ResumeService:
+    """Per-request service for confirm-save; the only wiring of the formal database."""
+    return ResumeService(
+        drafts=DraftRepository(settings.data_dir / "drafts.db"),
+        draft_files=DraftFileStore(settings.data_dir),
+        resumes=ResumeRepository(settings.data_dir / "resumes.db"),
+        archive=ArchiveFileStore(settings.file_dir),
+        clock=request.app.state.clock,
+        ids=request.app.state.ids,
         ttl_days=settings.draft_ttl_days,
     )
