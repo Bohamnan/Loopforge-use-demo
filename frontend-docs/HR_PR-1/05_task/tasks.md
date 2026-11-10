@@ -117,7 +117,7 @@
 - [x] `UploadPrecheck`
 - [x] `SectionView`
 
-### Task 1.6：SessionReducer（会话状态机）
+### Task 1.6：SessionReducer（会话状态机） ✅
 - **关联：** REQ-FE-01.5、03.2、04.3–04.8、05.2、05.3；design.md §3.3（SessionReducer）、§5.2、§5.3、§6、TD-02/03/04/05/12；O-02、O-10、D-01
 - **内容：** `src/hooks/model/SessionReducer.ts`：状态类型与全部动作 / 转移（design §5.3 逐行实现）：`bootstrapping` / `bootstrap_failed` / `empty` / `reviewing` / `saved`；`view`、`busy` 互斥、`epoch` 丢弃过期响应、`editBuffer`、`fieldErrors`、`notice`、`error`、`pendingFile`、`overwriteAcknowledged`、`savedSummary`、`dialog`。纯函数，无副作用。
 - **测试：** 逐条覆盖 §5.3 转移表：GET 200 / 404 / 其他失败；上传 201 与失败（失败不清旧草稿，O-02）；覆盖确认流转；PATCH 200 / 422 / `draft_not_found` / 其他失败；进入 / 退出最终确认；确认成功（`already_saved` 两分支）、`draft_not_found`（→ 空态 + `maybe_saved`）、422、超时 / 5xx（停留 `final`）；新对话与 `overwriteAcknowledged`；`busy` 非空时拒绝新请求类动作；过期 epoch 的响应不改变状态；`saved` 后状态不含手机号 / 邮箱等简历内容。
@@ -126,8 +126,8 @@
 
 #### 子任务
 
-- [ ] 状态与动作类型
-- [ ] 转移实现与表驱动测试
+- [x] 状态与动作类型
+- [x] 转移实现与表驱动测试
 
 ---
 

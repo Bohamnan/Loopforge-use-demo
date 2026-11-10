@@ -4,6 +4,7 @@ import type { FieldStatus, ResumeFieldKey, ResumeFields } from '../../types/Resu
 import { RESUME_FIELD_KEYS } from '../../types/ResumeModel';
 import { getSection } from './SectionConfig';
 import {
+  buildSectionUpdate,
   coreReady,
   firstTodoSection,
   hasUnsubmittedEdits,
@@ -109,5 +110,83 @@ describe('orderedFieldKeys (highlight missing / uncertain first, stable otherwis
 
   it('keeps the configured order when nothing needs attention', () => {
     expect(orderedFieldKeys(getSection('basic'), withStatuses('confirmed'))).toEqual(['name', 'phone', 'email', 'homepage']);
+  });
+});
+
+describe('buildSectionUpdate (design §4.4)', () => {
+  it('submits every field of the section: buffer value else current value, missing scalar -> null, missing list -> []', () => {
+    const fields = sampleFields();
+    const { update, errors } = buildSectionUpdate(getSection('intent'), fields, { expected_city: '  上海 ' });
+    expect(errors).toEqual({});
+    expect(update).toEqual({
+      job_title: '供应链经理',
+      expected_city: '上海',
+      expected_salary: '30-40K',
+      available_time: null,
+    });
+    const list = buildSectionUpdate(getSection('certificates'), fields, {});
+    expect(list.update).toEqual({ certificates_honors: [] });
+  });
+
+  it('only touches fields of the requested section', () => {
+    const { update } = buildSectionUpdate(getSection('skills'), sampleFields(), { job_title: 'x', skills: ['Excel', 'SAP'] });
+    expect(Object.keys(update)).toEqual(['skills']);
+    expect(update.skills).toEqual(['Excel', 'SAP']);
+  });
+
+  it('normalises the phone and trims text for the basic section', () => {
+    const { update, errors } = buildSectionUpdate(getSection('basic'), sampleFields(), { phone: '138 0013-8000', name: ' 甲 ' });
+    expect(errors).toEqual({});
+    expect(update).toMatchObject({ name: '甲', phone: '13800138000', email: 'test.user@example.com', homepage: null });
+  });
+
+  it('reports core errors by field and does not drop them from the update', () => {
+    const { errors } = buildSectionUpdate(getSection('basic'), sampleFields(), { name: '  ', phone: '123', email: 'x' });
+    expect(errors).toEqual({ name: 'required', phone: 'invalid_format', email: 'invalid_format' });
+  });
+
+  it('treats a missing core value as required', () => {
+    const fields = sampleFields();
+    fields.email.value = null;
+    fields.email.status = 'missing';
+    expect(buildSectionUpdate(getSection('basic'), fields, {}).errors).toEqual({ email: 'required' });
+  });
+
+  it('drops blank list entries and trims; blank-only list becomes []', () => {
+    const { update } = buildSectionUpdate(getSection('skills'), sampleFields(), { skills: [' Excel ', '  ', ''] });
+    expect(update.skills).toEqual(['Excel']);
+    expect(buildSectionUpdate(getSection('skills'), sampleFields(), { skills: ['  '] }).update.skills).toEqual([]);
+  });
+
+  it('submits the whole experience list, trimming strings and nulling blanks', () => {
+    const { update, errors } = buildSectionUpdate(getSection('work'), sampleFields(), {
+      work_experiences: [
+        { company: ' A公司 ', position: '  ', responsibilities: [' 负责X ', ''] },
+        { company: 'B公司' },
+      ],
+    });
+    expect(errors).toEqual({});
+    expect(update.work_experiences).toEqual([
+      { company: 'A公司', position: null, responsibilities: ['负责X'] },
+      { company: 'B公司' },
+    ]);
+  });
+
+  it('reports limit violations with backend-style paths', () => {
+    const long = 'a'.repeat(2001);
+    const { errors } = buildSectionUpdate(getSection('work'), sampleFields(), {
+      work_experiences: [{}, { company: long }],
+    });
+    expect(errors).toEqual({ 'work_experiences[1].company': 'too_long' });
+    const tooMany = buildSectionUpdate(getSection('skills'), sampleFields(), { skills: Array.from({ length: 51 }, () => 'x') });
+    expect(tooMany.errors).toEqual({ skills: 'too_long' });
+    const longItem = buildSectionUpdate(getSection('languages'), sampleFields(), { languages: ['ok', 'b'.repeat(1001)] });
+    expect(longItem.errors).toEqual({ 'languages[1]': 'too_long' });
+  });
+
+  it('allows blank non-core scalars (confirm as empty)', () => {
+    const { update, errors } = buildSectionUpdate(getSection('self_evaluation'), sampleFields(), {});
+    expect(errors).toEqual({});
+    expect(update).toEqual({ self_evaluation: null });
   });
 });

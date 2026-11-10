@@ -112,3 +112,26 @@ React 在开发模式下自身会向 console 输出异常信息（含 message）
 ### 遗留风险
 - `coreReady` 在核心字段存在未提交编辑时返回 false（保守策略），任务 2.6 需保证“最终确认”按钮的禁用文案能解释这一原因。
 - 邮箱校验使用 `trim` 后的值；OpenAPI 对全空白在服务层按 required 拒绝，二者一致。
+
+## Task-1.6：SessionReducer（会话状态机）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/hooks/model/SessionReducer.ts | 新增 | 纯函数 reducer：`phase`（bootstrapping / bootstrap_failed / empty / reviewing / saved）、`view`、`busy` 互斥、`epoch` 丢弃过期响应、`editBuffer`、`fieldErrors`、`notice`、`error`、`pendingFile`、`overwriteAcknowledged`、`savedSummary`、`dialog`；实现 design §5.3 全部转移；导出 `decideUpload` 供 hook 与 reducer 共用 |
+| codes/hr-collection-agent-frontend/src/hooks/model/SectionView.ts | 修改 | 新增 `buildSectionUpdate`：按 design §4.4 生成整区 PATCH 体并返回本地校验错误（任务 1.5 的纯逻辑补充，供 reducer 与后续 hook 使用） |
+| codes/hr-collection-agent-frontend/src/hooks/model/SessionReducer.test.ts | 新增 | 表驱动覆盖 §5.3 转移（63 例） |
+| codes/hr-collection-agent-frontend/src/hooks/model/SectionView.test.ts | 修改 | 增补 `buildSectionUpdate` 用例 |
+
+### 偏差说明
+- `buildSectionUpdate` 放在 `SectionView.ts`（tasks 1.5 的文件），因为它是设计 §4.4 的纯函数且被 reducer 校验步骤使用；设计 §3.3 未单列。
+- 文本列表在校验前先丢弃空白行，因此条数 / 单项长度错误的下标指向清理后的列表；若 UI 保留空白行，需在失焦时丢弃空白行以保持下标一致（任务 2.4 注意）。
+- reducer 通过动作名区分“请求发起”与“结果”；发起类动作（`FILE_SELECTED`、`SECTION_CONFIRM_REQUESTED`、`CONFIRM_REQUESTED` 等）只改状态（置 `busy`），真正调用 api 由任务 2.x 的 `useResumeSession` 根据 `busy` 的变化触发，`decideUpload` 供 hook 判定是否应发起上传。
+- `PATCH_FAILED` / `CONFIRM_FAILED` 遇 `draft_not_found` 时保持 `epoch` 不变（该请求就是当前 epoch 的最后一个在途请求），其余 reset 才递增。
+
+### 遗留风险
+- `GO_FINAL_REQUESTED` 在 `view` 已是 `final` 时为幂等空操作。
+- 任务 2.x 的 hook 需用“前后状态对比”（`busy` 由 null 变为 upload / patch / confirm）触发请求，并捕获当时的 `epoch` 回传；该约定已在本文件注释中说明，尚未有 hook 层测试。

@@ -1,3 +1,4 @@
+import type { ErrorReason } from '../../types/Errors';
 import {
   FIELD_STATUSES,
   RESUME_FIELD_KEYS,
@@ -6,7 +7,13 @@ import {
   type ResumeFields,
   type ResumeFieldsUpdate,
 } from '../../types/ResumeModel';
-import { validateCore } from './FieldRules';
+import {
+  toSubmitScalar,
+  validateCore,
+  validateObjectList,
+  validateScalar,
+  validateStringList,
+} from './FieldRules';
 import { SECTIONS, type SectionConfig, type SectionKey } from './SectionConfig';
 
 // Derived view data from the authoritative draft plus the unsubmitted edit buffer. Pure functions.
@@ -80,4 +87,61 @@ export function orderedFieldKeys(section: SectionConfig, fields: ResumeFields): 
   const attention = (key: ResumeFieldKey) => fields[key].status === 'missing' || fields[key].status === 'uncertain';
   const keys = section.fields.map((f) => f.key);
   return [...keys.filter(attention), ...keys.filter((k) => !attention(k))];
+}
+
+function cleanStringList(items: readonly string[]): string[] {
+  return items.map((item) => item.trim()).filter((item) => item !== '');
+}
+
+/** Trims item strings (blank -> null) and cleans nested text lists; other values are kept as they are. */
+function cleanItem(item: Record<string, unknown>): Record<string, unknown> {
+  const cleaned: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(item)) {
+    if (typeof value === 'string') {
+      cleaned[key] = value.trim() === '' ? null : value.trim();
+    } else if (Array.isArray(value)) {
+      cleaned[key] = cleanStringList(value.filter((entry): entry is string => typeof entry === 'string'));
+    } else {
+      cleaned[key] = value;
+    }
+  }
+  return cleaned;
+}
+
+/**
+ * Builds the PATCH body for confirming one section (design §4.4): every field of the section is sent,
+ * taking the unsubmitted edit if present, else the current draft value (a missing scalar becomes null,
+ * a missing list becomes []). Also returns local validation errors keyed by backend-style field path.
+ * Blank text-list rows are dropped before the count / length checks, so indexes refer to the cleaned list.
+ */
+export function buildSectionUpdate(
+  section: SectionConfig,
+  fields: ResumeFields,
+  buffer: ResumeFieldsUpdate,
+): { update: ResumeFieldsUpdate; errors: Record<string, ErrorReason> } {
+  const update: Record<string, unknown> = {};
+  const errors: Record<string, ErrorReason> = {};
+
+  for (const field of section.fields) {
+    const key = field.key;
+    const edited = key in buffer;
+    const current = edited ? (buffer as Record<string, unknown>)[key] : fields[key].value;
+
+    if (field.kind === 'text' || field.kind === 'textarea') {
+      const raw = (current ?? null) as string | null;
+      update[key] = toSubmitScalar(key, raw);
+      const reason = validateScalar(key, raw);
+      if (reason) errors[key] = reason;
+    } else if (field.kind === 'stringList') {
+      const cleaned = cleanStringList((current ?? []) as string[]);
+      update[key] = cleaned;
+      const problem = validateStringList(key, cleaned);
+      if (problem) errors[problem.index === undefined ? key : `${key}[${problem.index}]`] = problem.reason;
+    } else {
+      const items = ((current ?? []) as Record<string, unknown>[]).map(cleanItem);
+      update[key] = items;
+      for (const detail of validateObjectList(key, items)) errors[detail.field] = detail.reason;
+    }
+  }
+  return { update: update as ResumeFieldsUpdate, errors };
 }
