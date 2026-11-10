@@ -419,3 +419,16 @@
 
 ### 更新后的本批结论
 **PASS_WITH_SUGGESTIONS**。建议 DL 接受两个确认点；SUGGEST-1、2、3 建议在 2.4 开工前或随 2.4 一并处理，不阻断 1.9、1.10 通过审查。
+
+---
+
+## Dev Lead 裁决（第四批，2026-11-10）
+
+| 项 | 裁决 |
+|---|---|
+| 结论 | 1.9–1.10 通过 |
+| DL 确认点 ①：SQLite ≥ 3.35 | 接受。本项目只在本机部署，选占用最小、能运行的方案：继续用 Python 自带的 SQLite（本机 3.50.4），不另装数据库服务。AGENTS.md 写明版本要求，并在 init_*_db 加启动检查（SUGGEST-2） |
+| DL 确认点 ②：stage 失败自清 tmp | 接受（按审查建议） |
+| SUGGEST-1（目录内符号链接）、SUGGEST-3（promote 静默覆盖） | 在 2.4 之前修复：DraftFileStore 拒绝符号链接（lstat + O_NOFOLLOW）；promote 前检查终态文件已存在则报错，不覆盖 |
+| 其余 SUGGEST | 记为跟踪项 |
+

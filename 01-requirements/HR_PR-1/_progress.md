@@ -10,7 +10,7 @@
 |------|------|
 | **PRD** | `01-requirements/HR_PR-1/prd.md` |
 | **当前 Skill** | feature-developer |
-| **当前阶段** | DL 确认 1.8、2.6 标 ✅；backend 1.9–1.10、frontend SUGGEST-2/1 + 2.7–2.8 进行中 |
+| **当前阶段** | backend 1.9–1.10 审查通过 → 存储加固 + 2.1–2.3；frontend 2.7–2.8 已合并，审查中 |
 | **状态** | 🔄 feature-developer 进行中 |
 | **最后更新** | 2026-11-10 |
 
@@ -53,7 +53,7 @@
 | 技术设计 | architecture-advisor | 各 Workbench 工程师 | ✅ backend / ✅ frontend（2026-11-10） | 2026-11-10 | `backend-docs/HR_PR-1/04_design/design.md`；`frontend-docs/HR_PR-1/04_design/design.md` |
 | 任务拆分 | architecture-advisor | 各 Workbench 工程师 | ✅ backend（20 任务 / 91h）/ ✅ frontend（15 任务 / 79h） | 2026-11-10 | `backend-docs/HR_PR-1/05_task/tasks.md`；`frontend-docs/HR_PR-1/05_task/tasks.md` |
 | 仓库约定补全与复核（仅新项目 Workbench） | architecture-advisor（Step 5） | 各 Workbench 工程师/Dev Lead | ✅ backend / ✅ frontend（已确认） | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
-| 代码实现 | feature-developer | 各 Workbench 工程师 | 🔄 backend 10/20（阶段1 ✅，1.9–1.10 审查中）/ frontend 12/15 → 2.7–2.8 | — | `codes/hr-collection-agent-backend/`、`codes/hr-collection-agent-frontend/` |
+| 代码实现 | feature-developer | 各 Workbench 工程师 | 🔄 backend 10/20 → 2.1–2.3 / frontend 14/15（2.7–2.8 审查中） | — | `codes/hr-collection-agent-backend/`、`codes/hr-collection-agent-frontend/` |
 | 代码审查 | code-reviewer | 各 Workbench 工程师 | 🔄 第一批 ✅、1.8 ✅、2.1–2.6 ✅；后续批次待审 | — | `backend-docs/HR_PR-1/10_review/code_review.md`；`frontend-docs/HR_PR-1/10_review/code_review.md` |
 | 开发自测用例 | dev-self-test | 各 Workbench 工程师 | — | — | — |
 | 造数脚本 | test-data-script-generator | 各 Workbench 工程师/QA | — | — | — |
@@ -144,6 +144,8 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | code-reviewer | frontend 2.6 HIGH_RISK 审查（b3d4a9b）：PASS_WITH_SUGGESTIONS（0/0/5），F-03 唯一入口已核实；第④点证实 worker 理解有误、实现正确（重试得 draft_not_found → 可能已保存），建议标 ✅ |
 | 2026-11-10 | Yin Yang（Dev Lead） | feature-developer | DL 确认 HIGH_RISK：backend 1.8、frontend 2.6 标 ✅；下发 backend 1.9–1.10（含 httpx trust_env=False），frontend 先修 2.6 审查 SUGGEST-2（保存响应形状校验）/SUGGEST-1，再做 2.7–2.8 |
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 backend 1.8 标 ✅（e380c09）、1.9（de985a7）、1.10（3f74106）、阶段1完成（2d138ff）：复跑 pytest 449 passed、ruff 通过；交审查 agent 做第四批审查 |
+| 2026-11-10 | Yin Yang（Dev Lead） | code-reviewer | backend 1.9–1.10 审查（fc9d224）PASS_WITH_SUGGESTIONS；DL：本机部署，选占用最小方案，继续用内置 SQLite（3.50.4，要求 ≥3.35 并加启动检查）；stage 自清理接受；S1/S3 在 2.4 前修复 |
+| 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 frontend 2.6 标 ✅（a8f4020）、SUGGEST-2/1（5be3727、bdb7316）、2.7（8966bb0）、2.8（a012693）：复跑 50 文件 577 例通过、lint 0、build 1439 modules |
 
 ---
 
