@@ -119,13 +119,23 @@ class ResumeService:
                 raise SaveFailedError() from exc
             return self._duplicate(draft, existing)
         except Exception as exc:
-            self._discard_tmp(resume_id, ext)
+            if not self._committed(resume_id):
+                self._discard_tmp(resume_id, ext)
             log_event("db_write_failed", level="error", exc=exc, resume_id=resume_id)
             raise SaveFailedError() from exc
         self._promote(resume_id, ext)
         self._finish(draft)
         log_event("resume_saved", resume_id=resume_id)
         return ConfirmResult(resume_id, False, created_at)
+
+    def _committed(self, resume_id: str) -> bool:
+        """Whether the record is (or may be) committed. Unknown counts as committed: a kept
+        tmp is rolled forward or removed by reconciliation, a deleted one cannot be restored."""
+        try:
+            return self._resumes.exists(resume_id)
+        except Exception as exc:  # noqa: BLE001 - outcome unknown, keep the tmp
+            log_event("commit_check_failed", level="error", exc=exc, resume_id=resume_id)
+            return True
 
     def _stage(
         self, draft: DraftRecord, identity: Identity, resume_id: str, ext: str

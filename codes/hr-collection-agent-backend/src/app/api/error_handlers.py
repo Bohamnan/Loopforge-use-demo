@@ -59,7 +59,8 @@ async def _handle_app_error(request: Request, exc: Exception) -> JSONResponse:
 
 def _is_missing_confirmation(errors: list) -> bool:
     return any(
-        e["type"] == "missing" and tuple(e["loc"]) in {("body",), ("body", "confirmed")}
+        e["type"] in {"missing", "bool_type"}
+        and tuple(e["loc"]) in {("body",), ("body", "confirmed")}
         for e in errors
     )
 

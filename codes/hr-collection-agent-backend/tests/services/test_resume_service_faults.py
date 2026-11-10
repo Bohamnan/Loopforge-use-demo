@@ -117,6 +117,24 @@ def test_two_threads_same_identity_one_created_one_duplicate(resume_env: ResumeE
     assert resume_env.draft_rows() == [] and resume_env.draft_file_names() == []
 
 
+def test_plain_exception_after_commit_keeps_record_and_tmp(resume_env: ResumeEnv) -> None:
+    """COMMIT succeeded, then an ordinary exception: the tmp must survive for reconciliation."""
+    token = resume_env.new_draft()
+    resume_env.injector.arm("db_after_commit", RuntimeError("commit outcome unknown"))
+
+    with pytest.raises(SaveFailedError):
+        resume_env.service.confirm(token, True)
+
+    resume_id = resume_env.query("SELECT id FROM resumes")[0][0]
+    assert resume_env.count("resumes") == 1 and resume_env.count("resume_educations") == 1
+    assert _only_tmp(resume_env) == f".{resume_id}.pdf.tmp"  # not deleted
+    assert len(resume_env.draft_rows()) == 1 and len(resume_env.draft_file_names()) == 1
+
+    again = resume_env.service.confirm(token, True)  # retry converges, tmp still the record's
+    assert (again.already_saved, again.resume_id) == (True, resume_id)
+    assert _only_tmp(resume_env) == f".{resume_id}.pdf.tmp"
+
+
 # ---- crash / rename failure -------------------------------------------------------------------
 
 

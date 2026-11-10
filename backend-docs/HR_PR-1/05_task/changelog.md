@@ -520,3 +520,33 @@ OpenAPI 0.1.1 未改动；无新增依赖；无数据库结构变更（无）。
 
 ### 验证
 `uv sync --frozen` 通过；清缓存后 `compileall` 输出 42 行 `Compiling`；`pytest` 795 passed（基线 751，净增 44）；`ruff check`、`ruff format --check` 通过。
+
+---
+
+## Task-2.4（第七批审查修复）：确认保存 — BLOCK-1 / QUESTION-1 / SUGGEST-1、2、3、4、5
+
+**完成时间**：2026-11-10
+**实现者**：backend worker（HIGH_RISK，未标 ✅，待复审）
+**用例数**：795 → 810（全量 pytest 810 passed；ruff check / format 通过；`uv sync --frozen`、compileall 真实编译 42 个文件）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/schemas/resume.py | 修改 | BLOCK-1：`confirmed` 改 `StrictBool` |
+| codes/hr-collection-agent-backend/src/app/api/error_handlers.py | 修改 | BLOCK-1：`bool_type`/缺失均归 `confirmation_required`（openapi 0.1.1 未改） |
+| codes/hr-collection-agent-backend/src/app/repositories/resume_repository.py | 修改 | QUESTION-1：新增只读 `exists(resume_id)` |
+| codes/hr-collection-agent-backend/src/app/services/resume_service.py | 修改 | QUESTION-1：通用异常分支仅在记录未提交时删 tmp；已提交或结果未知保留 tmp，返回 `save_failed` |
+| codes/hr-collection-agent-backend/src/app/clients/image_prep.py | 修改 | SUGGEST-1：上限 1,000,000−4096；SUGGEST-2：像素 25,000,000，`formats=("PNG","JPEG")` |
+| codes/hr-collection-agent-backend/tests/api/test_resumes_confirm.py、tests/api/test_error_handling.py | 修改 | `"yes"/"true"/1/"1"/"on"/null/[]`、缺失、false 均 422 `confirmation_required`、不写库、草稿仍在 |
+| codes/hr-collection-agent-backend/tests/services/test_resume_service_faults.py | 修改 | `db_after_commit` 注入 RuntimeError：断言库 1 行+子表、`file/` 仅 tmp、草稿保留、重试为 duplicate |
+| codes/hr-collection-agent-backend/tests/clients/test_deepseek_client.py、tests/clients/test_image_prep.py | 修改 | 请求体 ≤ 996,000；常量断言；25MP 拒绝；GIF/BMP/WEBP/TIFF 拒绝；JPEG 接受 |
+| codes/hr-collection-agent-backend/AGENTS.md | 修改 | 登记已知限制与跟踪项 |
+
+### 验证
+先红后绿：BLOCK-1 七个非布尔用例红灯；QUESTION-1 新用例红灯。变异验证：把 `_committed` 判断改为恒删 tmp → 新用例失败；改为恒不删 → `db_after_main/sub` 两个用例失败。
+
+### 已知限制与跟踪（不改代码）
+- SUGGEST-3：对账仅启动时运行，提交后重命名失败的窗口持续到下次重启；已登记 AGENTS.md。
+- SUGGEST-4（openapi 描述补充、Pillow 公告跟踪）、SUGGEST-5（存在性探测，POC 本机可接受）：登记为跟踪项，openapi 本次不改。
+- 未做真实 DeepSeek 调用；无新依赖。
+
