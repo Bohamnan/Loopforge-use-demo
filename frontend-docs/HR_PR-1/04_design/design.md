@@ -7,14 +7,21 @@
 | 所属服务 | hr-collection-agent-web（frontend Workbench） |
 | 需求文档 | `frontend-docs/HR_PR-1/01_requirements/requirements.md`（REQ-FE-01 ~ REQ-FE-06，共 33 条验收标准） |
 | Schema 文档 | 无（frontend 无数据存储职责，Step 2.1 跳过；浏览器不持久化简历内容，F-02） |
-| 接口/管道文档 | `frontend-docs/HR_PR-1/03_api/interface_spec_resume.md`（接口消费规范）；契约来源 `backend-docs/HR_PR-1/03_api/openapi.yaml`（0.1.0 冻结，0.1.1 待发布） |
+| 接口/管道文档 | `frontend-docs/HR_PR-1/03_api/interface_spec_resume.md`（接口消费规范）；契约来源 `backend-docs/HR_PR-1/03_api/openapi.yaml`（**0.1.1**，已含 G-01 / G-02 / CR-01 / CR-01a） |
 | 输入裁决 | `01-requirements/HR_PR-1/prototype-review.md`（P-01..P-11）、`cross-workbench-review.md`（C/D/O/G/F）；原型 `global-info/prototype/`（仅作页面结构与交互参考，视觉参考 `style.css`） |
 | 设计日期 | 2026-11-10 |
-| 版本 | v1.0（待“技术设计确认”关卡） |
+| 版本 | v1.1（已通过技术设计确认；对齐 OpenAPI 0.1.1） |
 
 > 本文档**引用**接口消费规范与 OpenAPI，不重复其中的字段清单、接口参数、响应与错误码表。
 > 原型是参考，**与评审裁决冲突处以裁决为准**；设计中凡需改需求或契约之处，一律列在 §10「申请与待确认」，不自行修改。
 > REQ-FE-03.1 将由主 agent 按 P-04 做澄清修订（由“逐项提问”改为“分区整区核对”）；本设计按 P-04 实现，§8 追溯矩阵对该条的映射以修订后的含义为准。
+
+## 变更履历
+
+| 版本 | 日期 | 变更（delta） | 驱动 |
+|------|------|--------------|------|
+| v1.0 | 2026-11-10 | 初始版本 | Step 3 |
+| v1.1 | 2026-11-10 | ① 契约版本对齐 OpenAPI 0.1.1：邮箱 pattern + maxLength 254、手机号 maxLength 32（针对提交原值）、其余字段长度 / 条数上限填入 `FIELD_MAX_LENGTH`（§6.1，数值全部取自 OpenAPI，不自定）；② TD-07、§3.3 / §6 FieldRules、§8 REQ-FE-03.5 / 06.5、§9 `FieldRules` 用例同步；③ §10 申请项与 Q-DL 全部标记已裁决；④ ADR-006 状态 ACCEPTED（§11.1） | DL 通过技术设计确认；OpenAPI 0.1.1；CR-01 / CR-01a 裁决 |
 
 ---
 
@@ -30,7 +37,7 @@
 | TD-04 | 请求并发与过期响应 | 同一时刻只允许一个在途的上传 / PATCH / 确认请求（`busy` 标记，其余入口禁用）；每次“新对话”、重新上传、草稿失效递增 `epoch`，旧响应到达时按 epoch 丢弃 | 落实 DD-07；PATCH 响应整体替换草稿，并发会让旧响应覆盖新状态；禁用入口使“排队”变为“不可触发”，实现更简单 | — |
 | TD-05 | 忙碌态与取消 | 忙碌期间“新对话”、上传入口、确认类按钮均禁用；不提供请求取消按钮（超时由 `AbortController` 结束） | 防重复提交（REQ-FE-01.3、04.8）；上传最长 75 秒，取消后 backend 是否已处理不可知，取消会制造歧义 | — |
 | TD-06 | 业务规则存放 | 分区配置、字段规则（手机号 / 邮箱 / 上传预校验）、reducer 放在 `src/hooks/model/` 下的纯 TS 模块（PascalCase 文件名），不依赖 DOM；组件只消费结果 | 分层红线：组件不持有业务规则，hook 层不操作 DOM；`src` 仅限 5 个目录，不新增目录（若需新增见 §10 Q-DL-02） | — |
-| TD-07 | 校验规则单一来源 | 手机号 pattern、邮箱 pattern 与 `maxLength` 以 OpenAPI 为准，在 `FieldRules.ts` 集中为常量并注明 OpenAPI 版本；字段长度上限预留 `FIELD_MAX_LENGTH` 表（未获契约前为空，不自定数值），超限由 422 `too_long` 兜底 | G-01、G-02 裁决；CR-01 待 DL 裁决，设计不自定数值 | — |
+| TD-07 | 校验规则单一来源 | 手机号 pattern、邮箱 pattern 与 `maxLength` 以 OpenAPI 为准，在 `FieldRules.ts` 集中为常量并注明 OpenAPI 版本；字段长度 / 条数上限集中在 `FIELD_MAX_LENGTH` 表（数值全部取自 OpenAPI 0.1.1，见 §6.1，不自定），前端即时提示 `too_long`，422 `too_long` 兜底 | G-01、G-02 裁决；CR-01 待 DL 裁决，设计不自定数值 | — |
 | TD-08 | 静态外壳 | 页面外壳只含产品标题与“＋ 新对话”入口；**不显示用户头像/姓名、历史会话列表**，也不提供静态占位的假历史 | P-02：无登录与账号；静态占位也会带来“可点击却无功能”的误导，选“去掉”而非“静态固定内容” | — |
 | TD-09 | 输入区形态 | 底部为 `ComposerBar`：📎 上传按钮 + 拖拽区 + 快捷指令芯片（“确认无误”“其余都没问题”“确认提交”等，随阶段变化）；**无文本输入框** | P-01 选 A：输入框只用于上传和快捷指令；去掉文本框可避免用户以为可输入自然语言 | ADR-006 |
 | TD-10 | 加载提示 | 上传时显示单一 `UploadProgressNotice`（“正在识别，最长约 1 分钟”），不分步骤、不显示耗时 | P-05；backend 同步接口无进度事件 | — |
@@ -118,7 +125,7 @@ graph TD
 | useChatScroll | `src/hooks/useChatScroll.ts` | 新增 | 阶段变化 / 新内容后滚动与焦点移动的**请求信号**（返回需要聚焦的区块 key；真正的 DOM 操作由组件完成，hook 不触碰 DOM 样式） | TD-13 |
 | SessionReducer | `src/hooks/model/SessionReducer.ts` | 新增 | 纯函数 reducer 与状态类型（§5.2）；全部状态转移集中于此 | REQ-FE-01..05 |
 | SectionConfig | `src/hooks/model/SectionConfig.ts` | 新增 | 11 个分区的有序配置：key、标题、所含字段、字段控件类型、是否含核心字段（§4.2）；子项字段配置（工作 / 项目 / 教育） | REQ-FE-02.1、03.3 |
-| FieldRules | `src/hooks/model/FieldRules.ts` | 新增 | 手机号规范化（去空格与连字符）与 pattern；邮箱 pattern 与 `maxLength 254`；核心三项非空；`FIELD_MAX_LENGTH` 预留表；`reason` → 文案映射；字段路径 `work_experiences[0].start_date` 解析 | REQ-FE-03.4、03.5、03.6 |
+| FieldRules | `src/hooks/model/FieldRules.ts` | 新增 | 手机号规范化（去空格与连字符）与 pattern；邮箱 pattern 与 `maxLength 254`（0.1.1）；核心三项非空；`FIELD_MAX_LENGTH` 上限表（0.1.1，§6.1）；`reason` → 文案映射；字段路径 `work_experiences[0].start_date` 解析 | REQ-FE-03.4、03.5、03.6 |
 | UploadPrecheck | `src/hooks/model/UploadPrecheck.ts` | 新增 | 上传前预校验：单文件、扩展名（大小写不敏感）、MIME、≤ 10485760 字节、非空；返回可展示的拒绝原因 | REQ-FE-01.1、01.2 |
 | SectionView | `src/hooks/model/SectionView.ts` | 新增 | 由草稿 + 编辑缓冲派生视图数据：各分区状态汇总（含 `missing` / `uncertain` 计数）、核心三项是否齐全且合法且已确认、是否存在未确认字段、是否存在未提交编辑 | REQ-FE-02.2、04.1、04.2 |
 
@@ -410,7 +417,7 @@ sequenceDiagram
 | SessionReducer | 纯函数，输入 `(state, action)`；所有 §5.3 转移都在这里；带 `epoch` 的响应动作若 epoch 不一致直接返回原状态；不含副作用与 DOM | REQ-FE-01..05 |
 | useResumeSession | 用 `useReducer` 驱动；每个动作先 dispatch 开始事件，再 await api，随后 dispatch 结果事件（携带发起时的 `epoch`）；挂载时自动 `bootstrap`（`useEffect` 内用标志避免 StrictMode 双调用产生重复请求副作用）；动作内检查 `busy`，非空则忽略（TD-04）；暴露 `selectors`（来自 `SectionView`） | REQ-FE-01..05 |
 | SectionConfig | 常量数组，11 个分区，每个字段含 `key`、`label`、`kind: 'text' \| 'textarea' \| 'stringList' \| 'objectList'`、`core: boolean`；子项配置含各子字段的标签与控件；标签文案取自 `global-info/简历模板.md` 的中文名称 | §4.2；REQ-FE-02.1 |
-| FieldRules | `normalizePhone(v)` 去空格与连字符；`PHONE_PATTERN = /^(1\d{10}\|\+\d{6,15})$/`（来源 OpenAPI `phone.pattern`）；`EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/`、`EMAIL_MAX_LENGTH = 254`（来源 OpenAPI 0.1.1，G-01）；`validateCore(fields)` 返回 `{field: reason}`；`reasonText` 映射 5 个 `reason`：`required` 必填 / `invalid_format` 格式不正确 / `invalid_type` 类型不符 / `too_long` 内容过长 / `unknown_field` 按通用错误；`FIELD_MAX_LENGTH`（初始为空表）。邮箱与手机号校验在**输入失焦与提交前**触发，输入过程中不抢先报错 | REQ-FE-03.4、03.5；G-01、G-02 |
+| FieldRules | `normalizePhone(v)` 去空格与连字符；`PHONE_PATTERN = /^(1\d{10}\|\+\d{6,15})$/`（来源 OpenAPI `phone.pattern`）；`EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/`、`EMAIL_MAX_LENGTH = 254`（来源 OpenAPI 0.1.1 `email`，G-01）；手机号 `maxLength 32` 针对**提交前的原值**（含空格 / 连字符），规范化后再按 pattern 校验（G-02）；超过 `FIELD_MAX_LENGTH` 的输入在字段旁即时提示“内容过长”；`validateCore(fields)` 返回 `{field: reason}`；`reasonText` 映射 5 个 `reason`：`required` 必填 / `invalid_format` 格式不正确 / `invalid_type` 类型不符 / `too_long` 内容过长 / `unknown_field` 按通用错误；`FIELD_MAX_LENGTH`（初始为空表）。邮箱与手机号校验在**输入失焦与提交前**触发，输入过程中不抢先报错 | REQ-FE-03.4、03.5；G-01、G-02 |
 | UploadPrecheck | `file.name` 取扩展名（小写）∈ `.pdf .jpg .jpeg .png`；`file.type` ∈ 三种 MIME（`file.type` 为空时仅按扩展名判定，以 backend 魔数校验为准）；`size > 10485760` 或 `size === 0` 拒绝；多文件拖入时只取第一个并提示“一次只能上传一个文件”（REQ-FE-01.1） | REQ-FE-01.1、01.2 |
 | SectionView | `sectionStatus(section, draft)`、`firstTodoSection(draft)`、`coreReady(draft, buffer)`、`unconfirmedCount(draft)`、`hasUnsubmittedEdits(buffer)`；全部为纯函数 | REQ-FE-02.2、04.1、04.2 |
 | ResumeCollectionPage | 只做编排：按 `phase` / `view` / `busy` 选组件，把 hook 的状态与动作作为 props 传下去；对话框开关由 `state.dialog` 决定 | REQ-FE-01..05 |
@@ -429,6 +436,22 @@ sequenceDiagram
 | ComposerBar | 隐藏的 `<input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">`（单选）；整个页面接收 `dragover` / `drop`，仅当 `busy=null` 且 `phase ∈ {empty, reviewing}` 时生效；底部固定免责提示；无 `textarea` | REQ-FE-01.1、01.3 |
 | QuickReplyChips | 随阶段/视图给出芯片：`sections` →“确认无误”“其余都没问题”；`final` →“确认提交”“我还要修改”；点击等价于对应按钮动作，受同样的禁用条件约束；点击后不向对话区追加“用户消息”（避免伪造自由文本对话） | TD-09、REQ-FE-03.2 |
 | ConfirmDialog | 覆盖确认文案：“将用新文件覆盖当前未确认的简历内容（含未提交的修改），是否继续？”；新对话文案见 TD-12；未确认提示：“还有 n 项字段未确认，继续将视为确认当前显示的全部内容。”；未提交编辑：“有未提交的修改：放弃修改并继续 / 返回”。 | REQ-FE-01.5、04.2 |
+
+### 6.1 字段长度 / 条数上限表（`FIELD_MAX_LENGTH`，全部来源 OpenAPI 0.1.1 `ResumeFieldsUpdate` 及子 schema）
+
+| 范围 | maxLength | maxItems | 来源 |
+|---|---|---|---|
+| `name` | 100 | — | `ResumeFieldsUpdate.name` |
+| `phone`（提交原值，含空格 / 连字符） | 32 | — | `ResumeFieldsUpdate.phone`（pattern 作用于规范化后的值） |
+| `email` | 254 | — | `ResumeFieldsUpdate.email`（G-01） |
+| `job_title` `expected_city` `expected_salary` `available_time` `homepage` `gender` `birth_month` `political_status` `current_city` `work_years` `highest_education` | 500 | — | 同上 |
+| `self_evaluation` | 5000 | — | 同上 |
+| `strengths` `skills` `certificates_honors` `languages`（每项） | 1000 | 50 | 同上 |
+| `work_experiences` / `project_experiences` / `educations` | — | 20 | 同上 |
+| `WorkExperience` 各字符串子字段；`responsibilities` / `achievements` 每项 | 2000 | `responsibilities` / `achievements` 各 30 | `WorkExperience`（CR-01a） |
+| `ProjectExperience`、`Education` 各字符串子字段 | 2000 | — | CR-01a |
+
+> 表是 OpenAPI 的手工镜像（TD-07 / F-02）：文件头标注 OpenAPI 版本 0.1.1，契约变更时同步核对；单元测试对表中的每一个上限做边界断言（恰好等于上限通过、超 1 失败）。条数达到上限时，“新增”按钮禁用并提示。
 
 ---
 
@@ -496,7 +519,7 @@ sequenceDiagram
 | REQ-FE-03.2 以结构化字段编辑提交并以 backend 返回更新界面，其余保持原状态 | TD-01、`confirmSection`、`updateCurrentResumeDraft`、`draft` 整体替换；§4.4、§5.3 | 同一分区字段随“确认本区”一并确认（P-04）；其他分区不受影响 |
 | REQ-FE-03.3 多条子项新增 / 修改 / 删除 | `StringListEditor`、`ObjectListEditor`；§4.4（列表整块提交 O-11） | 子项无 id，下标稳定 |
 | REQ-FE-03.4 姓名 / 手机号 / 邮箱缺失时引导补充 | `SectionCard`（基本信息排第一、核心字段缺失时按钮禁用并就地说明）、`ReviewSummary`、`validateCore`；§4.3 | 活跃分区首选含 `missing` 的分区 |
-| REQ-FE-03.5 手机号 / 邮箱即时格式提示 | `FieldRules`（手机号 pattern + 规范化；邮箱 pattern + 254，G-01/G-02）、`FieldRow`；TD-07 | 邮箱规则随 OpenAPI 0.1.1 落地，见 §10 |
+| REQ-FE-03.5 手机号 / 邮箱即时格式提示 | `FieldRules`（手机号 pattern + 规范化；邮箱 pattern + 254，G-01/G-02）、`FieldRow`；TD-07 | 邮箱规则取自 OpenAPI 0.1.1（G-01） |
 | REQ-FE-03.6 带 `details` 的字段级错误在字段旁展示原因 | `fieldErrors`、`reasonText`、`FieldRow`；§5.3（422）、§7.1 | 字段路径 `a[0].b` 映射到行 |
 | REQ-FE-04.1 独立“最终确认”，核心三项齐全合法且已确认才可点 | `FinalReviewCard`、`coreReady`、`SectionView`；§5.3 | 否则禁用并说明原因 |
 | REQ-FE-04.2 仍有未确认字段时先提示，继续即确认当前显示全部内容 | `ConfirmDialog(unconfirmed)`、`unconfirmedCount`；§5.3 | 存在未提交编辑时另行拦截（`unsubmitted_edits`） |
@@ -513,7 +536,7 @@ sequenceDiagram
 | REQ-FE-06.2 不使用 localStorage / sessionStorage / IndexedDB 保存简历 | TD-02/03；§4.1 | ESLint 禁用这三个全局对象（§9） |
 | REQ-FE-06.3 控制台与日志不输出简历内容或响应体 | `ApiClient` 日志约束、`ErrorBoundary`；§7.2 | `no-console` 规则 |
 | REQ-FE-06.4 错误统一解析为 `{code, message, request_id}` + 可选 `details` | `ApiError`、`ApiClient` 错误转换；§3.2、§6、§7.1 | 含前端自有码 |
-| REQ-FE-06.5 types 与 api 在 OpenAPI 冻结后与之对齐 | `src/types/*`（同名手写，文件头标注 OpenAPI 版本，F-02）；§3.1 | 0.1.0 冻结；0.1.1 发布后同步核对 |
+| REQ-FE-06.5 types 与 api 在 OpenAPI 冻结后与之对齐 | `src/types/*`（同名手写，文件头标注 OpenAPI 版本，F-02）；§3.1 | 已对齐 0.1.1；契约再变更须同步核对 |
 | REQ-FE-06.6 Vitest + React Testing Library + ESLint，测试数据只用合成简历 | §9 测试策略 | 样例见 §9.3 |
 
 **覆盖统计**：REQ-FE-01（6/6）、02（4/4）、03（6/6）、04（8/8）、05（3/3）、06（6/6），合计 **33/33**。
@@ -544,7 +567,7 @@ sequenceDiagram
 
 | 测试层级 | 测试对象 / 场景 | 测试重点 |
 |---------|----------------|---------|
-| 单元：`FieldRules` | 手机号规范化与 pattern；邮箱 pattern + 254；核心非空；`reasonText` | 手机号用 OpenAPI 示例 `13800138000`、`+85212345678` 与反例（10 位、含字母、`+` 位数不足）；`138 0013 8000` / `138-0013-8000` 规范化后通过；邮箱 `a@b.co` 通过，`a@b`、`a b@c.d`、255 字符拒绝 |
+| 单元：`FieldRules` | 手机号规范化与 pattern；邮箱 pattern + 254；核心非空；`reasonText` | 手机号用 OpenAPI 示例 `13800138000`、`+85212345678` 与反例（10 位、含字母、`+` 位数不足）；`FIELD_MAX_LENGTH` 各上限的边界（等于通过、超 1 失败，§6.1）；`138 0013 8000` / `138-0013-8000` 规范化后通过；邮箱 `a@b.co` 通过，`a@b`、`a b@c.d`、255 字符拒绝 |
 | 单元：`UploadPrecheck` | 扩展名大小写、MIME、10485760 边界、0 字节、多文件 | 恰好 10 MB 通过，10 MB + 1 字节拒绝；`.PDF` 通过；`.docx` 拒绝 |
 | 单元：`SectionView` / `SectionConfig` | 22 字段完整映射到 11 区；分区状态优先级；活跃分区选取；`coreReady`；未确认计数 | 配置字段集合与 `ResumeFields` 的 22 个键一一对应（防漏项） |
 | 单元：`SessionReducer` | §5.3 全部转移；epoch 丢弃过期响应；`busy` 互斥 | 失败不清空旧草稿（O-02）；`draft_not_found` 在 PATCH / 确认下走不同 `notice`；`already_saved` 分支不保留内容 |
@@ -580,21 +603,21 @@ sequenceDiagram
 
 | 编号 | 申请 | 对象 | 影响 | 当前处理 |
 |---|---|---|---|---|
-| RQ-01 | REQ-FE-03.1 按 P-04 做澄清修订（分区整区核对） | 主 agent / 需求文档 | §8 对该条的映射含义 | 设计已按 P-04 实现，需求文档由主 agent 修订 |
-| CR-01（跟随 backend） | 字段长度上限写入 OpenAPI（`maxLength` / `maxItems`） | backend 申请，待 DL 裁决 | `FieldRules.FIELD_MAX_LENGTH` 与即时 `too_long` 提示 | 设计预留空表，**不自定数值**；未获契约前仅依赖 422 `too_long` |
-| OA-0.1.1 | OpenAPI 0.1.1 发布（G-01 邮箱 `pattern` + `maxLength 254`、G-02 手机号描述） | backend（已裁决，待实施） | 邮箱即时校验的实现前置条件 | 任务拆分时将“邮箱校验”标注依赖 0.1.1；在此之前该字段仅做非空判断 |
-| REQ-AGENTS-01 | Step 5 补全 frontend 仓库 `AGENTS.md` 的目录与命名（含 `src/hooks/model/` 约定、`no-console` 与禁用浏览器存储的 ESLint 规则） | architecture-advisor Step 5 / DL 复核 | 仓库约定 | 本步不改；Step 5 时处理 |
+| RQ-01 | REQ-FE-03.1 按 P-04 做澄清修订（分区整区核对） | 主 agent / 需求文档 | §8 对该条的映射含义 | ✅ 已修订（REQ-FE-03.1 v1.1，主 agent） |
+| CR-01 / CR-01a | 字段长度 / 条数上限写入 OpenAPI（含经历区块内部 2000 / 30） | backend 申请 | `FieldRules.FIELD_MAX_LENGTH` | ✅ 已裁决并落地于 OpenAPI 0.1.1，见 §6.1 |
+| OA-0.1.1 | OpenAPI 0.1.1 发布（G-01 邮箱 `pattern` + `maxLength 254`、G-02 手机号描述） | backend | 邮箱即时校验 | ✅ 已发布；邮箱按 0.1.1 实现，不再有“仅非空判断”的过渡期 |
+| REQ-AGENTS-01 | Step 5 补全 frontend 仓库 `AGENTS.md` 的目录与命名（含 `src/hooks/model/` 约定、`no-console` 与禁用浏览器存储的 ESLint 规则） | architecture-advisor Step 5 / DL 复核 | 仓库约定 | 待办：Step 5 处理（任务清单确认后） |
 
-### 10.2 需 DL 确认
+### 10.2 DL 确认事项（Q-DL-01..06 已于 2026-11-10 全部采纳）
 
 | 编号 | 问题 | 建议 |
 |---|---|---|
-| Q-DL-01 | **输入区不含文本框**（TD-09）：P-01 说“输入框只用于上传和快捷指令”，设计理解为“底部输入区”仅含 📎 上传 + 拖拽 + 快捷指令芯片，不保留任何 textarea | 采纳；如希望保留“看起来像输入框”的外观，仅作为上传触发区，仍不接收文本 |
-| Q-DL-02 | **纯逻辑模块放 `src/hooks/model/`**（TD-06）：仓库约定只有 5 个目录。是否同意此放置，或批准新增 `src/domain/`（需改 AGENTS.md） | 同意放在 `hooks/model/`，不新增目录 |
-| Q-DL-03 | **保存成功卡保留姓名 / 原始文件名 / 保存时间**（TD-11）：REQ-FE-04.4 写“清空运行时内存中的简历内容”，P-09 要求保存卡显示这三项；设计只保留这三项，手机号 / 邮箱等其余内容全部清空 | 采纳 |
-| Q-DL-04 | **“新对话”后刷新会恢复旧草稿**（TD-12）：因无丢弃接口，这是已知行为；确认框已明示。是否接受 | 接受（P-08 已裁决不提供丢弃草稿接口） |
-| Q-DL-05 | **兼容与无障碍范围**（TD-13）：最近两个主版本的 Chrome / Edge / Safari / Firefox；基础键盘与 `aria-live`，不做屏幕阅读器专项验收 | 采纳 |
-| Q-DL-06 | **TD-08 去掉而非静态占位**：用户信息与历史会话选“去掉”（P-02 两个选项之一） | 采纳 |
+| Q-DL-01 | **输入区不含文本框**（TD-09）：P-01 说“输入框只用于上传和快捷指令”，设计理解为“底部输入区”仅含 📎 上传 + 拖拽 + 快捷指令芯片，不保留任何 textarea | ✅ 已裁决（DL，2026-11-10）：采纳 |
+| Q-DL-02 | **纯逻辑模块放 `src/hooks/model/`**（TD-06）：仓库约定只有 5 个目录。是否同意此放置，或批准新增 `src/domain/`（需改 AGENTS.md） | ✅ 已裁决（DL，2026-11-10）：采纳 |
+| Q-DL-03 | **保存成功卡保留姓名 / 原始文件名 / 保存时间**（TD-11）：REQ-FE-04.4 写“清空运行时内存中的简历内容”，P-09 要求保存卡显示这三项；设计只保留这三项，手机号 / 邮箱等其余内容全部清空 | ✅ 已裁决（DL，2026-11-10）：采纳 |
+| Q-DL-04 | **“新对话”后刷新会恢复旧草稿**（TD-12）：因无丢弃接口，这是已知行为；确认框已明示。是否接受 | ✅ 已裁决（DL，2026-11-10）：采纳 |
+| Q-DL-05 | **兼容与无障碍范围**（TD-13）：最近两个主版本的 Chrome / Edge / Safari / Firefox；基础键盘与 `aria-live`，不做屏幕阅读器专项验收 | ✅ 已裁决（DL，2026-11-10）：采纳 |
+| Q-DL-06 | **TD-08 去掉而非静态占位**：用户信息与历史会话选“去掉”（P-02 两个选项之一） | ✅ 已裁决（DL，2026-11-10）：采纳 |
 
 ---
 
@@ -613,7 +636,7 @@ sequenceDiagram
 | TD-13 / TD-14 / TD-15 | 否 | 常规实现选择 |
 | DD-01..DD-11 | 否 | Step 2.2 已判定并经跨 Workbench 评审通过 |
 
-结果：新增 **ADR-006**（PROPOSED），见 `project-memory/adrs/ADR-006-structured-section-review.md` 与 `adr_index.md` 追加条目。
+结果：新增 **ADR-006**（已于 2026-11-10 经 DL 确认为 ACCEPTED），见 `project-memory/adrs/ADR-006-structured-section-review.md` 与 `adr_index.md` 追加条目。
 
 ### 11.2 ADR 合规
 

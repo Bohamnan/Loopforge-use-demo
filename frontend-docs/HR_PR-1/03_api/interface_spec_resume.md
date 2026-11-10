@@ -5,10 +5,11 @@
 | 版本 | 日期 | 修改说明 | 作者 |
 |------|------|----------|------|
 | v0.1 | 2026-11-10 | 初始版本（architecture-advisor Step 2.2），基于 OpenAPI 0.1.0（已冻结） | Yin Yang（frontend） |
+| v0.2 | 2026-11-10 | 契约版本 0.1.0 → 0.1.1：G-01 邮箱 `pattern` + `maxLength 254` 已落地，七、G-01 缺口关闭；G-02 手机号 pattern 作用于提交值（先去空格与连字符，原值 `maxLength 32`）；CR-01 / CR-01a 长度与条数上限见 design.md §6.1；十、Q-01..Q-06 已裁决（F-01..F-05、G-01、G-02） | OpenAPI 0.1.1 |
 
-> **输入**：`backend-docs/HR_PR-1/03_api/openapi.yaml`（**唯一契约来源**，info.version 0.1.0）、`api_design_resume.md`（仅作设计说明参考，字段级以 openapi.yaml 为准）、`01_requirements/requirements.md`（REQ-FE-01..06）、裁决 C-xx / D-xx / O-xx、`rules/frontend/api.md`、`codes/hr-collection-agent-frontend/AGENTS.md`。
+> **输入**：`backend-docs/HR_PR-1/03_api/openapi.yaml`（**唯一契约来源**，info.version 0.1.1）、`api_design_resume.md`（仅作设计说明参考，字段级以 openapi.yaml 为准）、`01_requirements/requirements.md`（REQ-FE-01..06）、裁决 C-xx / D-xx / O-xx、`rules/frontend/api.md`、`codes/hr-collection-agent-frontend/AGENTS.md`。
 > **引用不复制**：字段、类型、错误码清单不在此重抄，只写前端如何消费、状态如何映射、哪里需要前端自有决策。
-> **状态**：待评审（Step 2.1 + 2.2 合并门控）。
+> **状态**：评审通过（2026-11-10，G-01 / G-02 / F-01..F-05 已裁决）；契约版本 0.1.1。
 
 ## Step 2.1 适用性判定
 
@@ -130,7 +131,7 @@ api 层把所有失败转换为同一个 `ApiError`，界面只面对它：
 **核心三项的即时校验**（REQ-FE-03.4、03.5）：
 - `name`、`phone`、`email`：不可为空字符串（`minLength: 1`）；全空白视为空，前端先 trim 判断。
 - `phone`：校验前**先去除空格与连字符**，再用 OpenAPI 的 `ResumeFieldsUpdate.phone.pattern` `^(1\d{10}|\+\d{6,15})$`（O-05，唯一来源）。pattern 在前端以常量引用，代码注释标注来源；契约变更时同步。测试样例用 OpenAPI 给出的 `13800138000`、`+85212345678` 及反例。
-- `email`：**契约缺口**，见「七」。
+- `email`：按 OpenAPI 0.1.1 `ResumeFieldsUpdate.email`：`pattern` `^[^\s@]+@[^\s@]+\.[^\s@]+$`、`maxLength` 254（G-01，唯一来源）；pattern 以常量引用并注明来源。长度 / 条数上限同样取自 OpenAPI，见 design.md §6.1。
 - 格式不合法：就地提示字段并禁用相关提交/最终确认（D-06）。
 
 **成功（200）**：用响应的 `DraftResponse` 整体替换本地草稿（以 backend 返回的值与状态为准，前端不自行推断状态）。
@@ -196,7 +197,7 @@ api 层把所有失败转换为同一个 `ApiError`，界面只面对它：
 | C | 业务码、错误体、`details` | ✅ 13 个业务码、`details` 与 5 个 `reason`、字段路径格式；HTTP 状态按接口给出 | 二 2.3、三 |
 | D | 幂等与“已保存过” | ✅ `already_saved` 字段（200/201 仅作参考）、规范化由 backend 完成 | 三 3.4 |
 | E | Cookie 行为 | ✅ 属性、签发/续期/作废时机、同源、proxy 要求 | 二 2.4 |
-| F | 其他约定 | ⚠️ 大部分已提供：文件规则、模型超时 60s、手机号 pattern。**缺口**：邮箱规则；非上传接口超时数值（属前端自有决策） | 七、十 |
+| F | 其他约定 | ✅ 全部已提供：文件规则、模型超时 60s、手机号与邮箱 pattern（0.1.1）、字段长度 / 条数上限（CR-01 / CR-01a）；非上传接口超时 30s 为前端自有决策（F-01 已采纳） | 七、十 |
 
 ---
 
@@ -224,7 +225,7 @@ api 层把所有失败转换为同一个 `ApiError`，界面只面对它：
 
 | 编号 | 缺口 | 影响的 AC | 当前处理 |
 |---|---|---|---|
-| G-01 | **邮箱校验规则未在 OpenAPI 给出**。`ResumeFieldsUpdate.email` 只有 `minLength: 1`，描述写“邮箱格式”，没有 `pattern` / `format`，也没有规则原文。C-09 要求前端使用与 backend 相同的规则即时提示 | REQ-FE-03.5、REQ-FE-04.1 | **不自行约定规则**。需 backend 在 OpenAPI 补充 `pattern`（或明确 `format`）后冻结为 0.1.x 兼容新增；补充前前端仅做非空判断，格式错误依赖 422 `details` 反馈，该 AC 的“即时提示”暂不能完整满足 |
+| G-01 | ~~邮箱校验规则未在 OpenAPI 给出~~ | REQ-FE-03.5、REQ-FE-04.1 | ✅ 已关闭：OpenAPI 0.1.1 补充 `pattern` 与 `maxLength 254`，前端即时校验使用同一规则 |
 
 除此以外，未发现 OpenAPI 无法满足的 REQ-FE 验收标准。
 
@@ -256,13 +257,13 @@ api 层把所有失败转换为同一个 `ApiError`，界面只面对它：
 
 ---
 
-## 十、需 DL 确认
+## 十、DL 确认事项（均已裁决）
 
 | 编号 | 问题 | 建议 |
 |---|---|---|
-| Q-01 | **G-01 邮箱规则**：由 backend 补 `pattern` 后前端复用，还是前端先采用一个暂行规则？ | 由 backend 补充（保持“唯一来源”） |
-| Q-02 | 非上传接口（GET/PATCH/POST resumes）前端超时 30 秒是否可接受？ | 采纳 30 秒 |
-| Q-03 | 手机号提交值：前端提交去除空格与连字符后的值，backend 是否同样接受带空格的原值？ | 提交规范化值 |
-| Q-04 | 类型手写还是由 OpenAPI 生成（DD-01） | 手写 |
-| Q-05 | 启动 GET 的非 404 失败进入可重试错误态而非空态（DD-04） | 采纳 |
-| Q-06 | 75 秒超时后若 backend 实际已成功：旧令牌对应的旧草稿可能已被 O-03 删除，而浏览器仍持旧令牌，之后 GET 得到空态。是否接受？ | 接受（POC，用户本就是在重新上传） |
+| Q-01 | **G-01 邮箱规则**：由 backend 补 `pattern` 后前端复用，还是前端先采用一个暂行规则？ | ✅ 已裁决（2026-11-10）：由 backend 补充（保持“唯一来源”） |
+| Q-02 | 非上传接口（GET/PATCH/POST resumes）前端超时 30 秒是否可接受？ | ✅ 已裁决（2026-11-10）：采纳 30 秒 |
+| Q-03 | 手机号提交值：前端提交去除空格与连字符后的值，backend 是否同样接受带空格的原值？ | ✅ 已裁决（2026-11-10）：提交规范化值 |
+| Q-04 | 类型手写还是由 OpenAPI 生成（DD-01） | ✅ 已裁决（2026-11-10）：手写 |
+| Q-05 | 启动 GET 的非 404 失败进入可重试错误态而非空态（DD-04） | ✅ 已裁决（2026-11-10）：采纳 |
+| Q-06 | 75 秒超时后若 backend 实际已成功：旧令牌对应的旧草稿可能已被 O-03 删除，而浏览器仍持旧令牌，之后 GET 得到空态。是否接受？ | ✅ 已裁决（2026-11-10）：接受（POC，用户本就是在重新上传） |
