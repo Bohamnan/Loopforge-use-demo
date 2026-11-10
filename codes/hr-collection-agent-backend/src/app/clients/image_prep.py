@@ -12,7 +12,9 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 from app.core.errors import ParseFailedError
 
-MAX_REQUEST_BYTES = 1024 * 1024  # LLM side limit for one request body (including base64)
+LLM_LIMIT_BYTES = 1_000_000  # "1 MB" counted as 10^6 when unsure (DL 2026-11-10)
+HEADER_MARGIN_BYTES = 4 * 1024  # request headers may count against the limit on the LLM side
+MAX_REQUEST_BYTES = LLM_LIMIT_BYTES - HEADER_MARGIN_BYTES  # budget for the body (incl. base64)
 BLOCK_OVERHEAD_BYTES = 128  # JSON wrapper + "data:image/jpeg;base64," prefix + separators
 MAX_SOURCE_PIXELS = 50_000_000  # reject pixel bombs from the header, before decoding
 EDGE_STEPS = (1600, 1280, 1024, 800, 640)  # long edge in px, best to floor

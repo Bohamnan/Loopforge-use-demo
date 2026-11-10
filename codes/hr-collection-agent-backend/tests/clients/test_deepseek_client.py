@@ -427,13 +427,18 @@ def test_environment_proxies_are_ignored(monkeypatch: pytest.MonkeyPatch) -> Non
 
 # ---- Task 2.3a: request body <= 1 MB -------------------------------------------------------
 
-LIMIT = 1024 * 1024
+LIMIT = 996_000  # 10^6 bytes LLM limit minus a 4 KB header margin (rounded up a little)
 
 
 def _fake_render(parts: list[TextPart | ImagePart]):  # noqa: ANN202
     return lambda _content: RenderedPdf(
         parts=parts, total_pages=len(parts), processed_pages=len(parts)
     )
+
+
+def test_request_limit_is_decimal_megabyte_minus_header_margin() -> None:
+    assert image_prep.MAX_REQUEST_BYTES == 1_000_000 - 4 * 1024
+    assert image_prep.MAX_REQUEST_BYTES <= LIMIT
 
 
 def test_photo_near_10mb_request_body_within_1mb() -> None:
