@@ -10,7 +10,7 @@
 |------|------|
 | **PRD** | `01-requirements/HR_PR-1/prd.md` |
 | **当前 Skill** | feature-developer |
-| **当前阶段** | 第一批审查：frontend 通过；backend BLOCK-1 修复中（待复审）。frontend 第二批 2.1–2.5 开工 |
+| **当前阶段** | 第一批审查全部通过；backend 进入 1.8（HIGH_RISK，完成后停下审查）；frontend 2.1–2.5 进行中 |
 | **状态** | 🔄 feature-developer 进行中 |
 | **最后更新** | 2026-11-10 |
 
@@ -53,8 +53,8 @@
 | 技术设计 | architecture-advisor | 各 Workbench 工程师 | ✅ backend / ✅ frontend（2026-11-10） | 2026-11-10 | `backend-docs/HR_PR-1/04_design/design.md`；`frontend-docs/HR_PR-1/04_design/design.md` |
 | 任务拆分 | architecture-advisor | 各 Workbench 工程师 | ✅ backend（20 任务 / 91h）/ ✅ frontend（15 任务 / 79h） | 2026-11-10 | `backend-docs/HR_PR-1/05_task/tasks.md`；`frontend-docs/HR_PR-1/05_task/tasks.md` |
 | 仓库约定补全与复核（仅新项目 Workbench） | architecture-advisor（Step 5） | 各 Workbench 工程师/Dev Lead | ✅ backend / ✅ frontend（已确认） | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
-| 代码实现 | feature-developer | 各 Workbench 工程师 | 🔄 backend 7/20（修复 BLOCK-1）/ frontend 6/15 → 2.1–2.5 | — | `codes/hr-collection-agent-backend/`、`codes/hr-collection-agent-frontend/` |
-| 代码审查 | code-reviewer | 各 Workbench 工程师 | 🔄 第一批：frontend ✅ / backend ⏸ BLOCK-1 修复待复审 | — | `backend-docs/HR_PR-1/10_review/code_review.md`；`frontend-docs/HR_PR-1/10_review/code_review.md` |
+| 代码实现 | feature-developer | 各 Workbench 工程师 | 🔄 backend 7/20 → 1.8 / frontend 6/15 → 2.1–2.5 | — | `codes/hr-collection-agent-backend/`、`codes/hr-collection-agent-frontend/` |
+| 代码审查 | code-reviewer | 各 Workbench 工程师 | ✅ 第一批：frontend PASS（DL 裁决后）/ backend PASS_WITH_SUGGESTIONS（复审） | 2026-11-10 | `backend-docs/HR_PR-1/10_review/code_review.md`；`frontend-docs/HR_PR-1/10_review/code_review.md` |
 | 开发自测用例 | dev-self-test | 各 Workbench 工程师 | — | — | — |
 | 造数脚本 | test-data-script-generator | 各 Workbench 工程师/QA | — | — | — |
 
@@ -135,6 +135,7 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent | DL 提供 DeepSeek 凭证，已仅写入 backend worktree 本地 .env（600，已 gitignore，未入库）；建议 POC 后轮换该 key |
 | 2026-11-10 | Yin Yang（Dev Lead） | code-reviewer | 按 DL 要求启用独立 kiro 审查 agent（ctx_da4723a4f74e，worktree review-batch1，role dev-lead 只读）审查第一批代码 |
 | 2026-11-10 | Yin Yang（Dev Lead） | code-reviewer | 合并第一批审查报告（98c84ec、cec6bbb）：backend BLOCKED（BLOCK-1 手机号 Unicode \d，主 agent 已复现）、frontend NEEDS_DECISION；DL 裁决见两份 code_review.md 末尾“Dev Lead 裁决”；frontend 第一批通过 |
+| 2026-11-10 | Yin Yang（Dev Lead） | code-reviewer | backend BLOCK-1 修复（d5afabf、538a131）经主 agent 复验（223 passed）与审查 agent 复审（5797229）关闭，结论 PASS_WITH_SUGGESTIONS；第一批通过 |
 
 ---
 
