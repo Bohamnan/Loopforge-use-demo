@@ -10,8 +10,8 @@
 |------|------|
 | **PRD** | `01-requirements/HR_PR-1/prd.md` |
 | **当前 Skill** | feature-developer |
-| **当前阶段** | 🔄 代码实现已全部完成（backend 21/21 含 2.3a、frontend 15/15）；审查全部通过（backend 十批、frontend 十一批）；DL 要求（2026-11-10）：流程完整执行；开发自测进行中，随后造数脚本，再交 DL 最终 Review |
-| **状态** | 🔄 进行中：开发自测 |
+| **当前阶段** | 🔄 代码实现已全部完成（backend 21/21 含 2.3a、frontend 15/15）；审查全部通过（backend 十批、frontend 十一批）；DL 要求（2026-11-10）：流程完整执行。开发自测：backend 完成（123 条全通过，AC 37/37）；frontend 部分完成（108 条，已有结果 76/77，31 条未执行）；暂停中，恢复后补做 frontend 未执行项 → 造数脚本 → 最终 Review |
+| **状态** | ⏸ 已暂停（2026-11-10，DL 要求本轮结束）：backend 自测完成，frontend 自测部分完成 |
 | **最后更新** | 2026-11-10 |
 
 **状态图例**：`🔄 进行中` / `⏸️ 等待人类确认` / `✅ 已完成` / `❌ 阻断`
@@ -55,7 +55,7 @@
 | 仓库约定补全与复核（仅新项目 Workbench） | architecture-advisor（Step 5） | 各 Workbench 工程师/Dev Lead | ✅ backend / ✅ frontend（已确认） | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
 | 代码实现 | feature-developer | 各 Workbench 工程师 | ✅ backend 21/21（含 2.3a，pytest 1001、覆盖率 99%、CRAP 最大 9.0）/ ✅ frontend 15/15（vitest 650、lint 0、build 通过） | — | `codes/hr-collection-agent-backend/`、`codes/hr-collection-agent-frontend/` |
 | 代码审查 | code-reviewer | 各 Workbench 工程师 | 🔄 backend 第一至第十批 ✅（含 2.4/2.5 HIGH_RISK）；frontend 第一至第十一批 ✅（0 BLOCK） | — | `backend-docs/HR_PR-1/10_review/code_review.md`；`frontend-docs/HR_PR-1/10_review/code_review.md` |
-| 开发自测用例 | dev-self-test | 各 Workbench 工程师 | 🔄 进行中（联调与真实模型 spike 已完成：`backend-docs/HR_PR-1/10_review/integration_drill.md`、`frontend-docs/HR_PR-1/10_review/integration_drill.md`） | — | — |
+| 开发自测用例 | dev-self-test | 各 Workbench 工程师 | ⏸ backend ✅ 123 条（pytest 112 + 真实进程/真实 DeepSeek 11，样品逐字段 11/11，AC 37/37，13 个错误码全覆盖）待 DL 确认 / frontend 🔄 108 条设计（AC 33/33），浏览器实测通过 23 + 文件级引用 53，不确定 1，未执行 31 | 2026-11-10 | `backend-docs/HR_PR-1/06_test/dev_self_test_resume.md`；`frontend-docs/HR_PR-1/06_test/dev_self_test_resume.md` |
 | 造数脚本 | test-data-script-generator | 各 Workbench 工程师/QA | — | — | — |
 
 ---
@@ -152,6 +152,7 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent | DL 要求暂停：worker-stop 停止 frontend（ctx_1e6c6f4f8173）与审查 agent（ctx_7a4bf2974859），进程已关闭，已提交工作不受影响；backend worker 空闲未动。恢复清单见下方「暂停恢复清单」 |
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent | 按 DL 指出补关 backend worker（worker-release ctx_215fa78784b1）；核对三个 worktree 均无运行中的 agent、无终端，worker-list 无 live |
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent | 恢复编排：第六批审查 PASS_WITH_SUGGESTIONS（0e92cb4），DL 接受 4 个偏差（本地运行，大小前置限制登记跟踪项）；合并 frontend 跟踪项与 3.1（195ba1d），复跑 643 例通过、lint 0、build 通过；DL 指出 LLM 请求体上限 1 MB，批准新增 Pillow，新增 Task 2.3a（图像预处理 + SUGGEST-1/2），下发 backend worker ctx_6cac87d0c5c6 |
+| 2026-11-10 | Yin Yang（Dev Lead） | dev-self-test | DL 要求流程完整执行并用真实样品自动化测试。backend 自测完成并合并（1141 passed）；frontend 自测部分完成并合并；DL 要求本轮结束，暂停 |
 
 ---
 
