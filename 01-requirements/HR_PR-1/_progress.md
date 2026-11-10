@@ -10,7 +10,7 @@
 |------|------|
 | **PRD** | `01-requirements/HR_PR-1/prd.md` |
 | **当前 Skill** | feature-developer |
-| **当前阶段** | 第二批审查中：backend 1.8（HIGH_RISK，待人类确认）、frontend 2.1–2.5 |
+| **当前阶段** | 第二批审查：frontend 通过 → 2.6（HIGH_RISK）；backend 1.8 BLOCK-1/QUESTION-1 修复中，待复审 |
 | **状态** | 🔄 feature-developer 进行中 |
 | **最后更新** | 2026-11-10 |
 
@@ -54,7 +54,7 @@
 | 任务拆分 | architecture-advisor | 各 Workbench 工程师 | ✅ backend（20 任务 / 91h）/ ✅ frontend（15 任务 / 79h） | 2026-11-10 | `backend-docs/HR_PR-1/05_task/tasks.md`；`frontend-docs/HR_PR-1/05_task/tasks.md` |
 | 仓库约定补全与复核（仅新项目 Workbench） | architecture-advisor（Step 5） | 各 Workbench 工程师/Dev Lead | ✅ backend / ✅ frontend（已确认） | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
 | 代码实现 | feature-developer | 各 Workbench 工程师 | ⏸ backend 1.8 待 HIGH_RISK 审查（7/20 ✅）/ 🔄 frontend 11/15（2.1–2.5 ✅） | — | `codes/hr-collection-agent-backend/`、`codes/hr-collection-agent-frontend/` |
-| 代码审查 | code-reviewer | 各 Workbench 工程师 | 🔄 第二批审查中（第一批 ✅） | — | `backend-docs/HR_PR-1/10_review/code_review.md`；`frontend-docs/HR_PR-1/10_review/code_review.md` |
+| 代码审查 | code-reviewer | 各 Workbench 工程师 | 🔄 第二批：frontend ✅ / backend 1.8 ⏸ 修复待复审 | — | `backend-docs/HR_PR-1/10_review/code_review.md`；`frontend-docs/HR_PR-1/10_review/code_review.md` |
 | 开发自测用例 | dev-self-test | 各 Workbench 工程师 | — | — | — |
 | 造数脚本 | test-data-script-generator | 各 Workbench 工程师/QA | — | — | — |
 
@@ -138,6 +138,7 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | code-reviewer | backend BLOCK-1 修复（d5afabf、538a131）经主 agent 复验（223 passed）与审查 agent 复审（5797229）关闭，结论 PASS_WITH_SUGGESTIONS；第一批通过 |
 | 2026-11-10 | Yin Yang（Dev Lead） | feature-developer | 1.8 spike：deepseek-flash 实测不接受 PDF（PNG 可用，200/约 3s）。DL 裁决：只用 deepseek-flash，PDF 本地转换（pypdfium2：文本层优先、渲染 PNG 兜底、最多 5 页，记录 token 用量）；ADR-001 追加修订 1，C-01 补充；提醒 worker 不得再向 v4-pro 等未获批模型发送内容 |
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 backend 1.8（c8b1f10，pypdfium2==5.15.2）：复跑 pytest 295 passed、ruff 通过、仓库内无密钥；合并 frontend 2.1–2.5（f9d8ba5..7c08e83）：复跑 38 文件 405 例通过、lint 0、build 1431 modules；交审查 agent 做第二批审查 |
+| 2026-11-10 | Yin Yang（Dev Lead） | code-reviewer | 合并第二批审查报告（de8176b、8e8ac29）：backend 1.8 BLOCKED（模型名未锁定，主 agent 已核实）、frontend 2.1–2.5 PASS_WITH_SUGGESTIONS；DL 裁决：锁定 deepseek_model 与 base_url（https + api.deepseek.com），PDF 超时与提示词分隔随修；frontend 通过，2.6 一并修复拖拽离开页面 |
 
 ---
 

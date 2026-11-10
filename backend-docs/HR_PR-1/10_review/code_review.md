@@ -289,3 +289,15 @@
 
 ### 更新后的本批结论
 **BLOCKED**（第二批-BLOCK-1）。修复 BLOCK-1 并裁决 QUESTION-1 后，由审查 agent 复审，通过后建议 DL 在 tasks.md 将 1.8 标 ✅。
+
+---
+
+## Dev Lead 裁决（第二批，2026-11-10）
+
+| 项 | 裁决 |
+|---|---|
+| BLOCK-1 | 必须修复：Settings 校验 `deepseek_model` 只能为 `deepseek-flash`，其他值启动失败；`test_config.py` 中"other-model 被接受"的断言改为反例测试；spike 脚本中的 `assert` 改为显式判断 |
+| QUESTION-1 | 限定 `DEEPSEEK_BASE_URL`：只允许 `https`，主机只能是 `api.deepseek.com`，否则启动失败（测试用 MockTransport，不受影响） |
+| SUGGEST（PDF 超时、提示词分隔） | 随本次修复一起处理 |
+| 其余 SUGGEST | 记为跟踪项；"normalizer 拒绝 confirmed"必须在任务 2.1 中落实 |
+| 1.8 HIGH_RISK | 修复并复审通过后，再由 DL 确认标 ✅ |
