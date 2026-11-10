@@ -473,4 +473,4 @@ TestClient 来自 fastapi.testclient，运行时有 StarletteDeprecationWarning�
 图像压缩在同步端点内执行（5 页最坏情形约数秒 CPU），并发 5 人场景待 3.2/3.3 实测。AGENTS.md 中“不得引入图像库”的约定已改为“Pillow 为唯一例外”。
 
 ### 验证
-`uv sync --frozen` 通过；`compileall` 清缓存后 40 行 `Compiling`；`pytest` 751 passed（原 721+…基线 721，净增 30）；`ruff check`、`ruff format --check` 通过。
+`uv sync --frozen` 通过；`compileall` 清缓存后 40 行 `Compiling`；`pytest` 751 passed（基线 721，净增 30）；`ruff check`、`ruff format --check` 通过。
