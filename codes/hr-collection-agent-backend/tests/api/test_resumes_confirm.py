@@ -87,7 +87,20 @@ def test_confirm_twice_same_person_is_200_already_saved(
     assert archived(settings) == [f"{first['resume_id']}.pdf"]
 
 
-@pytest.mark.parametrize("body", [{"confirmed": False}, {}])
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"confirmed": False},
+        {},
+        {"confirmed": "yes"},
+        {"confirmed": "true"},
+        {"confirmed": 1},
+        {"confirmed": "1"},
+        {"confirmed": "on"},
+        {"confirmed": None},
+        {"confirmed": []},
+    ],
+)
 def test_without_confirmation_is_422_and_writes_nothing(
     api: TestClient, settings: Settings, body: dict
 ) -> None:

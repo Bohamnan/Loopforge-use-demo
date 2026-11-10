@@ -1,6 +1,6 @@
 """Confirm-and-save DTOs (interface 4)."""
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, StrictBool
 
 
 class CreateResumeRequest(BaseModel):
@@ -8,7 +8,7 @@ class CreateResumeRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    confirmed: bool  # required; true means the user explicitly confirmed
+    confirmed: StrictBool  # required JSON boolean; only literal true counts (B-04)
 
 
 class CreateResumeResponse(BaseModel):
