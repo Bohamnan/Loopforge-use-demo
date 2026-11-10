@@ -940,3 +940,28 @@ def test_tc_res_004_se_02(env: Env) -> None:
     assert env.confirm().status_code == 201
     assert env.resumes("SELECT name FROM resumes") == [("ZZ'; DROP TABLE resumes;--",)]
     assert env.resumes("SELECT count(*) FROM sqlite_master WHERE name='resumes'") == [(1,)]
+
+
+def test_tc_res_001_hp_06(env: Env) -> None:
+    """AC 06.5 / 06.4: the running app exposes exactly the frozen OpenAPI 0.1.1 operations."""
+    from pathlib import Path
+
+    import yaml
+
+    frozen = yaml.safe_load(
+        (
+            Path(__file__).resolve().parents[4] / "backend-docs/HR_PR-1/03_api/openapi.yaml"
+        ).read_text()
+    )
+    live = env.app.openapi()
+    assert frozen["info"]["version"] == "0.1.1" and env.app.version == "0.1.1"
+
+    def operations(doc: dict) -> set[tuple[str, str, str]]:
+        return {
+            (path, method, op["operationId"])
+            for path, item in doc["paths"].items()
+            for method, op in item.items()
+        }
+
+    assert operations(live) == operations(frozen)
+    assert all(path.startswith("/api/v1/") for path in live["paths"])
