@@ -516,3 +516,131 @@
 
 ### 更新后的本批结论
 **PASS_WITH_SUGGESTIONS**。建议 DL 接受 4 个偏差；SUGGEST-1 建议在 2.4 开工前处理（确认保存会读取这些列表），其余记为跟踪项。进入 2.4 前请带上：展示值与幂等键分离的约定（偏差 3）。
+
+---
+
+## 第七批审查（任务 2.3a 图像预处理 + SUGGEST-1/2；任务 2.4 确认保存，HIGH_RISK：B-04 / B-05）
+
+- 日期：2026-11-10；Review 模式：Ticket-aware Review；Reviewer：Yin Yang（dev-lead，审查 agent 代行）
+- 审查对象：合并提交 `bc06373`（含 `850e019`，2.3a）、`0f914a5`（含 `0ccee34`，2.4）；本 worktree 已 `git merge feature`，HEAD `f35bf7f`。对照 tasks 2.3a/2.4、ADR-001/004/005、design §3.6/3.7/5.3/6/9.3、openapi.yaml 0.1.1、AGENTS.md、architectural_constraints（LLM 请求体 ≤ 1 MB）。
+- 本批结论：**BLOCKED**（1 BLOCK / 1 QUESTION / 5 SUGGEST）。BLOCK-1 是 B-04 入口的一行级修复，QUESTION-1 是 B-05 的一个未覆盖故障点；两者处理后建议复审通过。
+- **HIGH_RISK 最终结论建议**：B-04 —— 有条件通过（BLOCK-1 修复并补测试后通过）；B-05 —— 通过，附 QUESTION-1（提交后抛普通异常的补偿，建议修）；2.4 不建议在 BLOCK-1 修复前标记完成。
+- 上下文限制：未做真实 DeepSeek 调用，未验证“压缩后仍可被模型识别”（只有 `test_downscaled_resume_is_still_readable` 的合成可读性）；Pillow 13.0.0 的已知漏洞公告未联网核对（只核了锁文件来源为公共 PyPI、无凭证 URL、精确版本）；对账（2.5）未实现，崩溃类用例只断言对账起点状态。
+
+### Review Scope
+| 文件 | 变更类型 | 对应 Task | 风险 |
+|---|---|---|---|
+| `clients/image_prep.py`、`clients/deepseek_client.py`、`pyproject.toml`/`uv.lock` | 新增/修改 | 2.3a | 高（外发请求体、不可信图片解码） |
+| `services/draft_service.py`（列表/区块清理、`is_draft_expired`）、`services/upload_validation.py` | 修改 | 2.3a（第六批 SUGGEST-1/2） | 中 |
+| `services/resume_service.py`、`api/routes/resumes.py`、`api/deps.py`、`main.py`、`schemas/resume.py` | 新增/修改 | 2.4 | **高**（唯一写正式库、B-04/B-05） |
+| `tests/services/{fault_injection,conftest,test_resume_service,test_resume_service_faults}.py`、`tests/api/test_resumes_confirm.py`、`tests/clients/*` | 新增 | 2.3a/2.4 | — |
+
+### 2.3a 核对结果
+| 检查项 | 结论 | 证据 |
+|---|---|---|
+| 请求体 ≤ 1 MB 对所有外发路径成立 | ✅ | `build_user_blocks` 是 `parse()` 唯一构造入口：照片、PDF 渲染页统一经 `fit_images`；非图片块（文本层、标记、prompt）先算 `_body_size(text_only+tail)` 作为开销，剩余预算按图片数平分，每张再扣 128 字节块开销并按 ×4/3 折算原始字节；最后对完整 blocks 再算一次 `_body_size`，超限即 `ParseFailedError`。`_body_size` 用 `json.dumps` 默认分隔符（比 httpx 紧凑序列化更宽，是上界）。纯文本 PDF（无图）不走 `fit_images`，由末尾总检兜住。`parse()` 先 `build_user_blocks` 后 `post`，超限抛错时不发起外部调用（`test_image_that_cannot_fit…`、`test_text_beyond_budget…` 用 mock transport 断言 0 次请求） |
+| 四类用例 | ✅ | 近 10MB 照片、5 页扫描 PDF、文本+图片混合、压到下限仍超限；断言的是 `len(request.content)`（真实序列化后的字节），不是估算值 |
+| prompt 与 base64 开销 | ✅ | SYSTEM_PROMPT 与 `response_format` 等都在 `_build_payload` 内，`_body_size` 包含；header 不计入，见 SUGGEST-1 |
+| 超限不外发 | ✅ | 同上；`ParseFailedError` 映射 502 `parse_failed`，与 architectural_constraints 一致 |
+| Pillow 解压炸弹/像素上限 | ✅（附 SUGGEST-2） | 先读头部 `size`，`w*h > 50,000,000` 即拒绝，不解码；Pillow 自身 `DecompressionBombError` 也被捕获。我实测：1000 万量级之外的 7000×7000 噪声 PNG（147MB 数据，超过上传上限，仅作压力）0.6s 压成 577KB；7200×7200（5184 万像素）被拒绝 |
+| 损坏图片 | ✅ | `_load` 捕获 `OSError/ValueError/SyntaxError/UnidentifiedImageError/DecompressionBombError`；我对合成 PNG/JPEG 做截断 + 随机字节变异共 317 个样本（含 10 万×10 万的伪造 IHDR、宽 0），结果只有 `ParseFailedError`（216）与成功（101），无其他异常类型泄出 |
+| 透明通道/EXIF | ✅ | RGBA/LA/调色板透明合成到白底；`exif_transpose` 处理方向 |
+| 依赖治理 | ✅ | `pillow==13.0.0` 精确版本；`uv.lock` 来源为 pypi.org，无凭证 URL；只在 `clients/image_prep.py` 使用；AGENTS.md 已同步“图像库仅限已批准 Pillow” |
+| 第六批 SUGGEST-1（列表/区块清理） | ✅ | `_clean_strings`、`_clean_entry`：文本列表去空白项并 trim，区块丢弃全空条目，空集合即确认留空；`test_text_list_*`、`test_entry_inner_lists_*` 覆盖，作者有红灯记录 |
+| 第六批 SUGGEST-2（文件名控制字符） | ✅ | `_display_name` 过滤 Unicode 类别 C* 与 Zl/Zp；`test_original_filename_has_control_characters_removed` |
+
+### 2.4 逐条结论（HIGH_RISK）
+| 检查项 | 结论 | 证据 |
+|---|---|---|
+| **B-04：确认前不入库** | ✅（路径）/ ❌（入口取值，见 BLOCK-1） | 正式库只被 `resume_service.py`（经 `deps.py` 装配）触达，`test_only_the_save_path_touches_the_resume_repository` 以源码扫描固化；upload/GET/PATCH 路径无引用（grep 确认）。`confirm()` 第一行 `confirmed is not True` → `ConfirmationRequiredError`，早于取草稿，不写任何库；API/服务层均有“缺失/false/None 不写库、草稿仍在”的用例 |
+| `confirmed` 取值严格性 | ❌ | 见 BLOCK-1：`CreateResumeRequest.confirmed: bool` 为 Pydantic 宽松模式，`"yes"`、`"true"`、`1`、`"on"` 会被转成 `True` 并**成功写库**（我已实测：上传后 `POST {"confirmed":"yes"}` → 201） |
+| confirmed 前置 / 顺序 | ✅ | 顺序与 design §5.3 一致：确认 → 取草稿（无/过期 → 404）→ 核心三项（422 + details）→ 规范化 → 查键 |
+| 核心三项校验 | ✅ | `validate_core_fields` 与 PATCH 共用 `_check_core`；缺失/超长/格式非法都有用例；details 只含字段路径与 reason |
+| identity_key 规范化三处一致 | ✅ | ① 校验：`strip_phone` 后匹配 `^(1\d{10}\|\+\d{6,15})$`（re.ASCII）；② 存储：展示值 `name/phone/email` 只做 `strip`（`build_identity`）；③ 查键与唯一索引：同一个 `Identity` 的 `*_key` 同时用于 `find_by_identity_key` 与 `INSERT`，`uq_resumes_identity(name_key, phone_key, email_key)` 兜底。`test_stored_display_value_and_keys_use_their_own_normalisation` 与 API 用例（`+86 138-0013-8000` / 大小写邮箱命中同一人）固化。注：校验后 `86` 无加号前缀的分支不可达（会先被格式校验拒绝），无害。**变异 M2**（查键处改用未规范化的 phone）→ 同键用例失败（`IntegrityError`→`save_failed`） |
+| 幂等（ADR-004） | ✅ | 先查后写 + 唯一索引冲突回查：命中返回已有 `resume_id`/首次 `created_at`，200 `already_saved=true`；不新增、不覆盖、不回显内容（API 用例断言响应恰为 `{**first, already_saved: true}`，库中 `job_title` 仍是首次值，`file/` 只有 1 个终态文件、无 tmp，草稿行与草稿文件均被删）；同键两线程并发（Barrier 使两者都通过预查）一个 201、一个 200，`count(*)=1` |
+| **B-05：保存顺序** | ✅ | `check key → stage(tmp+fsync) → create_aggregate(BEGIN IMMEDIATE，主表+子表) → promote(os.replace, 先 lexists 拒绝覆盖) → _finish(先删草稿行再删文件)`，与 ADR-005 一致；tmp 与终态在同目录，rename 原子；`_finish` 先行后文件，行删失败则保留文件（不会出现行指向已删文件） |
+| 补偿：stage 失败 | ✅ | `stage` 自身在失败时 `unlink`，服务层再 `_discard_tmp`；源文件缺失先再查键，命中走重复分支，未命中且草稿已不存在 → `draft_not_found`，仍存在 → `save_failed`；用例同时断言 `file/` 为空、两库行数、草稿行与文件仍在，且同一令牌重试成功 |
+| 补偿：事务内失败（主表后/子表后） | ✅ | `transaction()` 对 `BaseException` 回滚；用例断言 `resumes` 与三张子表均为 0 行、tmp 已清、草稿保留，重试成功后教育子表 1 行。**变异 M1**（删去事务失败分支的 `_discard_tmp`）→ `db_after_main` 用例失败（`archive_names()` 残留 tmp） |
+| 补偿：提交后重命名失败 | ✅ | 重试一次；仍失败 → 保留 tmp、记 `promote_failed`（warning/error）、`SaveFailedError`；记录与 tmp 并存、草稿保留。**变异 M3**（重试改为单次）→ `promote` 注入 `times=2` 的用例失败，`times=1` 用例也受影响。用户再次确认得到 `already_saved=true` 并收尾 |
+| 崩溃类（提交后重命名前 / 提交前） | ✅（起点状态） | `SimulatedCrash(BaseException)` 绕过所有 `except Exception`，断言：记录+子表在、仅 tmp（名 `.{id}.pdf.tmp`）、草稿在；提交前崩溃：无记录、有孤立 tmp，供 2.5 对账（对账用例留给 2.5，见偏差 3） |
+| 并发同键 | ✅ | 见上；另有 `_after_source_missing`（后到者发现草稿文件已被先到者删除）的再查键路径，`test_source_missing_then_key_found_is_duplicate`。**变异 M4**（删去该再查键）→ 该用例失败 |
+| 重命名失败后的对账起点 | ✅（范围内） | 终态名 `{resume_id}{ext}` 已存入 `resumes.file_path`（`final_name`），tmp 名由 id 推出，2.5 只需 `list_refs` + `scan` 即可 roll-forward；窗口内再次确认不会丢弃该 tmp（用例断言“记录的 tmp 未被 discard”）。局限见 SUGGEST-3 |
+| Cookie 清除 | ✅ | 201 与 200 均 `Set-Cookie: draft_token=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`（`cookies.clear` 单点，API 用例逐字比较）；失败路径（422/404/500）不清除，草稿保留可重试，与 openapi 一致 |
+| 重复分支不回显已有内容 | ✅ | 响应只含 `resume_id/already_saved/saved_at`；`ResumeRef` 不带个人内容（见 SUGGEST-5 关于存在性探测） |
+| 错误响应不泄露 | ✅ | 400/404/422/500 均为固定文案 + `request_id`；`validation_failed.details` 只有字段路径与 reason；`save_failed` 不含异常消息；坏 JSON 体仅返回 `field:'[0]'`、`invalid_format`，无输入回显（我实测） |
+| 日志脱敏与无值日志 | ✅ | 新增事件只带 `resume_id/draft_id/count/exception_class` 与栈帧；`test_logs_contain_no_personal_data_filename_or_token` 覆盖成功、重复、校验失败、`promote` 失败四条路径，断言姓名/手机/邮箱/文件名/令牌与令牌哈希均不出现，且确认 `resume_saved`、`promote_failed` 事件确实被记录（非空断言） |
+| 分层 | ✅ | 路由只做解析与转换；SQL 仅在仓储；补偿集中在 `ResumeService`；`FaultInjector` 通过子类注入，生产代码无分支 |
+| SQL | ✅ | 新增 SQL 全部参数绑定；`create_aggregate` 只把名为 `resumes.name_key` 的约束冲突翻译为重复，其他 `IntegrityError` 原样上抛 |
+
+### 故障注入用例是否真的同时断言库与文件系统
+是。`test_resume_service_faults.py` 的每个用例都通过 `ResumeEnv.count()`（独立连接 `SELECT count(*)`）、`query()`（关键列）、`archive_names()`（`file/` 目录列表）、`draft_rows()`、`draft_file_names()`（草稿库与草稿目录）断言，`_assert_clean_failure`/`_assert_saved_once` 把四项绑在一起，不依赖返回码。**变异验证 5 处**（`resume_service.py` 逐一修改，运行 2.4 的服务/故障/API 三组用例，均已 `git checkout` 还原，`git status` 无变更）：
+
+| 变异 | 结果 |
+|---|---|
+| M1 事务内失败分支去掉 `_discard_tmp` | ✅ 被杀：`test_failure_inside_transaction_rolls_back_everything[db_after_main]` 失败 |
+| M2 查键用原始手机号替代 `phone_key` | ✅ 被杀：`test_same_identity_returns_existing_record…` 失败 |
+| M3 `_promote` 重试次数 2→1 | ✅ 被杀：`test_rename_failing_twice…` 失败 |
+| M4 去掉“源文件缺失后的再查键” | ✅ 被杀：`test_source_missing_then_key_found_is_duplicate` 失败 |
+| M5 `confirmed is not True` → `is None` | ✅ 被杀：`test_without_confirmation_nothing_is_written[False]` 失败 |
+
+用例缺口（对应下面的问题）：没有“`confirmed` 为非布尔真值”的用例（BLOCK-1）；没有“提交后抛普通 `Exception`”的用例，`db_after_commit` 只用了 `SimulatedCrash`（QUESTION-1）。
+
+### BLOCKING Issues
+#### BLOCK-1：`confirmed` 未做严格布尔校验，非布尔真值也能触发写库（B-04）
+**位置**：`src/app/schemas/resume.py`（`confirmed: bool`）；`services/resume_service.py`（`confirmed is not True` 只能防住 Python 层的非 True）
+**证据**：design §5.3“`confirmed === true`”、tasks 2.4“`confirmed === true` 前置”、openapi `confirmed: boolean`。实测（临时探针，已删除）：上传草稿后 `POST /api/v1/resumes {"confirmed":"yes"}` → **201 并写库**。Pydantic v2 默认宽松模式会把 `"yes"/"true"/"on"/"1"/1` 转成 `True`。
+**问题**：B-04 是 BLOCK 级约束，“用户明确确认”的唯一判据是这个字段；契约声明为布尔 `true`，实现却接受字符串与整数。前端按契约会发布尔，但这是唯一的入口防线，不应依赖调用方自律。
+**影响**：任何 `"1"`、`1`、`"yes"` 之类的误传（调用方 bug、脚本）都会被当作用户确认而入库；与“确认才入库”的契约不一致，测试也没有覆盖。
+**修复建议**：把字段改为 `StrictBool`（或 `Field(strict=True)`），非布尔值按现有处理器走 `validation_failed`/`confirmation_required`（须定一个：openapi 只写“缺失或 false → confirmation_required”，建议非布尔值同样归 `confirmation_required`，并在 `_handle_validation` 里识别 `bool_type` 错误）；补参数化用例 `"yes"/"true"/1/"1"/"on"/null/[]/{}` 全部 422 且 `count(*)=0`、草稿与 `file/` 不变，并过一次红灯。
+**违反约束**：B-04；design §5.3。
+
+### QUESTIONS
+#### QUESTION-1：提交之后才抛出普通异常时，补偿会删除 tmp，留下“有记录无文件”（B-05）
+**位置**：`services/resume_service.py` `_save_new`，`except Exception` 分支（约 120–124 行）
+**证据**：我在 `FaultyResumeRepository.create_aggregate` 的 `db_after_commit` 点注入 `RuntimeError`（非 `SimulatedCrash`），结果：`resumes` 1 行、`file/` **空**（tmp 被 `_discard_tmp` 删除）、草稿仍在，接口返回 `save_failed`。此后用户重试会命中幂等键走重复分支并**删除草稿与草稿文件**，原始文件就永久丢失，而 2.5 的情形④只告警不修复。
+**问题**：当前代码把“`create_aggregate` 抛异常”一律当作“未提交”。大多数情况成立（事务内失败会回滚），但 COMMIT 之后的异常（`conn.close()`、COMMIT 返回 IOERR 而事务实际已持久化等“提交结果不明”）会违反 B-05 的核心不变式。概率很低，后果是不可恢复的数据丢失。
+**需要谁裁决**：Dev Lead（是否在 2.4 内修）。我的建议：修，改动很小——在通用异常分支里先按 `resume_id` 查一次 `resumes`（仓储加 `exists(resume_id)`，只读），存在则视为已提交，转入 `_promote`/`_finish`；不存在才 `_discard_tmp` + `save_failed`；补一个 `db_after_commit` 抛普通异常的用例（预期 201/记录与终态文件齐全）。
+**不同答案的影响**：接受现状＝在极端 IO 故障下可能出现不可自动恢复的“有记录无文件”，需在 AGENTS.md 登记为已知限制；修复＝约 10 行 + 1 个测试，B-05 在“提交结果不明”下也成立。
+
+### SUGGESTIONS（不阻断）
+- **第七批-SUGGEST-1（1 MB 的口径与余量）**：`MAX_REQUEST_BYTES = 1024*1024` 且只计 body。若 LLM 侧的“1 MB”按 10⁶ 字节计，或其网关把请求头计入，当前最坏情形会超出约 4.8 万字节。建议向项目方确认口径；不确认则取 1,000,000 并扣除 4 KB 头部余量，成本是图片略小。
+- **第七批-SUGGEST-2（像素上限与解码内存）**：`MAX_SOURCE_PIXELS = 50,000,000` 意味着一个很小的 PNG（高压缩）可解出约 150MB 的 RGB（`_flatten`/`exif_transpose` 还会再拷贝一到两份）。上传上限只有 10MB，本机 POC 单用户可接受；建议降到 25,000,000（约 5000×5000，足够 A4 扫描 600dpi），并在 `Image.open` 时指定 `formats=("PNG","JPEG")`，与上传阶段魔数校验一致，缩小解码器攻击面。
+- **第七批-SUGGEST-3（提交后重命名失败的窗口）**：对账只在启动时运行，期间 `file/` 只有 tmp，而用户再次确认会得到 `already_saved=true`（甚至 200 告知“已保存”）。建议在重复分支里顺带“若 `exists_tmp` 且无终态则尝试 `promote`”（best effort，失败只记日志），把窗口从“直到重启”缩到“下一次确认”；也可只登记为已知限制（ADR-005 已披露）。
+- **第七批-SUGGEST-4（文档同步）**：在 design/AGENTS.md 记录三个偏差的最终口径（见下），并把“`confirmed` 非布尔 → 错误码”补进 openapi 描述；2.3a 的 changelog 已写明用例数，但 AGENTS.md 的依赖表建议同时给出 Pillow 的用途边界（已写）与安全公告跟踪方式。
+- **第七批-SUGGEST-5（存在性探测）**：重复分支返回已有 `resume_id` 与 `saved_at`，任何能上传并命中 (姓名,手机,邮箱) 的人都能探测“某人是否已入库”。ADR-004/D-04 已接受，POC 本机约 5 人无外部面；若将来对外暴露，需要重新评估（例如只返回 `already_saved` 而不返回 id）。
+
+### worker 偏差评估
+1. **`confirmed` 检查放在 service——建议接受。** 规则在 service 层是业务前置条件，且放在取草稿之前，与 design 流程图一致；路由只做解析。但这使得 Schema 层的取值严格性成为唯一缺口，见 BLOCK-1（接受偏差的前提是 BLOCK-1 修复）。
+2. **过期草稿按 `draft_not_found`、抽出 `is_draft_expired`——建议接受。** 与 GET/PATCH 及清理任务共用同一规则（空闲超过 TTL；恰好 TTL 有效），不放行已过期草稿入库，B-04 更保守；抽出函数后 `DraftService._is_expired` 委托到它，行为未变，原有用例通过。过期草稿不会被本接口删除，由清理任务回收。
+3. **崩溃类用例对账后断言留给 2.5——建议接受。** 本批已断言了对账的起点状态（记录+tmp / 无记录的 tmp / 草稿保留），并且重复确认不丢弃该 tmp；2.5 的 tasks 已写明联调。要求：2.5 须补“对账后终态文件内容正确、tmp 消失、记录不变”的断言，并复用 `FaultyArchiveStore` 构造这些起点。
+4. **覆盖率/CRAP 未实测——已由我补测。** 来源：`uv run pytest --cov=app --cov-branch`（本地，pytest-cov），整体 98%（行+分支）。`resume_service.py` 93%，未覆盖：118–119（`duplicate_vanished`）、140–141（`_resolve_source` 抛 `ValueError`）、152–154（stage 时源文件仍在但归档侧缺失）、204–205（`tmp_cleanup_failed`），均为防御性分支，行为上都是 `save_failed` 或仅记日志；`image_prep.py`、`deepseek_client.py`、`routes/resumes.py` 100%。CRAP：未运行 `~/tools/crapper`（该工具不会读取 Python 的 `.coverage`，按 0% 覆盖估算会失真），手工估算：`ResumeService.confirm`/`_save_new`/`_stage` 的圈复杂度分别约 5/6/5，覆盖率均 ≥ 90%，CRAP < 10，**未经工具实测**。
+
+### 测试与验证证据
+| 项目 | 状态 | 说明 |
+|---|---|---|
+| B-04 | ⚠ | 路径与顺序有测试；取值严格性缺失（BLOCK-1） |
+| B-05 | ✅（附 QUESTION-1） | 10 类故障点：stage 两处、事务内两处、并发、提交后崩溃（两点）、提交前崩溃、重命名失败一次/两次、收尾三种失败；全部同时断言库与文件系统 |
+| 数据层断言 | ✅ | `count(*)`、`file_path` 列、子表行数、`job_title` 未被覆盖、`file/` 与草稿目录列表 |
+| 异常路径 | ✅ | 缺确认、令牌 None/空/未知/过期、核心三项缺失与非法、模型不参与本接口 |
+| 安全 | ✅ | 日志与错误响应脱敏有测试；无密钥；Pillow 精确版本；解压炸弹/损坏图片 317 个变异样本无异常泄出 |
+| mock 策略 | ✅ | 真实 SQLite + 临时目录；故障通过子类注入；外发用 `httpx.MockTransport` 断言 0 次/请求字节数 |
+
+### 本批复跑（merge 后，本 worktree）
+| 命令 | 结果 |
+|---|---|
+| `uv sync --frozen` | ✅（首次补装 `pillow==13.0.0`，其余已就绪） |
+| `uv run python -m compileall src`（先清 `__pycache__`） | ✅ 退出码 0，42 行 `Compiling '...'`，有真实编译动作 |
+| `uv run pytest` | ✅ **795 passed**，1 warning（既有 `StarletteDeprecationWarning`），0 failed（基线 795，与之相符） |
+| `uv run ruff check .` | ✅ All checks passed |
+| `uv run ruff format --check .` | ✅ 93 files already formatted |
+| `uv run pytest --cov=app --cov-branch` | 整体 98%（见偏差 4） |
+| 变异与探针 | 5 处变异 + 4 个临时探针测试文件，均已删除/还原；`git status --short` 在代码根与仓库根均无变更 |
+
+### 正向反馈
+- 请求体预算同时校验“估算（分配）”与“真实总量（出口再算一次）”两道，漏估不会外发；纯文本 PDF 也被出口总检兜住。
+- 补偿全部集中在 `ResumeService`，故障注入用子类替身实现，生产代码零测试分支；`BaseException` 的 `SimulatedCrash` 准确模拟了“进程被杀不执行补偿”。
+- 用例同时断言两个库与两个目录，并有 5 处我的变异都被杀；“记录的 tmp 在重复确认时不被丢弃”这种细节也有用例固定。
+- 先把 `_after_source_missing` 的再查键写成独立路径，避免把并发已保存误报为失败；日志测试带“非空断言”，防止“因为没打日志所以没泄露”的假通过。
+
+### 更新后的本批结论
+**BLOCKED**：请先修 BLOCK-1（`StrictBool` + 红灯用例），并由 DL 裁决 QUESTION-1（建议修）。两项完成后，我建议 2.3a 通过、2.4 的 B-04/B-05 通过，SUGGEST 记为跟踪项。
