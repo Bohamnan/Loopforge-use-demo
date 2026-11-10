@@ -10,7 +10,7 @@
 |------|------|
 | **PRD** | `01-requirements/HR_PR-1/prd.md` |
 | **当前 Skill** | architecture-advisor |
-| **当前阶段** | backend 执行 Step 2.1 Schema + Step 2.2 接口（OpenAPI 草稿）；frontend 前置检查，Step 2.2 待 OpenAPI 冻结（C-13） |
+| **当前阶段** | OpenAPI 草稿契约审视已裁决（O-01..O-13），backend Schema+接口评审通过；backend 修订 OpenAPI 并冻结为 0.1.0 后，frontend 进入 Step 2.2 |
 | **状态** | 🔄 architecture-advisor 进行中 |
 | **最后更新** | 2026-11-10 |
 
@@ -49,7 +49,7 @@
 | Workbench 影响分析（各 Workbench 并行） | impact-analyzer | 各 Workbench 工程师 | ✅ backend ✅ / frontend ✅ | 2026-11-10 | `backend-docs/HR_PR-1/00_impact_analysis.md`；`frontend-docs/HR_PR-1/00_impact_analysis.md` |
 | 跨 Workbench 一致性 review（仅跨 Workbench 需求） | cross-workbench-reviewer | Dev Lead | ✅ 已裁决 | 2026-11-10 | `01-requirements/HR_PR-1/cross-workbench-review.md` |
 | 需求汇总（第二轮技术 Q&A + requirements.md） | requirements-analyst | Dev Lead/BA | ✅ 已确认 | 2026-11-10 | `backend-docs/HR_PR-1/01_requirements/requirements.md`；`frontend-docs/HR_PR-1/01_requirements/requirements.md` |
-| 架构设计（Schema+接口） | architecture-advisor | 各 Workbench 工程师 | 🔄 backend Step 2 进行中 / frontend 等待 OpenAPI | — | `backend-docs/HR_PR-1/02_schema/`、`03_api/` |
+| 架构设计（Schema+接口） | architecture-advisor | 各 Workbench 工程师 | 🔄 backend ✅ 评审通过（待冻结修订）/ frontend 等待 OpenAPI 0.1.0 | — | `backend-docs/HR_PR-1/02_schema/`、`03_api/` |
 | 技术设计 | architecture-advisor | 各 Workbench 工程师 | — | — | — |
 | 任务拆分 | architecture-advisor | 各 Workbench 工程师 | — | — | — |
 | 仓库约定补全与复核（仅新项目 Workbench） | architecture-advisor（Step 5） | 各 Workbench 工程师/Dev Lead | — | — | backend、frontend 仓库 `AGENTS.md` |
@@ -109,6 +109,8 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | requirements-analyst | 质量关卡 1 通过；Step 2 生成两侧 requirements.md 及可追溯性矩阵，PRD 覆盖 4/4 |
 | 2026-11-10 | Yin Yang（Dev Lead） | requirements-analyst | 确认 requirements.md；写入新术语 5 条并按 C-14 修订"简历模型"定义 |
 | 2026-11-10 | Yin Yang（Dev Lead） | architecture-advisor | 主 agent 下发：backend 执行 Step 2.1+2.2 并停在评审关卡；frontend 做前置检查，待 OpenAPI 冻结 |
+| 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 backend Schema 与接口设计草稿（d17d920） |
+| 2026-11-10 | Yin Yang（Dev Lead） | cross-workbench-reviewer | OpenAPI 草稿契约审视 O-01..O-13，DL 采纳建议；backend Schema+接口评审通过 |
 
 ---
 
