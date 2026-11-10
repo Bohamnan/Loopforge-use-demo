@@ -71,3 +71,27 @@ base_url 默认值与实际接入地址需在任务 1.8 spike 时核实。
 
 ---
 
+## Task-1.4：schemas：字段模型与 DTO
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/schemas/limits.py | 新增 | CR-01/G-01/G-02 上限与 pattern 常量（单一来源） |
+| codes/hr-collection-agent-backend/src/app/schemas/resume_fields.py | 新增 | FieldStatus、22 节点 ResumeFields、三类经历、ResumeFieldsUpdate |
+| codes/hr-collection-agent-backend/src/app/schemas/draft.py | 新增 | DraftResponse、DraftUpdateRequest、OriginalFileInfo |
+| codes/hr-collection-agent-backend/src/app/schemas/resume.py | 新增 | CreateResumeRequest/Response |
+| codes/hr-collection-agent-backend/src/app/schemas/errors.py | 新增 | ErrorResponse、ErrorDetail |
+| codes/hr-collection-agent-backend/src/app/schemas/parse.py | 新增 | RawParseResult |
+| codes/hr-collection-agent-backend/tests/schemas/*.py | 新增 | 字段/上限边界、DTO、与冻结 OpenAPI 0.1.1 的对齐（jsonschema 校验 DraftResponse、字段名与上限常量） |
+
+### 偏差说明
+偏差：ResumeFieldsUpdate 在 Pydantic 层不强制 phone/email 的 pattern，只强制类型、minLength、maxLength、maxItems。原因：G-02 要求 backend 校验前先去除空格与连字符作为兜底，若在模型层按提交原值匹配 pattern 会拒绝 138 0013 8000；pattern 常量放在 schemas/limits.py，由任务 1.6 field_validation 在去除空格/连字符后应用，并有测试与 OpenAPI pattern 字符串比对。ResumeFieldsUpdate 缺省键用 None 作缺省值并以 model_fields_set 判定是否出现（核心字段对显式 null 报 string_type）。时间字段以 ISO 文本字符串承载。
+
+### 遗留风险
+ResumeFieldsUpdate 的 phone/email 格式依赖 1.6 的 field_validation 才完整生效，1.6 前直接使用该模型不会拒绝格式错误。
+
+---
+

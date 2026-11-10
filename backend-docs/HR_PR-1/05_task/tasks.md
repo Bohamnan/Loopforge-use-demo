@@ -109,7 +109,7 @@
 
 ---
 
-### Task 1.4：schemas：字段模型与 DTO
+### Task 1.4：schemas：字段模型与 DTO ✅
 - **关联：** REQ-BE-02.2、03、04、06.4；D§3.3；`openapi.yaml` 0.1.1 的 `components.schemas`
 - **内容：** `schemas/resume_fields.py`（`FieldStatus`、`ResumeFields` 22 节点、`WorkExperience`/`ProjectExperience`/`Education`）、`schemas/draft.py`、`schemas/resume.py`、`schemas/errors.py`、`schemas/parse.py`（`RawParseResult`）。字段名、可空性与 OpenAPI 同构；`ResumeFieldsUpdate` 带 0.1.1 的 `maxLength`/`maxItems`/`pattern`（CR-01、G-01、G-02）。
 - **测试：** 22 键完整、`additionalProperties=false` 对应的“未知字段被拒”；`name/phone/email` 的 `minLength`；各字段长度上限边界（刚好等于上限通过、+1 超限）；经历区块条数 ≤ 20、文本列表 ≤ 50 项/每项 ≤ 1000、条内字符串 ≤ 2000、条内列表 ≤ 30 项；`email` pattern 合法/非法样例；序列化后字段名为 snake_case；`DraftResponse` 序列化结果能通过 OpenAPI 的 `DraftResponse` schema（先用 `jsonschema` 做局部校验，完整契约测试见 3.1）。
@@ -118,10 +118,10 @@
 
 #### 子任务
 
-- [ ] 字段状态与 22 节点模型；区块级单一状态
-- [ ] 请求/响应 DTO（每个字段有英文 docstring/注释，说明含义、必填、枚举，满足 DTO 注释规则）
-- [ ] 上限常量集中定义一处，供 schemas 与 `field_validation`（1.6）共用，避免口径漂移
-- [ ] 对应单元测试
+- [x] 字段状态与 22 节点模型；区块级单一状态
+- [x] 请求/响应 DTO（每个字段有英文 docstring/注释，说明含义、必填、枚举，满足 DTO 注释规则）
+- [x] 上限常量集中定义一处，供 schemas 与 `field_validation`（1.6）共用，避免口径漂移
+- [x] 对应单元测试
 
 ---
 
