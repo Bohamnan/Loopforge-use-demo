@@ -141,3 +141,17 @@ def test_original_filename_is_truncated_to_255() -> None:
     name = "a" * 300 + ".pdf"
     result = validate_upload(name, io.BytesIO(make_pdf_bytes()))
     assert len(result.original_filename) == 255
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("re\nsu\rme.pdf", "resume.pdf"),
+        ("a\x00b\x1f.pdf", "ab.pdf"),
+        ("tab\there\x7f.pdf", "tabhere.pdf"),
+        ("\u202eevil\u2028.pdf", "evil.pdf"),  # bidi override and line separator
+        ("张三\u3000简历.pdf", "张三\u3000简历.pdf"),  # ordinary non-ASCII text is kept
+    ],
+)
+def test_original_filename_has_control_characters_removed(raw: str, expected: str) -> None:
+    assert validate_upload(raw, io.BytesIO(make_pdf_bytes())).original_filename == expected

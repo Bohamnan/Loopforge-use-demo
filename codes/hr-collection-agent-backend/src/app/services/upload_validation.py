@@ -1,5 +1,6 @@
 """Validation of an uploaded resume file. The client's Content-Type is never used."""
 
+import unicodedata
 from dataclasses import dataclass
 from typing import BinaryIO
 
@@ -44,6 +45,12 @@ def _extension(filename: str) -> str:
 
 def _display_name(filename: str) -> str:
     name = filename.replace("\\", "/").rsplit("/", 1)[-1]
+    # Drop control/format characters (C*) and line/paragraph separators (Zl, Zp).
+    name = "".join(
+        ch
+        for ch in name
+        if unicodedata.category(ch)[0] != "C" and unicodedata.category(ch) not in ("Zl", "Zp")
+    )
     return name[:MAX_FILENAME_CHARS]
 
 

@@ -27,7 +27,7 @@ HR 人力信息收集后端服务：接收简历文件、调用获批模型解�
 | 语言与版本 | Python 3.11 | 工作台项目上下文与 backend 架构参考 |
 | 框架 | FastAPI、Pydantic v2 | 工作台项目上下文与 backend 架构参考 |
 | 数据存储 | SQLite；原始简历存放在项目 `file` 目录；未确认草稿存于正式数据库之外的本地临时存储 | HLD §2；backend `database.md`；ADR-003 |
-| 依赖管理 | uv + `pyproject.toml`；`uv lock` 锁定精确版本；运行依赖 `fastapi`、`uvicorn`、`pydantic`、`pydantic-settings`、`httpx`、`python-multipart`、`pypdfium2`（PDF 文本层提取与页面渲染，Apache-2.0/BSD；不使用 AGPL 的 PyMuPDF），开发依赖 `pytest`、`pytest-cov`、`ruff`、`jsonschema`、`pyyaml` | C-15；design §1“依赖清单”；DL 2026-11-10 采纳 `pyyaml`、`pytest-cov` |
+| 依赖管理 | uv + `pyproject.toml`；`uv lock` 锁定精确版本；运行依赖 `fastapi`、`uvicorn`、`pydantic`、`pydantic-settings`、`httpx`、`python-multipart`、`pypdfium2`（PDF 文本层提取与页面渲染，Apache-2.0/BSD；不使用 AGPL 的 PyMuPDF）、`pillow`（发送前把图像压成 JPEG，使单次 LLM 请求体 ≤ 1 MB；DL 2026-11-10 批准），开发依赖 `pytest`、`pytest-cov`、`ruff`、`jsonschema`、`pyyaml` | C-15；design §1“依赖清单”；DL 2026-11-10 采纳 `pyyaml`、`pytest-cov` |
 | 数据访问 | 标准库 `sqlite3`，不引入 ORM；写事务 `BEGIN IMMEDIATE`；**SQLite 版本须 ≥ 3.35**（仓储使用 `RETURNING`）。本项目只在本机部署，继续使用 Python 自带的 SQLite（本机 3.50.4），不另装数据库服务（DL 决定）；`init_*_db` 启动时检查版本，不满足即启动失败 | design §1“持久化访问” |
 | 其他关键依赖 | 获批的 DeepSeek Flash（模型标识：`deepseek-flash`），仅由 `clients` 层调用，且只允许该获批模型；该模型 API 只接受图片（webp/png/jpeg/gif），PDF 由 `clients` 层本地转换（文本层优先、PNG 渲染兜底、最多 5 页）后提交；供应商不得用简历输入训练 | HLD §2；ADR-001 |
 
@@ -106,7 +106,7 @@ codes/hr-collection-agent-backend/
 
 - **不使用私有 Nexus**：DL 于 2026-11-10 决定，本项目依赖使用 uv 默认索引（公共 PyPI）在本地直接安装，**不配置私有索引或索引凭证**。这是对全局规范“依赖经私有 Nexus 安装”的**项目级例外**，仅适用于本项目。
 - 新增第三方依赖前须评估安全性（维护状态、已知漏洞、名称是否可疑），移除未使用依赖；`uv.lock` 不得包含带凭证的 URL。
-- 不得引入 ORM、图像库、调度库（design §1）；新增依赖须先经 Dev Lead 同意。
+- 不得引入 ORM、调度库（design §1）；图像库仅限已批准的 Pillow（只用于 `clients/image_prep.py`）；新增依赖须先经 Dev Lead 同意。
 
 ### 运行形态
 

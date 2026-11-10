@@ -12,6 +12,7 @@ from typing import Any
 
 import httpx
 
+from app.clients import image_prep
 from app.clients.pdf_renderer import ImagePart, render_pdf
 from app.clients.prompts import (
     DOC_BEGIN,
@@ -45,18 +46,42 @@ def _image_block(content: bytes, mime: str) -> dict[str, Any]:
     return {"type": "image_url", "image_url": {"url": _data_uri(content, mime)}}
 
 
+def _build_payload(blocks: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "model": APPROVED_MODEL,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": blocks},
+        ],
+        "response_format": {"type": "json_object"},
+        "max_tokens": MAX_OUTPUT_TOKENS,
+        "stream": False,
+    }
+
+
+def _body_size(blocks: list[dict[str, Any]]) -> int:
+    """Upper bound of the serialized request body in bytes (default separators are wider)."""
+    return len(json.dumps(_build_payload(blocks), ensure_ascii=False).encode("utf-8"))
+
+
 def build_user_blocks(content: bytes, content_type: str) -> list[dict[str, Any]]:
-    """Content blocks for the user message. PDFs are converted locally first."""
-    blocks: list[dict[str, Any]] = [{"type": "text", "text": DOC_BEGIN}]
+    """Content blocks for the user message. PDFs are converted locally first.
+
+    Every image is re-encoded as JPEG so the whole request body stays within
+    ``image_prep.MAX_REQUEST_BYTES``; if that is impossible ParseFailedError is raised, before
+    anything is sent.
+    """
     if content_type in IMAGE_TYPES:
-        blocks.append(_image_block(content, content_type))
+        items: list[Any] = [content]
     elif content_type == "application/pdf":
+        items = []
         for part in render_pdf(content).parts:
             if isinstance(part, ImagePart):
-                blocks.append({"type": "text", "text": f"[Page {part.page} is an image]"})
-                blocks.append(_image_block(part.png, "image/png"))
+                items.append(
+                    ({"type": "text", "text": f"[Page {part.page} is an image]"}, part.png)
+                )
             else:
-                blocks.append(
+                items.append(
                     {
                         "type": "text",
                         "text": f"[Page {part.page} text layer]\n{neutralize_markers(part.text)}",
@@ -64,8 +89,29 @@ def build_user_blocks(content: bytes, content_type: str) -> list[dict[str, Any]]
                 )
     else:
         raise ValueError(f"unsupported content type: {content_type}")
-    blocks.append({"type": "text", "text": DOC_END})
-    blocks.append({"type": "text", "text": USER_INSTRUCTION})
+
+    head = {"type": "text", "text": DOC_BEGIN}
+    tail = [{"type": "text", "text": DOC_END}, {"type": "text", "text": USER_INSTRUCTION}]
+    text_only: list[dict[str, Any]] = [head]
+    for item in items:
+        if isinstance(item, tuple):
+            text_only.append(item[0])
+        elif isinstance(item, dict):
+            text_only.append(item)
+    images = [i[1] if isinstance(i, tuple) else i for i in items if not isinstance(i, dict)]
+    jpegs = iter(image_prep.fit_images(images, _body_size(text_only + tail)))
+
+    blocks: list[dict[str, Any]] = [head]
+    for item in items:
+        if isinstance(item, dict):
+            blocks.append(item)
+        else:
+            if isinstance(item, tuple):
+                blocks.append(item[0])
+            blocks.append(_image_block(next(jpegs), "image/jpeg"))
+    blocks.extend(tail)
+    if _body_size(blocks) > image_prep.MAX_REQUEST_BYTES:
+        raise ParseFailedError()
     return blocks
 
 
@@ -123,16 +169,7 @@ class DeepSeekClient:
         if key is None:
             log_event("model_call", level="error", code=ParseUnavailableError.code.value)
             raise ParseUnavailableError()
-        payload = {
-            "model": APPROVED_MODEL,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": build_user_blocks(content, content_type)},
-            ],
-            "response_format": {"type": "json_object"},
-            "max_tokens": MAX_OUTPUT_TOKENS,
-            "stream": False,
-        }
+        payload = _build_payload(build_user_blocks(content, content_type))
         started = time.monotonic()
         try:
             response = self._http.post(

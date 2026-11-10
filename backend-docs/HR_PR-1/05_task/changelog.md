@@ -445,3 +445,32 @@ TestClient 来自 fastapi.testclient，运行时有 StarletteDeprecationWarning�
 
 ---
 
+
+---
+
+## Task-2.3a：LLM 请求体 ≤ 1 MB 的图像预处理（含第六批 SUGGEST-1/2）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/pyproject.toml、uv.lock | 修改 | 新增依赖 `pillow==13.0.0`（DL 2026-11-10 批准；公共 PyPI，锁文件无凭证 URL）。提交 0c60636 |
+| codes/hr-collection-agent-backend/src/app/clients/image_prep.py | 新增 | `fit_images`：照片与 PDF 渲染页统一转 JPEG；总预算（1 MiB 减非图像部分）按图片数平分；长边 1600→1280→1024→800→640、质量 80→65→50→35 逐级降；像素上限 5000 万（先读头部拒绝像素炸弹）；EXIF 方向校正、透明底转白；压到下限仍超限或无法解码 → `ParseFailedError` |
+| codes/hr-collection-agent-backend/src/app/clients/deepseek_client.py | 修改 | `build_user_blocks` 先算文本部分大小，再调用 `fit_images`，构造后再次校验整体 ≤ 1 MiB，超限在外发前抛 `ParseFailedError`；payload 构造抽为 `_build_payload`。提交 850e019 |
+| codes/hr-collection-agent-backend/src/app/services/draft_service.py | 修改 | SUGGEST-1：PATCH 文本列表去首尾空白并丢弃空白项；区块条目字符串去空白、内部列表丢弃空白项、全空条目丢弃，列表为空等同确认留空。提交 e94ad78 |
+| codes/hr-collection-agent-backend/src/app/services/upload_validation.py | 修改 | SUGGEST-2：`original_filename` 去除 Unicode C* 类字符及 Zl/Zp。提交 3d739b3 |
+| codes/hr-collection-agent-backend/tests/** | 新增/修改 | `clients/test_image_prep.py`（13 例）、`clients/test_deepseek_client.py`（+7 例，既有 PNG/JPEG 断言改为 JPEG）、`services/test_draft_service_update.py`（+5 例）、`services/test_upload_validation.py`（+5 例）、`helpers.py`（噪声图/真实 JPEG 生成） |
+
+### 行为变化（对外）
+发给 DeepSeek 的图像一律为 `image/jpeg`（原先 PNG 照片与 PDF 渲染页为 PNG）。OpenAPI 0.1.1 未改动。
+
+### 偏差说明
+下限（640 px、质量 35）为经验值：合成简历在 1600 px/Q80 下约 83 KB 且清晰可读；真实扫描件在下限处的识别率未实测（未调用真实 DeepSeek）。请求体大小用 `json.dumps` 的较宽分隔符估算，略保守；测试直接断言 `httpx` 实际请求体字节数 ≤ 1 MiB。
+
+### 遗留风险
+图像压缩在同步端点内执行（5 页最坏情形约数秒 CPU），并发 5 人场景待 3.2/3.3 实测。AGENTS.md 中“不得引入图像库”的约定已改为“Pillow 为唯一例外”。
+
+### 验证
+`uv sync --frozen` 通过；`compileall` 清缓存后 40 行 `Compiling`；`pytest` 751 passed（基线 721，净增 30）；`ruff check`、`ruff format --check` 通过。
