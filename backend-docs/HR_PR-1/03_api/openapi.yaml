@@ -1,10 +1,10 @@
 openapi: 3.1.0
 info:
   title: HR 简历信息收集 API（hr-collection-agent）
-  version: 0.1.0-draft
+  version: 0.1.0
   description: |
-    HR_PR-1 backend OpenAPI **草稿**（architecture-advisor Step 2.2），尚未冻结。
-    冻结前须经 cross-workbench-reviewer 审视（C-13）。
+    HR_PR-1 backend OpenAPI。**已冻结（2026-11-10，经 cross-workbench-review O-01..O-13）**。
+    后续变更须经 cross-workbench-reviewer 审视（C-13）；v1 内只做向后兼容的新增。
 
     约定：
     - 路径前缀 `/api/v1`；JSON 字段 snake_case；时间为 ISO 8601 UTC。
@@ -12,6 +12,7 @@ info:
     - 错误统一为 `{code, message, request_id}`，可选 `details: [{field, reason}]`（D-06）；`details` 只含字段名与原因，不回显用户填写的值。
     - 错误响应不得包含简历原文、模型原始返回或内部细节（B-03）。
     - 同源部署（localhost，Vite dev proxy 转发 `/api`）：不需要 CORS。
+    - 已知风险（O-13）：本期接口**不做限流**（POC，localhost，约 5 人并发）；上线前须另立需求处理。
 servers:
   - url: http://localhost:8000
     description: 本地 POC（同源，经前端 dev proxy 转发 /api）
@@ -30,9 +31,9 @@ paths:
       description: |
         关联 REQ-BE-01、REQ-BE-02、REQ-BE-05.2。
         - 每次调用都**新建**草稿和新令牌（非幂等，D-05）；Cookie 以最新一次成功响应为准。
-        - 当前浏览器已有草稿时，视为“重新上传覆盖”（C-07）；不提供丢弃草稿接口。
+        - 当前浏览器已有草稿时，视为“重新上传覆盖”（C-07）；不提供丢弃草稿接口。请求带**有效旧令牌**且本次成功时，立即删除旧草稿（O-03）；无法定位的旧草稿（令牌缺失/失效）由 7 天清理兜底。
         - 同步等待模型：后端调用模型超时 60 秒（C-08）；前端请求超时建议 75 秒。
-        - **失败时不创建草稿，不改变浏览器已有的 Cookie 与草稿**。
+        - **失败时不创建草稿，不改变浏览器已有的 Cookie 与草稿**（O-02）。
         - 不自动重试模型调用。
       requestBody:
         required: true
@@ -112,8 +113,8 @@ paths:
         关联 REQ-BE-03.1、REQ-BE-03.5、REQ-BE-05.3/05.4。
         - 草稿由 Cookie `draft_token` 定位，路径不含草稿 id。
         - 返回所有字段的值与状态；**不**返回“下一个待确认字段”或提问文案（C-03）。
-        - 成功时刷新草稿最近活动时间，并续期 Cookie（滑动 7 天，待 DL 确认）。
-        - 令牌缺失、无效、已作废或草稿已过期 → 404 `draft_not_found`，不含任何简历内容。
+        - 成功时刷新草稿最近活动时间，并滑动续期 Cookie（Max-Age 重置为 7 天，O-01）。
+        - 令牌缺失、无效、已作废或草稿已过期 → 404 `draft_not_found`，不含任何简历内容。**页面打开时没有草稿属于正常情况**：前端须把该 404 当作“空态”处理，不作为错误提示、不记错误日志（O-12）。
       security:
         - draftCookie: []
       responses:
@@ -138,9 +139,9 @@ paths:
         关联 REQ-BE-03.2/03.3/03.4/03.5。
         - 只提交有变化或被确认的字段（部分更新）；**出现在请求中的字段一律置为 `confirmed`**，未出现的字段保持原值与原状态。
         - 标量字段提交 `null`、列表字段提交 `[]` 表示“确认留空”，状态为 `confirmed`；核心三项（name/phone/email）不允许留空。
-        - 列表区块（工作经历、项目经历、教育背景及文本列表）为**整体替换**：多条子项的新增、修改、删除通过提交完整的新列表实现。
+        - 列表区块（工作经历、项目经历、教育背景及文本列表）为**整体替换**：多条子项的新增、修改、删除通过提交完整的新列表实现；区块只有**一个整体状态**，不对每条子项单独确认（O-11，POC 接受；前端逐条展示、整块确认）。
         - 幂等：同一请求重复提交结果相同。
-        - 手机号：11 位大陆号，或以 `+` 开头的国际号（先去除空格与连字符再校验）；邮箱：格式校验。不合法 → 422 `validation_failed`，`details` 给出字段名与原因，**不回显值**（C-09、D-06）。
+        - 手机号：11 位大陆号，或以 `+` 开头的国际号；**校验前先去除空格与连字符**。规则以 `ResumeFieldsUpdate.phone` 的 `pattern` 为唯一来源，前端即时校验使用同一规则（O-05）。邮箱：格式校验。name/phone/email 不可为空字符串（`minLength: 1`），全空白在服务层按 `required` 拒绝（O-09）。不合法 → 422 `validation_failed`，`details` 给出字段名与原因，**不回显值**（C-09、D-06）。
         - 此接口只更新草稿，不写正式库、不代表“用户确认保存”（B-04）。
       security:
         - draftCookie: []
@@ -181,9 +182,9 @@ paths:
         - 请求体 `confirmed` 必须为 `true`，表示用户明确确认（B-04）。缺失或 false → 422 `confirmation_required`。
         - 保存前置条件：姓名、手机号、邮箱齐全且格式合法；其余字段可为空，未被确认的字段按草稿当前值保存（用户点击最终确认即视为确认当前显示的全部内容，D-03）。
         - **幂等键** = 规范化后的 姓名 + 手机号 + 邮箱（C-10、D-02）。同键已存在（含并发确认）→ **不新增、不覆盖**，返回已有记录 id，`already_saved = true`，HTTP 200；本次内容与临时文件被丢弃，不回显已有记录内容（D-04）。
-        - 首次保存成功 → HTTP 201，`already_saved = false`。
+        - 首次保存成功 → HTTP 201，`already_saved = false`；已保存过 → HTTP 200，`already_saved = true`（O-08，前端只依赖 `already_saved`）。
         - 两种成功情形下均：删除该草稿与临时文件，并通过 `Set-Cookie` 使令牌过期（C-11）。
-        - 草稿不存在 / 令牌无效（含“首次已成功但响应丢失后的重试”）→ 404 `draft_not_found`（D-01）；前端提示“可能已保存，请重新上传核实”。
+        - 草稿不存在 / 令牌无效（含“首次已成功但响应丢失后的重试”）→ 404 `draft_not_found`（D-01）；本接口下前端提示“可能已保存，请重新上传核实”（O-10）。
         - 保存过程任一步失败 → 500 `save_failed`，已补偿，不留孤立文件或记录（B-05）；草稿保留，可重试。
         - 已确认记录不可修改/删除，本期不提供相应接口（C-11）。
       security:
@@ -249,7 +250,9 @@ components:
 
   responses:
     DraftNotFound:
-      description: draft_not_found（令牌缺失/无效/已作废，或草稿不存在/已过期）
+      description: |
+        draft_not_found（令牌缺失/无效/已作废，或草稿不存在/已过期）。
+        同一个码用于多个场景，**前端按调用的接口区分文案**（O-10）：`GET /resume-drafts/current` → 空态（无可恢复草稿，引导上传）；`PATCH /resume-drafts/current` → 草稿已失效，提示重新上传；`POST /resumes` → “可能已保存，请重新上传核实”。
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -448,13 +451,21 @@ components:
       description: 部分更新；仅包含要修正/补充/确认的字段，值即最终值。出现的字段将被置为 confirmed。标量可为 null（确认留空，核心三项除外），列表字段可为 []。
       additionalProperties: false
       properties:
-        name: { type: string, description: 核心字段，不可为空 }
+        name: { type: string, minLength: 1, description: 核心字段，不可为空；全空白在服务层按 required 拒绝 }
         job_title: { type: [string, 'null'] }
         expected_city: { type: [string, 'null'] }
         expected_salary: { type: [string, 'null'] }
         available_time: { type: [string, 'null'] }
-        phone: { type: string, description: 核心字段；11 位大陆号或 + 开头国际号 }
-        email: { type: string, description: 核心字段；邮箱格式 }
+        phone:
+          type: string
+          minLength: 1
+          pattern: '^(1\d{10}|\+\d{6,15})$'
+          description: |
+            核心字段，不可为空。**校验前先去除空格与连字符**（客户端与服务端同一规则）；去除后须为
+            11 位大陆号（`^1\d{10}$`）或 `+` 开头的国际号（`^\+\d{6,15}$`）。
+            此 pattern 是前端即时校验的唯一来源（O-05）。
+          examples: ['13800138000', '+85212345678']
+        email: { type: string, minLength: 1, description: 核心字段；邮箱格式；全空白在服务层按 required 拒绝 }
         homepage: { type: [string, 'null'] }
         gender: { type: [string, 'null'] }
         birth_month: { type: [string, 'null'] }

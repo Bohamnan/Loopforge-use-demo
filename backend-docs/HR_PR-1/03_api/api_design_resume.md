@@ -4,13 +4,14 @@
 
 | 版本 | 日期 | 修改说明 | 作者 |
 |------|------|----------|------|
-| v0.1 | 2026-11-10 | 初始草稿（architecture-advisor Step 2.2），待「Schema + 接口设计评审」关卡确认；OpenAPI 草稿见同目录 `openapi.yaml` | Yin Yang（backend） |
+| v0.1 | 2026-11-10 | 初始草稿（architecture-advisor Step 2.2） | Yin Yang（backend） |
+| v0.1.0 | 2026-11-10 | 按契约审视 O-01..O-13 冻结 OpenAPI：O-01 滑动续期 Cookie；O-02 上传失败不动旧草稿；O-03 有效旧令牌重传成功即删旧草稿；O-04 仅 `+86` 后恰 11 位大陆号才去前缀；O-05 `phone` 加 `pattern`（前端即时校验唯一来源）；O-06 目录布局；O-07 清理间隔 1 小时；O-08 201/200 + `already_saved`；O-09 核心三项 `minLength: 1`；O-10 `draft_not_found` 前端按接口区分文案；O-11 区块整体状态；O-12 GET 404 为空态；O-13 无限流为已知风险。`info.version`: `0.1.0-draft` → `0.1.0` | Yin Yang（backend） |
 
 ---
 
 > **输入**：`01_requirements/requirements.md`（REQ-BE-01..06）、HLD §4、裁决 C-01..C-15 / D-01..D-06、`rules/backend/api.md`、`02_schema/sql_ddl_resume.md`。
-> **契约载体**：`openapi.yaml`（OpenAPI 3.1.0，已用 openapi-spec-validator 校验语法有效）。本文给出设计说明与决策；字段级细节以 `openapi.yaml` 为准，二者不重复双写。
-> **状态**：草稿，**未冻结**。冻结须经 cross-workbench-reviewer 审视（C-13、D-06）。
+> **契约载体**：`openapi.yaml`（OpenAPI 3.1.0，已用 openapi-spec-validator 校验通过）。本文给出设计说明与决策；字段级细节以 `openapi.yaml` 为准，二者不重复双写。
+> **状态**：**已冻结 v0.1.0**（2026-11-10，经 cross-workbench-review 契约审视 O-01..O-13；C-13、D-06 已满足）。后续变更须经 cross-workbench-reviewer。
 
 ---
 
@@ -33,7 +34,7 @@
 
 | 项 | 约定 |
 |---|---|
-| 前缀与版本 | `/api/v1`；OpenAPI `info.version = 0.1.0-draft`，冻结后升为 `1.0.0`；v1 内只做向后兼容的新增（新增可选字段/新增错误码），破坏性变更须新版本并经 cross-workbench-reviewer |
+| 前缀与版本 | `/api/v1`；OpenAPI `info.version = 0.1.0`（已冻结）；v1 内只做向后兼容的新增（新增可选字段/新增错误码），破坏性变更须新版本并经 cross-workbench-reviewer |
 | 数据格式 | JSON；字段 `snake_case`；时间 ISO 8601 UTC（`...Z`）；文件上传 `multipart/form-data` |
 | 身份 | 无账号。草稿访问令牌经 Cookie `draft_token` 传递：`HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`，**不强制 `Secure`**（C-06，POC 同源 localhost）。令牌为随机值，不含简历内容；前端不读取 |
 | 同源 | localhost 同源，Vite dev proxy 转发 `/api`；无 CORS（C-06） |
@@ -42,7 +43,7 @@
 | `request_id` | 每个请求由中间件生成，写入响应错误体与日志 |
 | 分页 | 无（本期无列表接口） |
 | 超时与重试 | 模型调用超时 **60 秒**（C-08），前端请求超时 75 秒；**服务端不自动重试模型调用**（60 秒预算已是单次上限；重试只会超过前端超时）；超时后由用户重新上传。其他接口无长耗时 |
-| 速率限制 | 本期不设（POC，约 5 人并发） |
+| 速率限制 | 本期不设（O-13：**已知风险**，POC、localhost、约 5 人；全局规范要求重要接口限流，上线前须另立需求处理） |
 
 ### 2.1 `details[].reason` 取值
 
@@ -107,8 +108,8 @@
 **行为要点：**
 
 - 解析结果中**部分字段**结构非法/无依据 → 对应字段降级为 `uncertain`/`missing`，仍返回 201（REQ-BE-02.3）；**整体**不可解析才是 `parse_failed`。
-- **失败不落草稿**：所有错误场景都不创建草稿、不改动请求所携带的旧令牌与旧草稿，用户可继续使用旧草稿（见§八 确认点 2）。
-- 成功后新令牌覆盖 Cookie；若请求带有效旧令牌，尽力删除旧草稿（§八 确认点 3）。
+- **失败不落草稿**（O-02）：所有错误场景都不创建草稿、不改动请求所携带的旧令牌与旧草稿，用户可继续使用旧草稿。
+- 成功后新令牌覆盖 Cookie；若请求带**有效旧令牌**，立即删除旧草稿（O-03，REQ-BE-01.6 按此补充）；令牌缺失/失效等无法定位的旧草稿仍由 7 天清理兜底。
 
 ---
 
@@ -118,16 +119,16 @@
 
 **请求：** 无参数；凭 Cookie `draft_token`。
 
-**成功响应 200：** `DraftResponse`；刷新 `last_active_at`，并续期 Cookie（§八 确认点 1）。**只返回字段值与状态**，不返回提问文案/游标（C-03）。
+**成功响应 200：** `DraftResponse`；刷新 `last_active_at`，并**滑动续期** Cookie（Max-Age 重置 7 天，O-01）。**只返回字段值与状态**，不返回提问文案/游标（C-03）。
 
 **错误：**
 
 | HTTP | code | 触发 |
 |---|---|---|
-| 404 | `draft_not_found` | 令牌缺失 / 无效 / 已作废 / 草稿已过期或不存在。不返回任何简历内容，不区分具体原因（避免暴露令牌有效性） |
+| 404 | `draft_not_found` | 令牌缺失 / 无效 / 已作废 / 草稿已过期或不存在。不返回任何简历内容，不区分具体原因（避免暴露令牌有效性）；前端作为空态处理（O-12） |
 | 500 | `internal_error` | |
 
-> 前端首次打开页面常态可能是 404（无草稿），应作为“空态”处理而非异常；`draft_not_found` 在不同接口含义见 §五。
+> 页面打开时无草稿属正常情况，返回 404 `draft_not_found`：前端**须作为“空态”处理**，不当作错误提示、不记错误日志（O-12）。同一业务码在不同接口下，前端按所调接口区分文案（O-10，见 §五）。
 
 ---
 
@@ -140,11 +141,11 @@
 | 字段 | 类型 | 必填 | 校验 |
 |---|---|:-:|---|
 | `fields` | object | 是 | 键必须属于 22 个已定义字段，否则 `unknown_field`；至少一个键 |
-| `fields.name` | string | 否 | 出现则不可为空（`required`） |
-| `fields.phone` | string | 否 | 出现则不可为空；去空格/连字符后须为 **11 位大陆号（`^1\d{10}$`）或 `+` 开头国际号（`^\+\d{6,15}$`）**，否则 `invalid_format` |
-| `fields.email` | string | 否 | 出现则不可为空；邮箱格式（`^[^@\s]+@[^@\s]+\.[^@\s]+$`），否则 `invalid_format` |
+| `fields.name` | string | 否 | `minLength: 1`；全空白在服务层按 `required` 拒绝（O-09） |
+| `fields.phone` | string | 否 | `minLength: 1`；**校验前先去除空格与连字符**；去除后须为 **11 位大陆号（`^1\d{10}$`）或 `+` 开头国际号（`^\+\d{6,15}$`）**，否则 `invalid_format`。OpenAPI 中的 `pattern`（`^(1\d{10}\|\+\d{6,15})$`）是 frontend 即时校验的唯一来源（O-05） |
+| `fields.email` | string | 否 | `minLength: 1`；全空白按 `required` 拒绝（O-09）；邮箱格式（`^[^@\s]+@[^@\s]+\.[^@\s]+$`），否则 `invalid_format` |
 | 其他标量字段 | string \| null | 否 | `null` = 确认留空 |
-| 列表字段（`strengths`、`skills`、`certificates_honors`、`languages`、`work_experiences`、`project_experiences`、`educations`） | array | 否 | **整体替换**；`[]` = 确认留空；元素结构见 `openapi.yaml` |
+| 列表字段（`strengths`、`skills`、`certificates_honors`、`languages`、`work_experiences`、`project_experiences`、`educations`） | array | 否 | **整体替换**；`[]` = 确认留空；元素结构见 `openapi.yaml`。区块只有**一个整体状态**，不对每条子项单独确认（O-11，POC 接受；前端逐条展示、整块确认） |
 
 **语义：**
 
@@ -193,8 +194,8 @@
 
 | HTTP | `already_saved` | 含义 |
 |---|---|---|
-| 201 | `false` | 本次新增记录 |
-| 200 | `true` | 同一个人此前已保存：不新增、不覆盖，返回已有 `resume_id`；本次内容与临时文件丢弃；**不回显已有记录内容**（D-04） |
+| 201 | `false` | 本次新增记录（O-08） |
+| 200 | `true` | （O-08；前端只依赖 `already_saved`）同一个人此前已保存：不新增、不覆盖，返回已有 `resume_id`；本次内容与临时文件丢弃；**不回显已有记录内容**（D-04） |
 
 ```json
 { "resume_id": "3f2b8c1e-5d4a-4e0b-9a77-0c1d2e3f4a5b", "already_saved": false, "saved_at": "2026-11-10T08:30:00Z" }
@@ -257,7 +258,7 @@ sequenceDiagram
 | `parse_failed` | 502 | ① | 模型拒绝输入/返回错误/整体不可解析 | 提示更换文件重传 |
 | `parse_unavailable` | 503 | ① | 模型能力/授权/凭证不可用 | 阻断；不回退（ADR-001） |
 | `parse_timeout` | 504 | ① | 模型调用超 60 秒（C-08） | 提示重新上传 |
-| `draft_not_found` | 404 | ②③④ | 令牌缺失/无效/已作废，或草稿不存在/已过期（含确认成功后重试，D-01） | ②：空态，引导上传；③：提示重新上传；④：提示“可能已保存，请重新上传核实” |
+| `draft_not_found` | 404 | ②③④ | 令牌缺失/无效/已作废，或草稿不存在/已过期（含确认成功后重试，D-01） | **前端按调用的接口区分文案（O-10）**：②：空态，引导上传（O-12）；③：提示重新上传；④：提示“可能已保存，请重新上传核实” |
 | `validation_failed` | 422 | ③④ | 字段校验不通过，带 `details: [{field, reason}]`（D-06） | 前端按字段提示，不回显值 |
 | `confirmation_required` | 422 | ④ | 缺少明确确认动作（B-04） | 不保存 |
 | `save_failed` | 500 | ④ | 保存失败（已补偿，B-05） | 可重试 |
@@ -281,7 +282,7 @@ sequenceDiagram
 | HTTP 404 表示无草稿 | 读取不存在草稿用 404 而非 204 | 与错误体统一，业务码可携带；前端需把首次空态当正常分支 | — |
 | 解析失败拆 3 个码 | `parse_failed`(502)/`parse_unavailable`(503)/`parse_timeout`(504) | 前端可分别提示“换文件”“稍后再试”“重新上传”；对应 REQ-BE-02.4/02.5 | — |
 | 不自动重试模型 | 单次 60 秒预算，无服务端重试 | 重试会超过前端 75 秒超时；失败由用户重传（C-08） | — |
-| 无速率限制 | 本期不设 | POC，约 5 人并发 | — |
+| 无速率限制 | 本期不设；**记为已知风险（O-13）** | POC、localhost、约 5 人并发；全局规范要求重要接口限流，上线前须另立需求处理 | — |
 | 字段键集合 | 固定 22 个 snake_case 键；每个键 `{value, status}` | 前端类型生成简单；与 `02_schema` §2.1.1 一一对应 | 契约，随 OpenAPI 冻结评审 |
 | 契约变更纪律 | v1 仅向后兼容扩展；破坏性变更走新版本与 cross-workbench-reviewer | `architectural_constraints.md` 跨 Workbench 约束 | — |
 
@@ -302,11 +303,22 @@ sequenceDiagram
 
 ---
 
-## 八、需 Dev Lead 确认的点
+## 八、契约审视裁决记录（2026-11-10，来源 `cross-workbench-review.md`「契约审视」节）
 
-1. **Cookie 滑动续期**：②③成功时续期 `draft_token`（Max-Age 重置 7 天），与“7 天无活动”一致；REQ-BE-05.2 只写“有效期 7 天”。是否采纳？
-2. **失败不改动已有草稿**：上传失败时不创建草稿、不动旧 Cookie（REQ 未明示）。是否同意？
-3. **替换旧草稿**：带有效旧令牌的成功重传是否立即删除旧草稿（REQ-BE-01.6 写“由 7 天清理兜底”）？本设计倾向立即删除以减少个人信息残留。
-4. **201/200 区分**：新增 201、已保存过 200，并保留 `already_saved`。frontend 是否只依赖 `already_saved` 字段？（建议是。）
-5. **手机号正则**：大陆号用 `^1\d{10}$`（不细分号段）、国际号 `^\+\d{6,15}$`——C-09 只定性未给正则，请确认口径（含与 frontend 即时校验同一规则）。
-6. **`rules/frontend/api.md`**：D-06 要求同步其错误体约定；按本次任务约束我**未修改**该文件，需主 agent 或 frontend 工程师处理。`codes/hr-collection-agent-backend/AGENTS.md`「接口与数据约定」中的错误体描述也需在 Step 5 补全时同步。
+原“需 DL 确认的点”已全部裁决，对应关系如下（O-01..O-13 全部采纳建议）：
+
+| 编号 | 裁决 | 落点 |
+|---|---|---|
+| O-01 | 读取/更新成功时滑动续期 Cookie | §3.2、§3.3；`openapi.yaml` GET/PATCH |
+| O-02 | 上传失败不建草稿、不动已有草稿与 Cookie | §3.1；`openapi.yaml` POST /resume-drafts |
+| O-03 | 带有效旧令牌重传成功时立即删除旧草稿；无法定位的旧草稿由 7 天清理兜底（REQ-BE-01.6 按此补充） | §3.1；Schema §4.4 |
+| O-04 | 仅 `+86` 后恰为 11 位大陆号才去前缀 | Schema §2.2.1 |
+| O-05 | `phone` 加 `pattern`，作为 frontend 即时校验唯一来源 | §3.3；`openapi.yaml` `ResumeFieldsUpdate.phone` |
+| O-06 | `DATA_DIR` = 仓库内 `data/`（`drafts.db`、`resumes.db`），`FILE_DIR` = 仓库内 `file/`；均可环境变量覆盖，加入 `.gitignore` | Schema §一、§4（本期不建仓库文件，实现阶段落实） |
+| O-07 | 清理间隔 1 小时 | Schema §4.4 |
+| O-08 | 201 新增 / 200 已保存过；前端只依赖 `already_saved` | §3.4；`openapi.yaml` POST /resumes |
+| O-09 | name/phone/email `minLength: 1`；全空白服务层按 `required` 拒绝 | §3.3；`openapi.yaml` |
+| O-10 | `draft_not_found` 前端按调用接口区分文案 | §五；`openapi.yaml` `DraftNotFound` |
+| O-11 | 列表区块整体状态、整体替换（POC 接受） | §3.3；`openapi.yaml` PATCH |
+| O-12 | GET 无草稿返回 404，前端作空态处理 | §3.2；`openapi.yaml` GET |
+| O-13 | 无限流，记为已知风险（上线前另立需求） | §二、§六；`openapi.yaml` info |
