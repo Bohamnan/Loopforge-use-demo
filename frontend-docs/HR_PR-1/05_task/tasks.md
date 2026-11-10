@@ -200,7 +200,7 @@
 - [x] `ObjectListEditor` 与子项配置渲染
 - [x] 下标错误映射与清除
 
-### Task 2.6：最终确认与保存结果（REQ-FE-04，HIGH_RISK：约束 F-03）
+### Task 2.6：最终确认与保存结果（REQ-FE-04，HIGH_RISK：约束 F-03） ✅
 - **关联：** REQ-FE-04.1–04.8；design.md §3.4（FinalReviewCard、SavedResultCard、ConfirmDialog）、§5.1、§5.3（最终确认相关行）、§6、§7.1、§9.2、TD-04/11；B-04、F-03、C-05、C-10、C-11、D-01、D-03、D-04、O-08、O-10、P-09、Q-DL-03
 - **内容：** `FinalReviewCard`（11 区全文只读、未确认字段数提示、“确认提交”仅在核心三项齐全、合法且为 `confirmed` 时可点，否则说明原因；“我还要修改”；失败时卡内 `ErrorAlert`，按钮可直接重试）、`SavedResultCard`（`already_saved=false`：“已保存”+ 姓名 / 原始文件名 / 保存时间 +“上传下一份”；`already_saved=true`：仅“该简历已保存过”，不展示任何记录内容；均不显示 `resume_id` / 记录编号）、`ConfirmDialog`（启用“存在未确认字段”和“存在未提交编辑”两类）；`useResumeSession` 增加 `goFinal`、`backToSections`、`confirmResume`、`resetAfterSaved`；成功后只保留 `savedSummary`，清空草稿与缓冲；`draft_not_found` → 空态 + “可能已保存，请重新上传核实”；422 返回对应分区。
 - **测试：** 约束 F-03 重点用例：成功响应之前（进行中、超时、网络失败、5xx、`save_failed`、422、`draft_not_found`）界面任何位置都不出现“已保存”；超时 / 网络失败后按钮可立即重试且不调用任何状态查询；`already_saved` 依据字段而非 HTTP 状态（200 / 201 两种都覆盖），`true` 时不渲染任何已有记录内容；成功后内存中无手机号 / 邮箱等简历内容，仅姓名 / 文件名 / 保存时间；核心三项未就绪时确认按钮禁用；仍有未确认字段时先弹提示，取消不发请求，继续后发送；存在未提交编辑时被拦截；进行中防重复点击；`recognized` 字段在最终视图中不显示为已确认；数据验证：断言 `POST /resumes` 请求体恰为 `{confirmed: true}` 且只发送一次。
@@ -209,10 +209,10 @@
 
 #### 子任务
 
-- [ ] `FinalReviewCard`、`SavedResultCard`
-- [ ] `ConfirmDialog` 两类场景
-- [ ] `confirmResume` 及全部错误分支
-- [ ] HIGH_RISK 用例集（单独成组）
+- [x] `FinalReviewCard`、`SavedResultCard`
+- [x] `ConfirmDialog` 两类场景
+- [x] `confirmResume` 及全部错误分支
+- [x] HIGH_RISK 用例集（单独成组）
 
 ### Task 2.7：新对话与覆盖确认（P-08、TD-12）
 - **关联：** REQ-FE-01.5；design.md §3.4（NewChatButton）、§5.3（新对话相关行）、TD-12；P-08、C-07、Q-DL-04
