@@ -10,7 +10,7 @@
 |------|------|
 | **PRD** | `01-requirements/HR_PR-1/prd.md` |
 | **当前 Skill** | architecture-advisor |
-| **当前阶段** | backend：OpenAPI 0.1.1 已落地，tasks.md（20 任务 / 91h）待任务清单确认；frontend Step 3 进行中 |
+| **当前阶段** | backend 任务清单已确认 → Step 5 补全仓库约定（AGENTS.md）；frontend Step 3 进行中 |
 | **状态** | 🔄 architecture-advisor 进行中 |
 | **最后更新** | 2026-11-10 |
 
@@ -51,8 +51,8 @@
 | 需求汇总（第二轮技术 Q&A + requirements.md） | requirements-analyst | Dev Lead/BA | ✅ 已确认 | 2026-11-10 | `backend-docs/HR_PR-1/01_requirements/requirements.md`；`frontend-docs/HR_PR-1/01_requirements/requirements.md` |
 | 架构设计（Schema+接口） | architecture-advisor | 各 Workbench 工程师 | ✅ backend（OpenAPI 0.1.0 冻结，0.1.1 待修订 G-01/G-02）/ frontend（Step 2.2 评审通过） | 2026-11-10 | `backend-docs/HR_PR-1/02_schema/`、`03_api/`；`frontend-docs/HR_PR-1/03_api/interface_spec_resume.md` |
 | 技术设计 | architecture-advisor | 各 Workbench 工程师 | ✅ backend（2026-11-10）/ 🔄 frontend 进行中 | — | `backend-docs/HR_PR-1/04_design/design.md`；`frontend-docs/HR_PR-1/04_design/design.md` |
-| 任务拆分 | architecture-advisor | 各 Workbench 工程师 | ⏸ backend 待确认 / frontend — | — | `backend-docs/HR_PR-1/05_task/tasks.md` |
-| 仓库约定补全与复核（仅新项目 Workbench） | architecture-advisor（Step 5） | 各 Workbench 工程师/Dev Lead | — | — | backend、frontend 仓库 `AGENTS.md` |
+| 任务拆分 | architecture-advisor | 各 Workbench 工程师 | ✅ backend（20 任务 / 91h）/ frontend — | 2026-11-10 | `backend-docs/HR_PR-1/05_task/tasks.md` |
+| 仓库约定补全与复核（仅新项目 Workbench） | architecture-advisor（Step 5） | 各 Workbench 工程师/Dev Lead | 🔄 backend 进行中 | — | backend、frontend 仓库 `AGENTS.md` |
 | 代码实现 | feature-developer | 各 Workbench 工程师 | — | — | — |
 | 代码审查 | code-reviewer | 各 Workbench 工程师 | — | — | — |
 | 开发自测用例 | dev-self-test | 各 Workbench 工程师 | — | — | — |
@@ -119,6 +119,7 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent | 关闭手动 kiro 会话，改为 Orca 受监督 worker：frontend ctx_6d9d1d647358（Step 3）、backend ctx_88edd28ffd62（就绪待命），Run run_2dde01eb480f |
 | 2026-11-10 | Yin Yang（Dev Lead） | architecture-advisor | backend 技术设计确认：ADR-004/005 ACCEPTED；双 SQLite 不另立 ADR（ADR-003 覆盖）；CR-01 采纳并入 OpenAPI 0.1.1；DeepSeek 失败映射、读超时近似、单进程采纳；新依赖须锁定精确版本并经私有 Nexus 安装；REQ-FE-03.1 按 P-04 澄清 |
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 OpenAPI 0.1.1（4ba4d15）与 backend 任务拆分（2b72d29），复核校验通过；发现 CR-01a 差异待裁决 |
+| 2026-11-10 | Yin Yang（Dev Lead） | architecture-advisor | backend 任务清单确认：CR-01a 采纳 OpenAPI 现值；新增 pyyaml、pytest-cov 开发依赖（锁定版本）；Nexus 地址与 DeepSeek 凭证留到实施阶段由 DL 经环境变量提供，无凭证时 spike 标“待核实” |
 
 ---
 
