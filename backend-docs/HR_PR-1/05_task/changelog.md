@@ -50,3 +50,24 @@ base_url 默认值与实际接入地址需在任务 1.8 spike 时核实。
 
 ---
 
+## Task-1.3：core：错误模型与安全日志
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/core/errors.py | 新增 | ErrorCode(13)、IssueReason、FieldIssue、AppError 及 13 个子类、DuplicateIdentityError |
+| codes/hr-collection-agent-backend/src/app/core/logging.py | 新增 | JSON 日志、字段白名单 log_event、request_id ContextVar、仅记栈帧不记异常消息 |
+| codes/hr-collection-agent-backend/tests/core/test_errors.py | 新增 | 码/状态/文案与冻结 OpenAPI 比对 |
+| codes/hr-collection-agent-backend/tests/core/test_logging.py | 新增 | 白名单、JSON、异常脱敏 |
+
+### 偏差说明
+按设计实现。补充：日志白名单在 design 列出字段之外增加 count（对账告警含数量，design 5.4 要求）与派生字段 stack（异常栈帧，不含异常消息）；错误体 message 在各 AppError 子类中为固定类属性，构造器不接受自由文本。契约比对测试在找不到 openapi.yaml 时跳过（代码目录可能脱离文档仓库）。
+
+### 遗留风险
+无。
+
+---
+

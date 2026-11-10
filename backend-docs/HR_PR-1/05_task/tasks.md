@@ -93,7 +93,7 @@
 
 ---
 
-### Task 1.3：core：错误模型与安全日志
+### Task 1.3：core：错误模型与安全日志 ✅
 - **关联：** REQ-BE-06.3、06.4；D§3.2（`ErrorCode`/`AppError`、安全日志）、D§7.1、D§7.3、D§1“错误模型”“日志策略”
 - **内容：** `core/errors.py`：13 个业务码、HTTP 状态、集中固定的用户文案、`AppError` 子类（与 D§7.1 一一对应）、`DuplicateIdentityError` 等内部异常；`core/logging.py`：JSON 日志、白名单字段接口 `log_event(event, **safe)`、`request_id` ContextVar。
 - **测试：** 每个 `AppError` 的 code/HTTP/文案与 `api_design_resume.md` §五、`openapi.yaml` 的 `ErrorCode` 枚举一致（比对 13 个码）；`details` 仅 `ValidationFailedError` 可带；异常文案不拼接用户数据；日志白名单：非白名单字段抛错；日志输出为合法 JSON 且含 `request_id`；`exc_info` 只记类型与栈、不记 `str(exc)`。
@@ -102,10 +102,10 @@
 
 #### 子任务
 
-- [ ] `ErrorCode` 枚举（与 OpenAPI 同序）与 `AppError` 层级
-- [ ] 文案集中定义（与 OpenAPI examples 的 message 一致）
-- [ ] `log_event` 白名单（`request_id`、`draft_id`、`resume_id`、状态码、耗时、业务码、异常类名）
-- [ ] 对应单元测试（含“业务码清单与 OpenAPI 一致”的断言）
+- [x] `ErrorCode` 枚举（与 OpenAPI 同序）与 `AppError` 层级
+- [x] 文案集中定义（与 OpenAPI examples 的 message 一致）
+- [x] `log_event` 白名单（`request_id`、`draft_id`、`resume_id`、状态码、耗时、业务码、异常类名）
+- [x] 对应单元测试（含“业务码清单与 OpenAPI 一致”的断言）
 
 ---
 
