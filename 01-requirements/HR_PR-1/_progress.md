@@ -10,7 +10,7 @@
 |------|------|
 | **PRD** | `01-requirements/HR_PR-1/prd.md` |
 | **当前 Skill** | feature-developer |
-| **当前阶段** | 设计阶段全部完成；backend 任务 1.1–1.7、frontend 任务 1.1–1.6 同时进入 feature-developer |
+| **当前阶段** | 第一批完成：backend 1.1–1.7、frontend 1.1–1.6 已合并并经主 agent 复跑验证；待 DL 确认第二批 |
 | **状态** | 🔄 feature-developer 进行中 |
 | **最后更新** | 2026-11-10 |
 
@@ -53,7 +53,7 @@
 | 技术设计 | architecture-advisor | 各 Workbench 工程师 | ✅ backend / ✅ frontend（2026-11-10） | 2026-11-10 | `backend-docs/HR_PR-1/04_design/design.md`；`frontend-docs/HR_PR-1/04_design/design.md` |
 | 任务拆分 | architecture-advisor | 各 Workbench 工程师 | ✅ backend（20 任务 / 91h）/ ✅ frontend（15 任务 / 79h） | 2026-11-10 | `backend-docs/HR_PR-1/05_task/tasks.md`；`frontend-docs/HR_PR-1/05_task/tasks.md` |
 | 仓库约定补全与复核（仅新项目 Workbench） | architecture-advisor（Step 5） | 各 Workbench 工程师/Dev Lead | ✅ backend / ✅ frontend（已确认） | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
-| 代码实现 | feature-developer | 各 Workbench 工程师 | 🔄 backend 1.1–1.7 / frontend 1.1–1.6 | — | `codes/hr-collection-agent-backend/`、`codes/hr-collection-agent-frontend/` |
+| 代码实现 | feature-developer | 各 Workbench 工程师 | 🔄 backend 7/20（1.1–1.7 ✅）/ frontend 6/15（1.1–1.6 ✅） | — | `codes/hr-collection-agent-backend/`、`codes/hr-collection-agent-frontend/` |
 | 代码审查 | code-reviewer | 各 Workbench 工程师 | — | — | — |
 | 开发自测用例 | dev-self-test | 各 Workbench 工程师 | — | — | — |
 | 造数脚本 | test-data-script-generator | 各 Workbench 工程师/QA | — | — | — |
@@ -130,6 +130,8 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | architecture-advisor | frontend 任务清单确认：T-DL-01 默认 registry 例外写入 AGENTS.md；T-DL-02 任务 2.6 仅依赖 2.4、集成以 2.5 为准；T-DL-03 工时不含 Step 5 与审查（知悉） |
 | 2026-11-10 | Yin Yang（Dev Lead） | architecture-advisor | frontend AGENTS.md v1 复核通过，状态改回“已确认”；Node engines >=24；dev proxy 目标统一改为 http://127.0.0.1:8000（避免 localhost 解析到 ::1）|
 | 2026-11-10 | Yin Yang（Dev Lead） | feature-developer | 前后端同时开工：backend 任务 1.1–1.7，frontend 任务 1.1–1.6 |
+| 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 frontend 1.1–1.6（4238907..4dfed73）；主工作区复跑：npm ci、lint 0 告警、Vitest 15 文件 226 用例通过、tsc + vite build 1399 modules |
+| 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 backend 1.1–1.7（f13ae9d..b3a1391）；主工作区复跑：uv sync --frozen、compileall 27 文件、pytest 213 passed、ruff check/format 通过 |
 
 ---
 
