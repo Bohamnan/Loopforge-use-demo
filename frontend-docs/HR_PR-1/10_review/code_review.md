@@ -473,3 +473,70 @@
 | DL 确认点 ②：草稿显示时焦点移到待核对分区标题 | 接受 |
 | 跟踪项 | 随任务 3.1 一并处理：本批 S1/S2/S3、第一批 S2（码点长度）、第二批 S4（失焦删空行）及报告列出的其余跟踪项；本批 S4（窄屏实机验证）留到联调阶段 |
 
+
+## 第十一批审查（frontend 收尾批：3.1 集成验证、4 个跟踪项清理、样品联调脚本、三条窄屏/错误提示修复）
+
+- 日期：2026-11-10；Reviewer：Yin Yang（dev-lead，审查 agent 代行）；Review 模式：Ticket-aware Review；被审查 Workbench：frontend（已加载 code-reviewer 的 frontend references）
+- 审查对象：`899da70`（3.1）、`c47bc02`/`18363a6`/`0f07f40`/`d306368`（跟踪项清理）、`737018b`（`scripts/drill_resume.py`）、`17542f0`/`887a23b`/`59930a1`（三条 SUGGEST 修复）及联调报告提交；合并提交 `5ca3265`（9 个功能提交 `merge-base --is-ancestor` 均为真）。
+- **本批结论：通过（0 BLOCK / 0 QUESTION / 4 SUGGEST）。F-01/F-02/F-03 无退化。建议关闭 frontend 全部任务（3.1 及联调、跟踪项清理），frontend 阶段无阻断。**
+- 上下文限制：SUGGEST-1 的浏览器实机复测**未能做**——启动 Vite 开发服务器的命令被本环境的执行工具拦截（长驻服务器告警），我没有绕开该限制；改以“变异验证 + 构建产物核对”替代（见下）。未用样品简历，也没有读取样品。另有：仅 jsdom，无真实浏览器布局；未测其他浏览器。
+
+### 3.1 集成测试是否真断言
+| 检查项 | 结论 | 证据 |
+|---|---|---|
+| 浏览器存储 spy | ✅ | `ResumeCollectionPage.integration.test.tsx` 对 `Storage.prototype` 的方法逐个 `vi.spyOn` 并在调用时记录；每个用例末尾断言零访问；另有 `security statics: the watchers themselves work` 自检用例证明监视器本身有效（防“监视器失灵导致假通过”） |
+| console 无简历内容/响应体 | ✅ | `console.log/info/warn/error/debug` 全部被 spy，用例末尾把调用序列 JSON 化后断言不含合成姓名/手机/邮箱及响应体 message；404 空态断言 `consoleCalls` 为 `[]` |
+| 变异 M1：在页面里写 `window.localStorage.setItem` | ✅ 被杀 | 集成用例 14 个中，主流程、草稿恢复等多个用例失败 |
+| 变异 M2：在 `ApiClient` 里 `console.log(JSON.stringify(payload))` | ✅ 被杀 | 主流程、恢复、404 空态等用例失败 |
+| 变异 M3：把 `error` 从 `ComposerBar` 中移除（回到列表末尾之外的“无处显示”） | ✅ 被杀 | `src/pages` 下多个上传错误用例（含“恰好一个 alert”）失败 |
+| 变异 M4：窄屏按钮 `min-height: 44px`→`30px` | ✅ 被杀 | `Layout.responsive.test.ts` “makes every button at least 44x44 px” 失败 |
+| 变异 M5：忽略 `prefers-reduced-motion` | ✅ 被杀 | `ChatThread.test.tsx` “scrolls without animation when…” 失败 |
+| 变异 M6：`charLength` 改回 `.length` | ✅ 被杀 | `FieldRules` 4 个用例失败（100 个 emoji 合法、101 个超长等） |
+| F-03（确认前不显示已保存） | ✅ | 主流程断言“已保存”仅在 201 之后可见；5xx、`draft_not_found`、确认超时均不显示成功；确认请求体恰为 `{confirmed:true}` 且只发一次 |
+
+### 追溯矩阵（33 条）
+- `traceability_3.1.md` 共 33 行 `REQ-FE-*`，与 design.md 中去重后的 33 条验收标准数量一致。
+- 逐一抽取矩阵里引用的 43 个测试文件名并对照仓库：全部真实存在（`upload/edit/final/items/review.test.tsx` 为 `ResumeCollectionPage.*.test.tsx` 的简写，对应文件均存在）。矩阵自述“映射为文件级，未逐用例展开”，该表述属实：我抽查的 06.2、06.3、04.3、04.8 与集成用例对应得上。结论：对应真实；颗粒度为文件级，属可接受限制。
+
+### 四个跟踪项清理
+| 项 | 结论 | 证据 |
+|---|---|---|
+| 契约漂移检测（`ContractDrift.test.ts`）、草稿形状校验 | ✅ | `ResponseShapes` 现校验 `size_bytes`（有限非负数）、`content_type` 枚举、经历项成员类型、子列表为字符串数组；不符按“未知错误”处理，2xx 形状错误给出“上传结果异常，请刷新页面后核对”（因服务器可能已替换草稿）。契约文件本批未改（`03_api` 无 diff） |
+| 网络防线（`eslint.config.js`） | ✅ | 范围从 pages/components/hooks 扩大为 `src/**` 除 `src/api` 与测试：`fetch`、`XMLHttpRequest`、`WebSocket`、`EventSource`、`navigator.sendBeacon` 均禁；`EslintRules.test.ts` 用真实 ESLint 对违规样例断言报错。`npm run lint` 零警告 |
+| 码点长度/空白行/确认规则 | ✅ | `charLength` 按 Unicode 码点计，与 JSON Schema/Python `maxLength` 一致（M6 被杀）；空白行不计入条数上限但错误下标仍对应屏幕位置；“确认本区”按钮与“确认无误”快捷回复共用 `canConfirmSection`，消除两处规则分叉 |
+| 尊重减少动态效果 | ✅ | `matchMedia('(prefers-reduced-motion: reduce)')` 为真时滚动用 `auto`（M5 被杀） |
+
+### 三条窄屏/错误提示修复
+| 项 | 结论 | 说明 |
+|---|---|---|
+| SUGGEST-1 上传错误提示固定在输入区 | ✅（实机复测未做） | `ComposerBar` 新增 `error` 插槽，错误渲染在固定输入区内而不是滚动列表末尾；页面上仍只有一个 `role=alert`（用例固化）。`showComposer` 仅在 `empty`/`reviewing` 阶段为真，而上传错误只在这两个阶段产生（`FILE_SELECTED` 预校验失败、`UPLOAD_FAILED` 后阶段回到 empty/reviewing），因此不会出现“错误存在但输入区隐藏”的盲区。我读了 reducer 确认 |
+| SUGGEST-2 窄屏标签上置 | ✅ | `@media (max-width: 599px)`：`.field-edit` 换行，标签占满一行，输入框 `flex: 1 1 180px`；不影响宽屏。生产构建的 CSS 中该规则作为 `@media (width<=599px)` 存在 |
+| SUGGEST-3 热区 ≥ 44px | ✅（附 SUGGEST-1） | 窄屏 `button.ant-btn { min-height/min-width: 44px }`（选择器权重盖过 antd 尺寸类）；窄屏隐藏输入区格式提示，欢迎页仍保留。代价：输入区高度 147→169px（作者实测），仍低于视口 27%。破坏原型 P-xx？未见：仅在 ≤599px 生效，桌面与平板布局不变（作者在 768/1440 复测，我未能复测） |
+| `vite.config.ts`：`test.css.include` 与 `server.fs.allow` | ✅ 不影响生产构建 | `test.css` 只在 Vitest 内生效，使 jsdom 测试能把 `Layout.css` 作为文本读取；`server.fs.allow` 仅作用于 `vite dev` 服务器（让契约漂移测试读取 `backend-docs/HR_PR-1/03_api`），且只放开这一个目录。我实测 `npm run build`：产物 `dist/assets/index-*.css` 含 `min-height:44px`、`composer-error` 与窄屏媒体查询，`dist/` 被 `.gitignore` 忽略；构建不引用 `backend-docs`。开发服务器多开放了一个只读的 API 契约目录，内容非机密，可接受 |
+
+### `scripts/drill_resume.py` 与全仓敏感信息
+| 检查项 | 结论 | 证据 |
+|---|---|---|
+| 不含个人信息 | ✅ | 文件、真值、目录均为命令行参数；输出只含判定、状态、长度、条数，不打印字段值（我通读了所有 `print`）；`draft.json` 与截图写到调用者指定的 `--shots` 目录（权限 0600），要求在仓库外 |
+| 不读 `.env` | ✅ | 全文无 `.env`；唯一环境变量是 `ORCA_CLI_COMMAND`（命令名） |
+| 不外发到非本机 | ✅ | 脚本自身无网络代码；仅驱动 `orca` CLI；`--url` 默认 `http://127.0.0.1:5173/`；页面内 `fetch` 为同源相对路径；SQLite 以 `mode=ro` 只读打开 |
+| 仓库无样品简历/真实手机号邮箱 | ✅ | `git ls-files` 无任何 pdf/jpg/png/doc；历史新增文件中也无此类扩展名；全仓文本中的手机号只有合成号 `13800138000`、`13900139000`、`13700137000/001/099`（另两处 11 位数字是 `uv.lock` 哈希片段）；邮箱均为 `example.com/.test` 合成或测试用 URL；历史新增行同样如此；`.env` 被两个 `.gitignore` 忽略，仅 `.env.example` 入库 |
+| 联调报告中的样品内容 | ⚠ SUGGEST-2 | 第七节写明“个人信息值一律脱敏”，且确未出现姓名、手机、邮箱值；但出现了样品中的一个内部标记 `GDC-CON`、行业词序列、一条技能句的原文片段与“主要客户”类别列表，属于从真实简历派生的内容 |
+
+### SUGGESTIONS（不阻断）
+- **第十一批-SUGGEST-1（实机复测）**：SUGGEST-1/2/3 目前只有 jsdom 单测 + 作者的样品复测记录（“被截断输入框 2→0、按钮不足 44px 的 21→1，另有 1 个未定位”），且报告自述“未在浏览器里再次触发上传错误做实机复测”。请在联调环境用**合成数据**（不用样品）补测：①在校对阶段上传 `.txt`，确认提示出现在固定输入区且当下可见；②360 宽下查出那个未定位的 <44px 按钮。
+- **第十一批-SUGGEST-2（联调报告脱敏）**：把 `GDC-CON`、技能原文片段、“主要客户”列表改为概括性描述（如“带入 1 个内部标记”“1 条技能的连接词被改写”），避免真实简历派生信息进入仓库历史。因已提交，只能后续改，不能抹去历史。
+- **第十一批-SUGGEST-3（契约测试跳过）**：沿用第十批建议——`openapi_available()` 为假时整组契约测试静默跳过；前端的 `ContractDrift.test.ts` 同样读取 `backend-docs`，若在仅检出 `codes/` 的环境运行应当失败而非跳过（请确认其行为）。
+- **第十一批-SUGGEST-4（2xx 形状错误的识别）**：`ErrorAlert` 以 `code==='unknown_error' && 2xx` 判断“形状异常”，依赖 `ApiError` 的内部约定；建议在 `ApiError` 上提供显式的 `isBadResponse` 访问器，避免魔法组合。
+
+### 本批复跑
+| 命令 | 结果 |
+|---|---|
+| `npm ci` | ✅ 安装成功 |
+| `npm run lint`（`eslint . --max-warnings 0`） | ✅ 零告警 |
+| `npm test` | ✅ **53 个文件、650 个用例全部通过**，与基线一致 |
+| `npm run build`（`tsc --noEmit && vite build`） | ✅ `1439 modules transformed`，产出 `dist/index.html`、`index-*.css`（4.62 kB）、`index-*.js`（492.59 kB），有真实类型检查与编译动作 |
+| 变异（6 处，均还原） | M1–M6 全部被杀；还原后 `git status --short` 无变更（过程中因 shell 命令里的 `->` 被当作重定向，误生成了一个名为 `length` 的临时文件，已立即删除，未入库） |
+
+### 最终结论
+**通过。建议关闭 frontend 全部任务，frontend 阶段无阻断。** 3.1 的存储与 console 断言真实有效（含监视器自检，6 处变异全被杀）；追溯矩阵 33 条与测试文件真实对应；三条 SUGGEST 修复合理，仅作用于 ≤599px 与固定输入区，不改变桌面布局与 F-03 行为；`vite.config.ts` 的测试期配置不影响生产构建（已用构建产物核对）；联调脚本不含个人信息、不读 `.env`、只访问本机；全仓与历史新增内容未发现样品简历或真实手机号邮箱。关闭前请 DL 知悉：窄屏三项修复的浏览器实机复测与联调报告脱敏（SUGGEST-1/2）为非阻断的收尾事项。
