@@ -644,3 +644,38 @@
 
 ### 更新后的本批结论
 **BLOCKED**：请先修 BLOCK-1（`StrictBool` + 红灯用例），并由 DL 裁决 QUESTION-1（建议修）。两项完成后，我建议 2.3a 通过、2.4 的 B-04/B-05 通过，SUGGEST 记为跟踪项。
+
+## 第七批复审（任务 2.4 修复：BLOCK-1 / QUESTION-1 / SUGGEST-1~5，HIGH_RISK）
+
+- 日期：2026-11-10；Reviewer：Yin Yang（dev-lead，审查 agent 代行）；Review 模式：复审
+- 审查对象：`git merge feature` 后 HEAD `0aba56a`，确认含修复提交 `a5ff60b`、`75f3c97`、`24db1eb`、`5178f31`、`4b7abc6`、`1f650d9`（`git merge-base --is-ancestor` 逐一为真）。
+- **本批结论：通过（0 BLOCK / 0 QUESTION）。HIGH_RISK 最终结论：B-04 通过，B-05 通过，建议 DL 将 2.4 标 ✅。**
+- 上下文限制：未做真实 DeepSeek 调用；未联网核对 Pillow 公告（SUGGEST-4 已登记为跟踪项）；未运行 `~/tools/crapper`（本批新增代码为 1 个只读方法与 1 个分支，复杂度增量极小）。
+
+### 逐项复核
+| 项 | 结论 | 证据 |
+|---|---|---|
+| BLOCK-1 `confirmed` 严格布尔 | ✅ | `schemas/resume.py` 改为 `StrictBool`；`error_handlers._is_missing_confirmation` 把 `bool_type` 与 `missing` 同归 `confirmation_required`。用例 `test_without_confirmation_is_422_and_writes_nothing` 参数化 `false/缺失/"yes"/"true"/1/"1"/"on"/null/[]`，断言 422、`code=confirmation_required`、`count(*)=0`、草稿与文件仍在。契约核对：openapi 0.1.1 第 182 行「缺失或 false → 422 confirmation_required」，第 228 行响应描述同；契约未明文覆盖非布尔值，实现将其归 `confirmation_required`，与我上批建议一致，无泄露输入（固定文案 + request_id）。遗留：整个请求体不是对象（如 `[]`）时 Pydantic 报 `model_attributes_type`，仍走 `validation_failed`，同样不写库，不影响 B-04。 |
+| QUESTION-1 提交后普通异常 | ✅ | `_save_new` 通用异常分支改为：先 `_committed(resume_id)`（调用新增只读 `ResumeRepository.exists`），已提交或**无法确认**则保留 tmp，仅记 `db_write_failed`/`commit_check_failed`，返回 `save_failed`；确认未提交才 `_discard_tmp`。偏向“保留”是正确的安全方向：多留的 tmp 由 2.5 对账清理，误删则不可恢复。用例 `test_plain_exception_after_commit_keeps_record_and_tmp` 断言：`resumes`、教育子表各 1 行，仅存 `.{id}.pdf.tmp`，草稿行与草稿文件仍在；重试得到 `already_saved=true` 且 tmp 仍在，对账起点可 roll-forward。事务内失败的既有用例（tmp 被清、草稿保留）仍通过。注意：本次保留 tmp 后进程内不自动 promote，依赖启动对账，作为已知限制登记（见 AGENTS.md，对应 SUGGEST-3）。 |
+| `exists` 只读查询安全性 | ✅ | `SELECT 1 FROM resumes WHERE id = ?` 参数绑定；`closing(connect(...))` 独立连接，无写、无锁升级；`resume_id` 为服务端生成的 UUID，非用户输入；该方法抛错被捕获并按“已提交”处理，不会掩盖原异常（原异常仍 `raise SaveFailedError() from exc`）。`test_only_the_save_path_touches_the_resume_repository` 仍通过，正式库仍仅由保存路径触达。 |
+| SUGGEST-1 请求体上限 | ✅ | `MAX_REQUEST_BYTES = 1_000_000 - 4*1024 = 995,904 ≤ 996,000`。外发路径只有一条：`build_user_blocks`→`fit_images(…, available = MAX_REQUEST_BYTES - overhead)` 与出口 `_body_size(blocks) > MAX_REQUEST_BYTES` 总检，grep 确认 `src` 内无其他引用或旁路；超限不发起请求的既有用例仍通过；新增常量断言用例。 |
+| SUGGEST-2 像素与格式 | ✅ | `MAX_SOURCE_PIXELS = 25_000_000`，头部读尺寸后拒绝；`Image.open(..., formats=("PNG","JPEG"))`。用例：5100×5100 PNG（26.01MP）被拒；GIF/BMP/WEBP/TIFF 被拒；JPEG 通过。 |
+| SUGGEST-3/4/5 登记 | ✅ | `AGENTS.md` 登记：对账仅启动时运行的窗口（已知限制）；SUGGEST-4（design/openapi 补写非布尔→`confirmation_required`、Pillow 公告跟踪）与 SUGGEST-5（存在性探测，对外暴露前重评）列为跟踪项；图像口径同步。`changelog.md` 增 30 行。登记属“记录而非修复”，符合我上批的不阻断定性；openapi 描述尚未补写，仍待 SUGGEST-4 跟进。 |
+
+### 变异验证（均已还原，`git status --short` 无变更）
+| 变异 | 结果 |
+|---|---|
+| `confirmed: StrictBool` → `bool` | ✅ 被杀：5 个参数化用例失败（`"yes"/"true"/1/"1"/"on"`），BLOCK-1 复现场景在修复版不再复现（`null`、`[]` 本身被 Pydantic 拒绝，故不依赖 StrictBool） |
+| `if not self._committed(resume_id):` → `if True:` | ✅ 被杀：`test_plain_exception_after_commit_keeps_record_and_tmp` 失败，即 QUESTION-1 的“有记录无文件”场景在修复版不再复现 |
+| `MAX_SOURCE_PIXELS` 25M → 50M | ✅ 被杀：`test_source_pixel_limit_is_25_million` 失败 |
+
+### 本批复跑
+| 命令 | 结果 |
+|---|---|
+| `uv sync --frozen` | ✅ Checked 36 packages |
+| `compileall src`（先清 `__pycache__`） | ✅ 42 行 `Compiling`，有真实编译动作 |
+| `uv run pytest` | ✅ **810 passed**，1 warning（既有 Starlette 弃用），基线 810 相符 |
+| `ruff check .` / `ruff format --check .` | ✅ All checks passed / 93 files already formatted |
+
+### 最终结论
+**通过。** B-04（路径、顺序、取值严格性）与 B-05（保存顺序、补偿、提交后异常）均满足；2.3a 及 SUGGEST-1/2 修复到位。建议 DL 将 2.4 标 ✅。跟踪项：SUGGEST-3（对账窗口）、SUGGEST-4（openapi/design 文档补写）、SUGGEST-5（存在性探测）；2.5 须补“对账后终态文件正确、tmp 消失”的断言，并覆盖本批新增的“提交后异常保留 tmp”起点。
