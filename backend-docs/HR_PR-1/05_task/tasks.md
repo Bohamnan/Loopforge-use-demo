@@ -272,7 +272,7 @@
 
 ---
 
-### Task 2.3a：LLM 请求体 ≤ 1 MB 的图像预处理　**【约束：LLM 单次请求上限 1 MB】**
+### Task 2.3a：LLM 请求体 ≤ 1 MB 的图像预处理 ✅　**【约束：LLM 单次请求上限 1 MB】**
 - **关联：** project-memory/architectural_constraints.md（LLM 请求体 ≤ 1 MB）；ADR-001 修订 1；D§3.x `DeepSeekClient`、`pdf_renderer`；DL 2026-11-10 批准新增依赖 Pillow（精确版本，公共源）。
 - **内容：** 新增图像预处理（建议 `clients/image_prep.py`）：照片与 PDF 渲染页统一转 JPEG，按“降分辨率 → 降质量”逐级压缩；总请求体（含 base64，约 ×4/3，加文本与 prompt 余量）≤ 1 MB，多页按页数平分预算；压到下限仍超限 → `ParseFailedError`，不外发。`build_user_blocks` 只在预算校验通过后构造。同时处理第六批 SUGGEST-1（PATCH 文本列表丢弃空白项并去首尾空白，区块丢弃全空条目，补测试）与 SUGGEST-2（`original_filename` 过滤控制字符）。
 - **测试：** 大照片（接近 10 MB）、5 页扫描 PDF、文本+图片混合、压到下限仍超限四种情况，断言最终请求体字节数 ≤ 1 MB；超限时不发起外部调用（mock `httpx`）；SUGGEST-1/2 红灯→绿灯；用合成简历核对缩小后仍可读（不调真实 DeepSeek，除非另行批准）。
