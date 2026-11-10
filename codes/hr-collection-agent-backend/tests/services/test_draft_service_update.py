@@ -187,3 +187,47 @@ def test_concurrent_updates_of_different_fields_are_both_kept(draft_env: DraftEn
     after = stored(draft_env)
     assert after["skills"] == {"value": ["s9"], "status": "confirmed"}
     assert after["languages"] == {"value": ["l9"], "status": "confirmed"}
+
+
+# ---- 第六批 SUGGEST-1: blank list items and empty block entries are dropped -------------------
+
+
+def test_text_list_drops_blank_items_and_trims_the_rest(draft_env: DraftEnv, created) -> None:  # noqa: ANN001
+    draft_env.service.update(created.token, upd(skills=[" ", "", " a ", "b"]))
+    assert stored(draft_env)["skills"] == {"value": ["a", "b"], "status": "confirmed"}
+
+
+def test_text_list_of_only_blanks_means_confirmed_empty(draft_env: DraftEnv, created) -> None:  # noqa: ANN001
+    draft_env.service.update(created.token, upd(skills=[" ", ""]))
+    assert stored(draft_env)["skills"] == {"value": [], "status": "confirmed"}
+
+
+def test_block_drops_entries_with_no_content(draft_env: DraftEnv, created) -> None:  # noqa: ANN001
+    draft_env.service.update(
+        created.token,
+        upd(educations=[{}, {"school": "  ", "honors": " "}, {"school": " A "}]),
+    )
+    value = stored(draft_env)["educations"]["value"]
+    assert [e["school"] for e in value] == ["A"]  # entry strings are trimmed too
+
+
+def test_block_of_only_empty_entries_means_confirmed_empty(draft_env: DraftEnv, created) -> None:  # noqa: ANN001
+    draft_env.service.update(
+        created.token, upd(educations=[{}], work_experiences=[{"company": " "}])
+    )
+    after = stored(draft_env)
+    assert after["educations"] == {"value": [], "status": "confirmed"}
+    assert after["work_experiences"] == {"value": [], "status": "confirmed"}
+
+
+def test_entry_inner_lists_drop_blank_items(draft_env: DraftEnv, created) -> None:  # noqa: ANN001
+    draft_env.service.update(
+        created.token,
+        upd(
+            work_experiences=[
+                {"company": "X", "responsibilities": [" ", " a "], "achievements": [""]}
+            ]
+        ),
+    )
+    (entry,) = stored(draft_env)["work_experiences"]["value"]
+    assert entry["responsibilities"] == ["a"] and entry["achievements"] == []

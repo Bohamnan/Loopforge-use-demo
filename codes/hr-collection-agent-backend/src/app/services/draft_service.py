@@ -4,6 +4,8 @@ import sqlite3
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 
+from pydantic import BaseModel
+
 from app.clients.resume_parser_client import ResumeParserClient
 from app.core.clock import Clock, format_utc, parse_utc
 from app.core.errors import DraftNotFoundError, ValidationFailedError
@@ -60,12 +62,40 @@ def to_response(record: DraftRecord, ttl_days: int) -> DraftResponse:
     )
 
 
+def _clean_strings(items: list[str]) -> list[str]:
+    """Trim every item and drop the blank ones."""
+    return [item.strip() for item in items if item.strip()]
+
+
+def _clean_entry(entry: BaseModel) -> BaseModel | None:
+    """Trim an entry's strings and drop blank list items; ``None`` if nothing is left."""
+    data: dict[str, object] = {}
+    for name, value in entry.model_dump().items():
+        if isinstance(value, list):
+            data[name] = _clean_strings(value)
+        elif isinstance(value, str):
+            data[name] = value.strip() or None
+        else:
+            data[name] = value
+    if not any(data.values()):
+        return None
+    return type(entry)(**data)
+
+
 def _confirmed_node(key: str, value: object):  # noqa: ANN202
-    """The node for a submitted field: the value is final, the status is ``confirmed``."""
+    """The node for a submitted field: the value is final, the status is ``confirmed``.
+
+    Blank list items and entries without any content are dropped (same rule as ``normalize``);
+    a list that ends up empty is a confirmed empty field.
+    """
     if key in _TEXT_LIST_KEYS:
-        return StringListField(value=value, status=FieldStatus.CONFIRMED)  # type: ignore[arg-type]
+        return StringListField(
+            value=_clean_strings(value),  # type: ignore[arg-type]
+            status=FieldStatus.CONFIRMED,
+        )
     if key in _BLOCK_FIELDS:
-        return _BLOCK_FIELDS[key](value=value, status=FieldStatus.CONFIRMED)
+        entries = [e for e in map(_clean_entry, value) if e is not None]  # type: ignore[call-overload]
+        return _BLOCK_FIELDS[key](value=entries, status=FieldStatus.CONFIRMED)
     text = value.strip() if isinstance(value, str) else None
     return StringField(value=text or None, status=FieldStatus.CONFIRMED)  # blank = confirmed empty
 
