@@ -5,13 +5,14 @@
 | 状态 | 已确认 |
 | 版本 | v1（技术设计后补全） |
 | 来源 | [solution-design.md](../../01-requirements/HR_PR-1/solution-design.md)（HR_PR-1）；工作台 backend 规范与架构参考；v1 补全依据 [design.md](../../backend-docs/HR_PR-1/04_design/design.md)、[sql_ddl_resume.md](../../backend-docs/HR_PR-1/02_schema/sql_ddl_resume.md)、[openapi.yaml](../../backend-docs/HR_PR-1/03_api/openapi.yaml)（0.1.1）、[tasks.md](../../backend-docs/HR_PR-1/05_task/tasks.md) |
-| 最后更新 | 2026-11-10（任务 1.8：依赖清单增加 `pypdfium2`，日志白名单增加 token 用量；此前：第一批审查后修订） |
+| 最后更新 | 2026-11-10（任务 1.8 审查修复：模型与外发地址锁定；此前任务 1.8：依赖清单增加 `pypdfium2`，日志白名单增加 token 用量；此前：第一批审查后修订） |
 
 ### 变更履历
 
 | 日期 | 变更 | 驱动 |
 |------|------|------|
 | 2026-11-10 | 第一批审查后修订：日志白名单补 `count`、`stack`；命名条款补与 OpenAPI 同名模型的例外 | 审查 SUGGEST-5、QUESTION-1 |
+| 2026-11-10 | 任务 1.8 审查修复：环境变量 `DEEPSEEK_MODEL` 只能为 `deepseek-flash`、`DEEPSEEK_BASE_URL` 只允许 `https://api.deepseek.com`；PDF 处理 20 秒上限；提示词起止标记 | 第二批审查 BLOCK-1、QUESTION-1；DL 裁决 |
 | 2026-11-10 | 任务 1.8：依赖清单增加 `pypdfium2`；日志白名单增加 `prompt_tokens`、`completion_tokens`；模型调用说明补充 PDF 本地转换 | DL 裁决（deepseek-flash 不接受 PDF，PDF 在 backend 本地转换后提交） |
 
 ## 项目定位
@@ -118,8 +119,8 @@ codes/hr-collection-agent-backend/
 | 变量 | 用途 |
 |---|---|
 | `DEEPSEEK_API_KEY` | 模型服务凭证（密钥，B-01；缺失时启动不阻止，首次调用返回 `parse_unavailable`） |
-| `DEEPSEEK_BASE_URL` | 模型服务地址 |
-| `DEEPSEEK_MODEL` | 模型标识，默认 `deepseek-flash` |
+| `DEEPSEEK_BASE_URL` | 模型服务地址；**只允许 `https://api.deepseek.com`**（可带简单路径前缀，不允许 http、其他主机、端口、userinfo），否则启动失败（B-02） |
+| `DEEPSEEK_MODEL` | 模型标识；**只能为 `deepseek-flash`**（ADR-001），其他值（含大小写变体）启动失败；配置错误信息不回显配置值 |
 | `DATA_DIR` | 运行期数据目录（`drafts.db`、`resumes.db`、`drafts/`） |
 | `FILE_DIR` | 已确认简历原始文件归档目录 |
 | `MODEL_TIMEOUT_SECONDS` | 模型读超时秒数，默认 60（C-08） |

@@ -9,7 +9,9 @@ PDFium is not thread-safe, so every call is serialised with a lock.
 import re
 import struct
 import threading
+import time
 import zlib
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import pypdfium2 as pdfium
@@ -22,6 +24,7 @@ MAX_PAGES = 5
 LONG_EDGE_PX = 1600  # rendered image long edge (about 140 DPI on A4)
 MAX_TEXT_CHARS_PER_PAGE = 6000  # token guard for pathological text layers
 
+PDF_TIMEOUT_SECONDS = 20  # total budget for lock wait + text extraction + rendering
 _PDFIUM_LOCK = threading.Lock()
 _WHITESPACE_RE = re.compile(r"\s+")
 
@@ -84,31 +87,63 @@ def _page_text(page: pdfium.PdfPage) -> str:
         textpage.close()
 
 
-def render_pdf(content: bytes) -> RenderedPdf:
-    """Prepare up to ``MAX_PAGES`` pages of a PDF. Unreadable PDFs raise ParseFailedError."""
-    with _PDFIUM_LOCK:
+def _now() -> float:
+    return time.monotonic()
+
+
+def _open(content: bytes) -> pdfium.PdfDocument:
+    try:
+        return pdfium.PdfDocument(content)
+    except (PdfiumError, ValueError) as exc:
+        raise ParseFailedError() from exc
+
+
+def _process_pages(pdf: pdfium.PdfDocument, check_budget: Callable[[], None]) -> RenderedPdf:
+    total = len(pdf)
+    if total == 0:
+        raise ParseFailedError()
+    processed = min(total, MAX_PAGES)
+    parts: list[TextPart | ImagePart] = []
+    for index in range(processed):
+        check_budget()
+        page = pdf[index]
         try:
-            pdf = pdfium.PdfDocument(content)
-        except (PdfiumError, ValueError) as exc:
-            raise ParseFailedError() from exc
+            text = _page_text(page)
+            if len(_WHITESPACE_RE.sub("", text)) >= MIN_TEXT_CHARS:
+                parts.append(TextPart(index + 1, text.strip()[:MAX_TEXT_CHARS_PER_PAGE]))
+            else:
+                parts.append(ImagePart(index + 1, _render_page(page)))
+        finally:
+            page.close()
+    check_budget()
+    return RenderedPdf(parts=parts, total_pages=total, processed_pages=processed)
+
+
+def render_pdf(content: bytes, timeout_seconds: float | None = None) -> RenderedPdf:
+    """Prepare up to ``MAX_PAGES`` pages of a PDF.
+
+    Unreadable PDFs and exceeding the total time budget raise ParseFailedError. The budget is
+    cooperative: it covers waiting for the PDFium lock and is checked between pages, so a
+    single page operation that is already running cannot be interrupted.
+    """
+    budget = PDF_TIMEOUT_SECONDS if timeout_seconds is None else timeout_seconds
+    deadline = _now() + budget
+
+    def check_budget() -> None:
+        if _now() >= deadline:
+            raise ParseFailedError()
+
+    check_budget()
+    if not _PDFIUM_LOCK.acquire(timeout=max(budget, 0)):
+        raise ParseFailedError()
+    try:
+        check_budget()
+        pdf = _open(content)
         try:
-            total = len(pdf)
-            if total == 0:
-                raise ParseFailedError()
-            parts: list[TextPart | ImagePart] = []
-            processed = min(total, MAX_PAGES)
-            for index in range(processed):
-                page = pdf[index]
-                try:
-                    text = _page_text(page)
-                    if len(_WHITESPACE_RE.sub("", text)) >= MIN_TEXT_CHARS:
-                        parts.append(TextPart(index + 1, text.strip()[:MAX_TEXT_CHARS_PER_PAGE]))
-                    else:
-                        parts.append(ImagePart(index + 1, _render_page(page)))
-                finally:
-                    page.close()
+            return _process_pages(pdf, check_budget)
         except PdfiumError as exc:
             raise ParseFailedError() from exc
         finally:
             pdf.close()
-    return RenderedPdf(parts=parts, total_pages=total, processed_pages=processed)
+    finally:
+        _PDFIUM_LOCK.release()
