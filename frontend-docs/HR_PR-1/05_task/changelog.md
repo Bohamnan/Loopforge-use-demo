@@ -449,3 +449,25 @@ React 在开发模式下自身会向 console 输出异常信息（含 message）
 | codes/hr-collection-agent-frontend/src/components/ChatThread.tsx、ChatThread.test.tsx | 修改 | 滚动到目标区块时，用户系统设置为 `prefers-reduced-motion: reduce` 则 `behavior: 'auto'`，否则 `'smooth'`；各有测试 |
 
 偏差：无。遗留风险：Ant Design 自身的组件动画（弹窗等）不在本项范围内，沿用库的默认处理。
+
+## Cleanup-D：契约漂移检测、ESLint 网络防线收紧、audit 跟踪（第一批 S3 / S4 / S5）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/types/ContractDrift.test.ts | 新增 | **S3**：读取同仓库的 `backend-docs/HR_PR-1/03_api/openapi.yaml`（`import.meta.glob ?raw`，无新增依赖；文件不存在则跳过），逐项对比：契约版本、`FieldStatus` / `ErrorCode` / `reason` 枚举、`ResumeFields` 22 键及顺序、`ResumeFieldsUpdate` 每个字段的 `maxLength` / `maxItems` / 列表项 `maxLength`、手机号与邮箱 `pattern`、三类经历子 schema 的子字段与统一上限。已用“把 name 的上限临时改成 101”验证该测试会失败（随后还原）。契约一变，测试就会失败，不再依赖人工记得更新 |
+| codes/hr-collection-agent-frontend/vite.config.ts | 修改 | `server.fs.allow` 仅放开项目目录与 `backend-docs/HR_PR-1/03_api`，让上面的测试能读取契约文件 |
+| codes/hr-collection-agent-frontend/eslint.config.js、src/test/EslintRules.test.ts | 修改 | **S4**：`fetch` 的禁用范围由 pages / components / hooks 扩大到 `src` 下除 `src/api`、测试与 `src/test` 外的全部文件（含 `App.tsx`、`main.tsx`、`types`、`hooks/model`）；新增禁用 `XMLHttpRequest`、`WebSocket`、`EventSource`、`navigator.sendBeacon`（含 `window.xxx` 写法）；浏览器存储仍在所有文件（含 api 与测试）禁用。新增 14 个规则用例 |
+
+### S5（npm audit）
+`npm audit --omit=dev --registry=https://registry.npmjs.org`：**0 个漏洞**（运行时依赖）。dev 工具链仍有 10 项 moderate（minimatch 拒绝服务，经 eslint / typescript-eslint 传递，不进入产物），修复需降级 ESLint 为 9（破坏性），登记为已知风险：待 eslint / typescript-eslint 升级后复查，发布前重新跑一次 audit。审查机器默认源为镜像，镜像不支持 audit 接口，须显式指定官方 registry。
+
+### 偏差说明
+- `AGENTS.md` 红线仍写“pages / components / hooks 禁用 fetch”，现行 lint 比它更严（覆盖整个 `src` 除 api）。我没有改动该已确认文件，请 DL 决定是否把红线文字同步为新范围。
+- 契约漂移检测放在 `src/types/` 下，作为 Vitest 用例运行，没有单独的脚本。
+
+### 遗留风险
+契约文件解析是针对当前 YAML 书写风格（流式映射 + 8 空格缩进）的轻量文本解析，不是完整 YAML 解析；契约改变书写风格时，该测试可能误报失败，需同步调整提取逻辑（失败是安全方向）。
