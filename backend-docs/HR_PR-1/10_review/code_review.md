@@ -340,3 +340,82 @@
 
 ### 1.8 HIGH_RISK 最终结论
 **建议 DL 将任务 1.8 标 ✅。** BLOCK 0、QUESTION 0；B-01（`SecretStr`、无 `sk-` 值）、B-02（模型与地址在配置层、客户端构造层、请求体三处锁定，所有请求经 clients 层且有 MockTransport 逐请求断言）、B-03（日志白名单、httpx 日志降级、错误不回显）、B-06（仅合成数据）及与 ADR-001 修订 1 的一致性均通过。上述 3 条 SUGGEST 与 2.1 的 normalizer 要求作为跟踪项，不阻断标 ✅。
+
+---
+
+## 第四批审查（任务 1.9–1.10：草稿库/草稿文件存储、正式库/归档文件存储）
+
+- 日期：2026-11-10；Review 模式：Ticket-aware Review；Reviewer：Yin Yang（dev-lead，审查 agent 代行）
+- 审查对象：提交 de985a7（1.9，含上一批复审建议 `trust_env=False` 与收紧后的页间超时用例）、3f74106（1.10）；已合并 feature（7c1cdf4），本 worktree 已 `git merge feature`。
+- 本批结论：**PASS_WITH_SUGGESTIONS**（0 BLOCK / 0 QUESTION / 7 SUGGEST；另有 2 个 worker 提出的 DL 确认点，我的建议均为“接受”，见下）
+- 上下文限制：本批只有存储原语，B-04（确认前不入库）与 B-05（保存顺序、补偿、对账）的运行路径在 2.4/2.5，**本批不能对其下结论**，只核对原语是否足以支撑。
+
+### Review Scope
+| 文件 | 风险 |
+|---|---|
+| `src/app/repositories/draft_repository.py`、`draft_file_store.py` | 中高（令牌哈希、SQL、文件安全） |
+| `src/app/repositories/resume_repository.py`、`archive_file_store.py` | **高**（B-05 基础、ADR-004 幂等基础、原始简历文件） |
+| `src/app/clients/deepseek_client.py`（`trust_env=False`）、`tests/clients/test_{deepseek_client,pdf_renderer}.py` | 高（B-02） |
+| `tests/repositories/*`（4 个文件） | — |
+
+### 核对结果
+| 检查项 | 结论 | 证据 |
+|---|---|---|
+| 两库物理分离、无外键（C-12、ADR-003） | ✅ | 两个仓储各自只持有自己的 `db_path`；`DraftRepository` 不引用 `resumes`，`ResumeRepository` 不引用 `drafts`；跨库无 FK，库内 FK 仅正式库子表 → 主表（沿用第一批 DDL） |
+| 令牌只存 SHA-256 | ✅ | `DraftRecord.token_hash` 是唯一令牌字段，无明文列；`test_plain_token_is_never_stored` 直接查库断言；哈希由 `core/ids.hash_token` 产生（调用方负责） |
+| SQL 全参数绑定 | ✅ | 所有值都用 `?`；唯一的 f-string 只插入模块常量 `_COLUMNS`（带 `noqa: S608`，无外部输入）；`test_sql_is_parameter_bound`、`test_values_are_parameter_bound` 以注入串验证只作数据 |
+| 写事务 `BEGIN IMMEDIATE` | ✅ | 所有写操作经 `core.db.transaction`；`create_aggregate`、`insert`、`delete*`、`touch_and_get`、`transaction()` 均在其中 |
+| 文件名服务端生成、扩展名白名单、独占创建 | ✅ | `DraftFileStore.save`：`f"{draft_id}{EXTENSIONS[content_type]}"`（仅 pdf/jpg/png，来自已校验的内容类型）、`open(..., "xb")` 不覆盖并 `fsync`；`ArchiveFileStore` 名称由 `tmp_name/final_name` 生成，ID 与扩展名白名单校验；用户文件名不参与路径 |
+| 拒绝路径穿越与符号链接逃逸 | ✅（逃逸）⚠️（目录内符号链接，见 SUGGEST-1） | `_NAME_RE`/`_ID_RE` 白名单正则 + `resolve()` 后 `parent == root`；8 种越界名、指向目录外的符号链接被拒且外部文件不受影响（测试）；`ArchiveFileStore._path` 拒绝符号链接，`scan` 将符号链接归入 unknown 且不触碰 |
+| 清理永不访问 `file/` | ✅（本批范围） | `DraftFileStore` 根目录固定为 `{DATA_DIR}/drafts`，无任何指向 `file/` 的路径；`test_store_never_touches_files_outside_its_directory`；`list_files` 只列常规文件并跳过符号链接。清理服务本身在 2.6 |
+| `ArchiveFileStore` 原语支撑 B-05 / 对账 | ✅ | tmp 与终态同目录（测试验证同设备）；`promote` 为 `os.replace` 原子重命名（测试验证同 inode，非复制）并尽力 fsync 目录；`stage` 复制后 fsync；`discard_tmp` 只拼 tmp 名，不可能触及终态文件（有测试）；`exists_tmp/final`、`scan`、`remove` 足以支撑 2.5 的“roll-forward tmp / 删无记录 tmp / 删无记录终态 / 记录缺文件仅告警”四种情形；**未提前实现**保存顺序、重复分支、补偿与对账决策（changelog 声明，代码走读一致） |
+| `create_aggregate` 单事务、整体回滚、唯一身份冲突 → `DuplicateIdentityError` | ✅ | 主表与三类子表在同一个 `transaction()` 内；异常触发 `ROLLBACK`；仅当错误消息含 `resumes.name_key` 才转 `DuplicateIdentityError`，`file_path` 唯一、CHECK、外键、触发器注入失败均原样抛出（测试“其他完整性错误不被吞”“最后一张子表失败 → 四表均无数据且仓储可继续使用”） |
+| 并发测试有效性 | ✅ | `test_concurrent_same_identity_yields_exactly_one_record`：4 线程用 `Barrier` 同时提交同身份、不同 `id`/`file_path`，结果恰为 1 个 `created` + 3 个 `duplicate`，且主表与子表计数均为 1，证明 BEGIN IMMEDIATE + `uq_resumes_identity` 在并发下成立（ADR-004 基础）；`test_concurrent_read_modify_write_loses_no_update`：两线程各 10 次读改写，最终各键均为 10 |
+| `trust_env=False` 测试是否真实有效 | ✅ | `deepseek_client.py` 增加 `trust_env=False`；测试设置 6 种代理环境变量后断言 `client._http._mounts == {}` 且 `trust_env is False`。我另外验证：设置同样的 `HTTPS_PROXY` 时，默认 `httpx.Client` 的 `_mounts` 数量为 **1**，`trust_env=False` 为 **0**，所以该断言能区分有无修复（changelog 也称去掉修复后该测试失败）。缺点：依赖 httpx 私有属性 `_mounts`，升级 httpx 时需留意（SUGGEST-7） |
+| 页间超时用例收紧 | ✅ | 新用例用伪时钟让每页文本提取“耗时 10 秒”、预算 25 秒，断言 `len(processed) == 3`，即第 1 页之后才超时、在第 4 页前停止；关闭了上一轮 SUGGEST-1 |
+| 分层 | ✅ | repositories 只含 SQL/文件操作，无业务判断；依赖仅为 `core`、`schemas`（`NewResume` 使用 `Education` 等模型）；`*_key` 由调用方传入，仓储不做规范化 |
+
+### BLOCKING Issues
+无。
+
+### QUESTIONS
+无。
+
+### worker 提出的两个 DL 确认点
+1. **部署环境需要 SQLite ≥ 3.35（`RETURNING`）——建议接受。** design §5.5 本身就以 `DELETE ... RETURNING file_path` 为设计（不是实现自行引入）；本机 uv 管理的 Python 为 3.50.4，系统库为 3.51.3，都满足。风险在于将来部署到自带旧 SQLite 的镜像（如 3.34 及以下）。建议：在 AGENTS.md 运行环境中写明“SQLite ≥ 3.35”，并在 `init_*_db` 里加一行启动时检查（`sqlite3.sqlite_version_info >= (3, 35)`，不满足则明确报错），见 SUGGEST-2。
+2. **`stage` 失败时自行清理残留 tmp 作为兜底——建议接受。** ADR-005 把“提交前失败清 tmp”放在 service 补偿，但 `stage` 只删除**自己刚创建的、带随机 ID 的 tmp 名**，不可能碰终态文件，也不改变 2.4 的补偿职责（`discard_tmp` 仍幂等，可重复调用），测试覆盖“源文件缺失”“复制中途失败”两种情形。唯一注意：2.4 不要因此省略自己的补偿调用。
+
+### SUGGESTIONS
+- **第四批-SUGGEST-1（目录内符号链接会让 `delete` 删掉别的草稿文件）**：`draft_file_store.py:resolve/read/delete` 先 `resolve()` 再比较父目录；符号链接若指向**同目录内另一文件**，`resolve()` 返回目标路径，校验通过。我复现：在 `drafts/` 内创建 `a.pdf → b.pdf`，`read("a.pdf")` 返回 b 的内容；`delete("a.pdf")` 返回 True，**b.pdf 被删除，链接 a.pdf 仍在**。前提是攻击者已能在服务端数据目录写入文件，POC 威胁很低，且 changelog 已披露“被视为目录内文件”（但没有提到 `delete` 会删目标）。建议：校验时用 `os.lstat`/`is_symlink()` 拒绝符号链接（与 `ArchiveFileStore._path` 一致），读取用 `O_NOFOLLOW`。
+- **第四批-SUGGEST-2（SQLite 版本启动检查）**：见上，把 `RETURNING` 依赖变成启动时的明确错误，而不是首次清理/删除时的运行期 `OperationalError`。
+- **第四批-SUGGEST-3（`promote` 会静默覆盖已存在的终态文件）**：`archive_file_store.py:promote` 使用 `os.replace`，如果同名终态文件已存在会被替换。ID 是新生成的 UUID 所以正常路径不会发生，但归档原件是 B-05 保护的对象，建议在 `promote` 前检查终态不存在（存在则抛错），或改用“`os.link` + 删除 tmp”的不覆盖语义，并补一条测试。
+- **第四批-SUGGEST-4（草稿文件写入失败留下半个文件）**：`draft_file_store.py:save` 在 `write/fsync` 失败（如磁盘满）时不清理已创建的文件（`ArchiveFileStore.stage` 做了）。孤儿扫描（2.6）有 1 天余量会兜底，但建议 `save` 失败时 `unlink`，避免占用磁盘。
+- **第四批-SUGGEST-5（`list_files` 的竞态）**：`entry.stat()` 在 `iterdir` 与 `stat` 之间若文件被并发删除会抛 `FileNotFoundError`，清理扫描会因此中断；建议捕获并跳过。
+- **第四批-SUGGEST-6（`stage` 用 `"wb"` 打开 tmp）**：非独占创建，且会写穿预先存在的同名符号链接；建议在 2.4 保证每次保存使用新 ID 的前提下改为 `"xb"`（失败重试应换新 ID，已有 tmp 说明有残留需先对账）。另：`NewResume` 重复检测靠 `exc` 文本里的 `resumes.name_key`，当前 SQLite 版本下可靠且有测试，升级 SQLite 时留意；ID 正则不强制 UUID（风险已披露，字符集安全，接受）。
+- **第四批-SUGGEST-7（测试脆弱点）**：`trust_env` 测试读取 `httpx.Client._mounts` 私有属性；建议同时保留当前断言和 `trust_env is False`（已有），升级 httpx 时重点关注，或补一个用 `MockTransport` 之外的最小行为测试。
+
+### 遗留风险评估
+| 风险 | 评估 |
+|---|---|
+| ID 正则不强制 UUID | 接受：字符集 `[A-Za-z0-9-]{1,64}` 不含路径分隔符与点，服务层生成 UUID v4；可选收紧为 UUID 正则（需同步测试用的短 ID）。 |
+| 符号链接指向目录内另一文件 | 不止“被视为目录内文件”：`delete` 会删除目标，见 SUGGEST-1；POC 可接受，建议顺手修复。 |
+| 并发确认时源文件被先到者删除 | 属 2.4 范围，届时核对。 |
+
+### 本批复跑（merge 后）
+| 命令 | 结果 |
+|---|---|
+| `uv sync --frozen` | ✅ |
+| `uv run python -m compileall -q src` | ✅ 退出码 0；`-f` 实际编译 35 个文件 |
+| `uv run pytest -q` | ✅ **449 passed**，1 warning（既有 `StarletteDeprecationWarning`），0 failed，0 skipped（上一批为 361） |
+| `uv run ruff check .` | ✅ All checks passed |
+| `uv run ruff format --check .` | ✅ 71 files already formatted |
+| SQLite 版本 | uv 管理的 Python 3.50.4；系统 3.51.3（均 ≥ 3.35） |
+
+### 正向反馈
+- 原语与策略分离清晰：`ArchiveFileStore` 只提供 stage/promote/discard/scan/remove，保存顺序与补偿完全留给 2.4/2.5，没有提前实现。
+- 并发测试直接对着 ADR-004 的幂等承诺（唯一索引 + BEGIN IMMEDIATE）设计，并同时检查子表计数。
+- 触发器注入“最后一张子表失败”的回滚测试，比单纯断言异常更能证明整体回滚。
+- 复审建议当轮就落实并附带“去掉修复测试会失败”的证据。
+
+### 更新后的本批结论
+**PASS_WITH_SUGGESTIONS**。建议 DL 接受两个确认点；SUGGEST-1、2、3 建议在 2.4 开工前或随 2.4 一并处理，不阻断 1.9、1.10 通过审查。
