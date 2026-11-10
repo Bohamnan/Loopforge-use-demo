@@ -7,7 +7,7 @@
 
 | 版本 | 日期 | 修改说明 | 作者 |
 |------|------|----------|------|
-| v1.0 | 2026-11-10 | 初始版本：122 条用例，已全部执行并回填结果 | Yin Yang（backend） |
+| v1.0 | 2026-11-10 | 初始版本：123 条用例，已全部执行并回填结果 | Yin Yang（backend） |
 
 ## 文档信息
 
@@ -37,13 +37,13 @@
 
 | 场景类型 | 代码 | 用例数 |
 |---------|------|-------|
-| 正向路径 | HP | 26 |
+| 正向路径 | HP | 27 |
 | 参数校验 | PV | 16 |
 | 业务逻辑 | BL | 35 |
 | 错误处理 | EH | 27 |
 | 数据边界 | DB | 9 |
 | 安全性 | SE | 9 |
-| 合计 | — | 122 |
+| 合计 | — | 123 |
 
 执行结果汇总见文末“执行汇总”。
 
@@ -110,6 +110,18 @@
 | 执行结果 | ✅ 通过 |
 
 数据验证：`SELECT count(*) FROM drafts; -- 2`
+
+#### TC-RES-001-HP-06：运行中的应用与冻结 OpenAPI 0.1.1 一致
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-06.4, AC-06.5 |
+| 步骤/输入 | 读取 backend-docs/.../openapi.yaml 与 app.openapi() 比对 |
+| 预期 | info.version=0.1.1；(path, method, operationId) 集合相等；路径均以 /api/v1/ 开头 |
+| 自动化 | tests/selftest/ `test_tc_res_001_hp_06` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- 契约比对断言`
 
 #### TC-RES-001-PV-01：缺少 file 部分
 
@@ -339,7 +351,6 @@
 
 数据验证：`-- HTTP 断言`
 
-
 ## 2、接口② 读取当前草稿 — GET /api/v1/resume-drafts/current
 
 #### TC-RES-002-HP-01：凭 Cookie 读取草稿并续期
@@ -437,7 +448,6 @@
 | 执行结果 | ✅ 通过 |
 
 数据验证：`-- HTTP 断言`
-
 
 ## 3、接口③ 提交校对结果 — PATCH /api/v1/resume-drafts/current
 
@@ -656,7 +666,6 @@
 | 执行结果 | ✅ 通过 |
 
 数据验证：`-- 抓取日志`
-
 
 ## 4、接口④ 确认保存 — POST /api/v1/resumes
 
@@ -948,7 +957,6 @@
 
 数据验证：`SELECT name FROM resumes; SELECT count(*) FROM sqlite_master WHERE name='resumes'; -- 1`
 
-
 ## 5、启动对账与初始化（lifespan）
 
 #### TC-RES-005-HP-01：启动后目录、库、版本就绪
@@ -1083,7 +1091,6 @@
 
 数据验证：`SELECT count(*) FROM resumes; SELECT count(*) FROM drafts;`
 
-
 ## 6、草稿清理（启动一次+定时）
 
 #### TC-RES-006-BL-01：7 天边界清理
@@ -1157,7 +1164,6 @@
 | 执行结果 | ✅ 通过 |
 
 数据验证：`-- 调用计数断言`
-
 
 ## 7、模型调用（clients 层，含 1 MB 请求体预算、B-02/B-04/B-05/B-06）
 
@@ -1389,7 +1395,6 @@
 
 数据验证：`-- 抓取日志`
 
-
 ## 8、真实进程 + 真实 DeepSeek + 真实简历样品（脱敏）
 
 #### TC-RES-008-HP-01：真实进程启动：对账→清理→启动完成→监听
@@ -1536,4 +1541,104 @@
 
 数据验证：`lsof -i :8000 无输出`
 
+## 覆盖追溯矩阵
 
+### 验收标准覆盖（REQ-BE-01 ~ 06，共 37 条）
+
+| AC 编号 | AC 描述 | 覆盖用例（节选） | 状态 |
+|---|---|---|---|
+| AC-01.1 | 合法 PDF/JPG/JPEG/PNG ≤10MB 被接收并解析 | TC-RES-001-HP-01, TC-RES-001-HP-02, TC-RES-001-EH-03, TC-RES-001-DB-01 等 7 条 | ✅ 已覆盖 |
+| AC-01.2 | 非法类型/超限/空/魔数不符被拒，不调模型 | TC-RES-001-PV-01, TC-RES-001-PV-02, TC-RES-001-PV-03, TC-RES-001-PV-04 等 8 条 | ✅ 已覆盖 |
+| AC-01.3 | 服务端命名落盘 | TC-RES-001-HP-01, TC-RES-001-BL-01, TC-RES-001-DB-02 | ✅ 已覆盖 |
+| AC-01.4 | 每次只接受一个文件 | TC-RES-001-PV-06 | ✅ 已覆盖 |
+| AC-01.5 | 成功上传新建草稿与新令牌 Cookie | TC-RES-001-HP-01, TC-RES-001-HP-05 | ✅ 已覆盖 |
+| AC-01.6 | 重传替换旧草稿；失败不动旧草稿与 Cookie | TC-RES-001-HP-04, TC-RES-001-EH-01 | ✅ 已覆盖 |
+| AC-02.1 | 仅经 clients 调 deepseek-flash | TC-RES-007-HP-01, TC-RES-007-HP-02, TC-RES-007-HP-03, TC-RES-007-BL-01 等 6 条 | ✅ 已覆盖 |
+| AC-02.2 | 字段状态 recognized/uncertain/missing | TC-RES-001-HP-03, TC-RES-008-HP-02, TC-RES-008-HP-03 | ✅ 已覆盖 |
+| AC-02.3 | 结构不合法/无依据值降级，不猜测 | TC-RES-001-BL-03, TC-RES-001-BL-04, TC-RES-007-EH-04, TC-RES-008-HP-03 | ✅ 已覆盖 |
+| AC-02.4 | 60 秒超时 → parse_timeout | TC-RES-001-EH-02, TC-RES-007-EH-01, TC-RES-007-EH-06 | ✅ 已覆盖 |
+| AC-02.5 | 不可用/拒绝/错误 → 阻断不回退 | TC-RES-001-EH-01, TC-RES-001-EH-02, TC-RES-007-BL-02, TC-RES-007-BL-03 等 10 条 | ✅ 已覆盖 |
+| AC-02.6 | 同步返回草稿与字段状态 | TC-RES-001-HP-01, TC-RES-001-HP-03, TC-RES-008-HP-02 | ✅ 已覆盖 |
+| AC-03.1 | 读取返回全部字段值与状态 | TC-RES-002-HP-01, TC-RES-008-HP-04 | ✅ 已覆盖 |
+| AC-03.2 | 更新置 confirmed，未提交保持原状 | TC-RES-003-HP-01, TC-RES-003-HP-03, TC-RES-003-HP-04, TC-RES-003-BL-02 等 6 条 | ✅ 已覆盖 |
+| AC-03.3 | 多条子项增删改 | TC-RES-003-HP-02 | ✅ 已覆盖 |
+| AC-03.4 | 手机号/邮箱字段级错误 | TC-RES-003-PV-01, TC-RES-003-PV-02, TC-RES-003-PV-03, TC-RES-003-PV-04 等 9 条 | ✅ 已覆盖 |
+| AC-03.5 | 读取/更新刷新活动时间 | TC-RES-002-HP-02, TC-RES-003-BL-03 | ✅ 已覆盖 |
+| AC-04.1 | 无明确确认不写库 | TC-RES-004-PV-01, TC-RES-004-BL-01 | ✅ 已覆盖 |
+| AC-04.2 | 核心三项缺失/非法拒绝 | TC-RES-003-PV-05, TC-RES-004-PV-02, TC-RES-004-PV-03, TC-RES-004-DB-01 | ✅ 已覆盖 |
+| AC-04.3 | 文件→正式库保存顺序 | TC-RES-004-HP-01, TC-RES-004-BL-02, TC-RES-004-BL-03, TC-RES-004-BL-05 等 5 条 | ✅ 已覆盖 |
+| AC-04.4 | 失败补偿与启动对账（B-05） | TC-RES-004-BL-02, TC-RES-004-BL-07, TC-RES-004-EH-03, TC-RES-004-EH-04 等 18 条 | ✅ 已覆盖 |
+| AC-04.5 | 规范化幂等键与唯一约束 | TC-RES-004-HP-02, TC-RES-004-HP-03, TC-RES-004-BL-04, TC-RES-004-BL-06 等 6 条 | ✅ 已覆盖 |
+| AC-04.6 | 同键不新增不覆盖，返回 already_saved | TC-RES-004-HP-02, TC-RES-004-BL-07, TC-RES-008-HP-07 | ✅ 已覆盖 |
+| AC-04.7 | 成功后删草稿并作废令牌 | TC-RES-002-EH-03, TC-RES-004-HP-01, TC-RES-004-EH-06, TC-RES-008-HP-06 | ✅ 已覆盖 |
+| AC-04.8 | 草稿不存在/令牌无效 → draft_not_found | TC-RES-003-EH-01, TC-RES-004-EH-01, TC-RES-004-EH-02, TC-RES-008-EH-01 | ✅ 已覆盖 |
+| AC-04.9 | 无修改/删除接口 | TC-RES-004-BL-08 | ✅ 已覆盖 |
+| AC-05.1 | 草稿库与正式库分离 | TC-RES-001-BL-05, TC-RES-004-BL-01, TC-RES-005-HP-01 | ✅ 已覆盖 |
+| AC-05.2 | HttpOnly Cookie 令牌 7 天，随机 | TC-RES-001-HP-01, TC-RES-001-SE-01, TC-RES-008-HP-02 | ✅ 已覆盖 |
+| AC-05.3 | 有效令牌读取当前草稿 | TC-RES-002-HP-01, TC-RES-002-SE-01, TC-RES-008-HP-04 | ✅ 已覆盖 |
+| AC-05.4 | 无效/作废/过期 → 无可恢复草稿 | TC-RES-002-EH-01, TC-RES-002-EH-02, TC-RES-002-EH-03, TC-RES-002-EH-04 等 7 条 | ✅ 已覆盖 |
+| AC-05.5 | 启动与定时清理，不触及 file/ | TC-RES-005-HP-02, TC-RES-005-DB-01, TC-RES-006-BL-01, TC-RES-006-BL-02 等 10 条 | ✅ 已覆盖 |
+| AC-06.1 | 凭证仅来自环境变量 | TC-RES-007-HP-01, TC-RES-007-BL-06, TC-RES-007-SE-01, TC-RES-008-SE-01 | ✅ 已覆盖 |
+| AC-06.2 | 仅经 clients 外发 | TC-RES-007-HP-01, TC-RES-007-BL-04, TC-RES-007-BL-05 | ✅ 已覆盖 |
+| AC-06.3 | 日志/错误不含原文与敏感信息 | TC-RES-001-SE-01, TC-RES-001-SE-02, TC-RES-003-SE-01, TC-RES-004-SE-01 等 8 条 | ✅ 已覆盖 |
+| AC-06.4 | 前缀/snake_case/统一错误体 | TC-RES-001-HP-06, TC-RES-001-SE-02 | ✅ 已覆盖 |
+| AC-06.5 | OpenAPI 先于实现并冻结 | TC-RES-001-HP-06 | ✅ 已覆盖 |
+| AC-06.6 | 测试仅合成数据且模型 mock | TC-RES-007-BL-07 | ✅ 已覆盖 |
+
+说明：AC-06.5（OpenAPI 先冻结）属流程性要求，由 `tests/contract/test_openapi_conformance.py`（既有契约测试）与冻结的 `openapi.yaml` 0.1.1 保证；本自测在 TC-RES-004-BL-08 中核对了路径集合，并在 TC-RES-001/002/003/004 的 HTTP 断言中核对了响应键集合。AC-01.4（单文件）的覆盖用例观测到框架在两个 file 部件时只绑定其一（见遗漏项 2）。
+
+### 本 Workbench 附加追溯维度
+
+| 维度 | 覆盖情况 |
+|---|---|
+| 接口覆盖 | ①②③④ 四个接口 4/4（100%）；另覆盖启动对账、草稿清理、模型调用 3 个内部单元 |
+| 错误码覆盖（13 个） | file_missing(001-PV-01)、file_empty(001-PV-03)、file_content_mismatch(001-PV-04)、file_too_large(001-PV-05)、unsupported_file_type(001-PV-02)、parse_failed(001-EH-01)、parse_unavailable/parse_timeout(001-EH-02)、draft_not_found(002-EH-01)、validation_failed(003-PV-01)、confirmation_required(004-PV-01)、save_failed(004-EH-03)、internal_error(001-EH-03)：13/13 |
+| 业务规则 B-01~B-06 | B-01(007-BL-06,007-SE-01,008-SE-01)、B-02(007-BL-04,007-BL-05)、B-03(001-SE-01,003-SE-01,004-SE-01,007-SE-01,008-SE-01)、B-04(001-BL-03,004-BL-01,004-PV-01)、B-05(004-BL-02,004-BL-07,004-EH-03/04/05,005-BL-01~05)、B-06(007-BL-07)：6/6 |
+| LLM 1 MB 请求体预算 | 007-BL-01/02/03、008-BL-01：噪点大图、预算不足不外发、像素炸弹、真实样品 |
+| 状态转换 | recognized/uncertain/missing → confirmed 单向（001-HP-03、003-HP-01/03、001-BL-03） |
+
+## 覆盖率统计
+
+| 维度 | 总数 | 已覆盖 | 覆盖率 |
+|---|---|---|---|
+| 验收标准（AC） | 37 | 37 | 100% |
+| 被测单元（①②③④、对账、清理、模型调用、真实进程） | 8 | 8 | 100% |
+| 错误码 | 13 | 13 | 100% |
+
+## 执行汇总
+
+| 项目 | 结果 |
+|---|---|
+| 用例总数 | 123（pytest 自动化 112；真实进程脚本 11） |
+| 通过 / 失败 / 未执行 | 123 / 0 / 0 |
+| 执行通过率 | 100%（123/123） |
+| 全量回归 | `uv run pytest`：1141 passed（既有 1001 + 自测 140 个收集项）；`ruff check`、`ruff format --check` 通过 |
+| 真实进程 + 真实 DeepSeek | 11/11 通过；样品 PNG（约 741 KB）外发体约 278 KB（≤995,904）；上传耗时约 8~13 s；逐字段对比 11/11 一致（姓名、邮箱、手机号精确一致，职位、工作年限、学历三项、证书、技能、项目段数一致）；库与 file/ 一致（resumes 1、projects 4、educations 1、drafts 0、file/ 1 个且 SHA-256 等于样品）；日志 0 泄露 |
+| 清理 | 服务进程已退出、端口 8000 已释放、临时 DATA_DIR/FILE_DIR 已删；样品与真值只在 /tmp |
+| 本次 DeepSeek 调用 | 脚本 3 轮完整运行 + 排查性重复调用约 50 次，均为 DL 批准的样品 |
+
+## 观察与遗留风险（非本自测失败项）
+
+1. **真实模型偶发 `parse_failed` / `parse_timeout`**：同一样品约 50 次调用中出现 2 次 502 `parse_failed`、另有一轮上传 504（60.5 s）。服务行为符合设计（不留草稿、不动旧草稿、可重新上传），脚本在上传和二次上传步骤各允许 1 次显式重试并在结果中记录次数。疑似原因：模型偶发超长输出（completion_tokens 个别达 6000~7000，接近 `max_tokens=8192`）被截断致 JSON 不完整，**未证实**，建议联调时记录 `finish_reason`（仅记录该枚举值，不含内容）后再判断；不属于本次自测的代码缺陷。
+2. **同一请求带多个 `file` 部件**：框架只绑定其一，返回 201 且只产生 1 条草稿（001-PV-06）。AC-01.4“只接受一个文件”实质满足，但不是显式拒绝；契约未规定，不改动。
+3. **本地代理**：开发机环境存在代理变量时，测试脚本的 httpx 若信任环境变量会让简历经本地代理转发；脚本已设 `trust_env=False`，服务端 `DeepSeekClient` 本就不信任环境代理。
+
+## 遗漏场景（PRD / 设计 vs 自测）
+
+| 编号 | 遗漏场景 | 原因 / 处理 |
+|---|---|---|
+| 1 | 60 秒真实超时（真实 DeepSeek 慢响应） | 真实环境不可控；超时映射由 007-EH-01/06 在 MockTransport 下验证 |
+| 2 | 5 路并发上传的处理能力（design §9.5、AGENTS 待确认 3a） | 属性能实测，已有联调记录 `10_review/integration_drill.md`；本自测只做并发更新（003-EH-02）与并发确认（004-BL-07） |
+| 3 | 真实手写体/低光/折痕等复杂版式简历 | 只有 1 份真实样品；准确率结论仅限该样品 |
+| 4 | 进程崩溃（SIGKILL）发生在“提交后、重命名前”的真实窗口 | 以注入 promote 失败 + 重启对账模拟（004-EH-05）；真实 SIGKILL 窗口极窄，未做 |
+| 5 | 磁盘加密、部署权限（AGENTS 待确认 2a） | 属部署侧，非自动化范围 |
+| 6 | 供应商留存/训练授权证明（待确认 4） | 供应商侧文件证明，非自测可验证 |
+| 7 | 前端联调 | 已由 frontend 联调演练覆盖，不在 backend 自测范围 |
+
+## 查询变量速查表
+
+| 变量名 | 说明 | 获取方式 |
+|---|---|---|
+| `{变量:draftId}` / `{变量:oldDraftId}` / `{变量:newDraftId}` | 草稿 id | 上传响应 `draft_id` |
+| `{变量:resumeId}` | 简历记录 id | 确认响应 `resume_id` |
+| `DATA_DIR` / `FILE_DIR` | 草稿库与草稿文件 / 归档目录 | 自测使用独立临时目录；真实进程脚本通过环境变量传入 |
