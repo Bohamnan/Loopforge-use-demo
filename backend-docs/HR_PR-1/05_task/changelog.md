@@ -679,3 +679,19 @@ OpenAPI 0.1.1 未改动；无新增依赖；无数据库结构变更（无）。
 - 错误详情里的 `field` 会回显调用方提交的**键名**（如未知字段 `unknown_field`），这是契约规定的行为（只含字段名与原因代码）；测试断言的是**值**不回显。
 - 仓库扫描只看 git 会纳入的文件：工作目录里存在被 `.gitignore` 忽略的本地 `.env`（未跟踪），本任务**没有读取或输出其内容**；该文件不在扫描范围，请持有者确认其仅保存在本机。
 - 变异验证 6 处（模型声称 confirmed 且去掉不变量、令牌明文存储、文件名打印到 stdout、临时文件放入密钥串等），均被抓到。
+
+---
+
+## Task-3.3：质量指标实测与交付自检
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| backend-docs/HR_PR-1/05_task/quality_report.md | 新增 | 实测结果与自检结论草稿；无代码改动 |
+
+### 结果摘要
+- pytest 999 passed；覆盖率（pytest-cov，行+分支）总计 99%，services 97.8% / repositories 98.9% / clients 99.1% / core 99.4%；ruff check/format 通过。
+- `~/tools/dryer`：无重复候选。`~/tools/crapper`：198 个函数中 1 个超标（`build_user_blocks` CRAP 14.0 > 10，覆盖率 100%，需降低复杂度），未修改代码，待裁决。
+- 未做项（uvicorn 真实进程演练、真实 DeepSeek、并发容量、mutator）已在报告 §8 列明，未声称达标。
