@@ -638,3 +638,20 @@ OpenAPI 0.1.1 未改动；无新增依赖；无数据库结构变更（无）。
 | backend-docs/HR_PR-1/05_task/tasks.md | 修改 | 2.5 的“情形③”同步注记；未改任何 ✅ 标记 |
 | codes/hr-collection-agent-backend/AGENTS.md | 修改 | 登记 SUGGEST-1（比例保险丝）为跟踪项，POC 不做 |
 | codes/hr-collection-agent-backend/tests/core/test_lifecycle.py | 修改 | SUGGEST-3：补“调度线程超过 join 超时”用例，`lifecycle.py` 覆盖 100% |
+
+---
+
+## Task-3.1：契约测试（对照冻结的 OpenAPI 0.1.1）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/tests/contract/test_openapi_conformance.py | 新增 | 97 个用例（参数化）：25 个场景对冻结文件全部 (路径, 方法, 状态码) 发真实请求并用 `jsonschema` 校验响应体、错误码、`Set-Cookie`；路径/方法/`operationId` 与 `app.openapi()` 一致；`maxLength`/`maxItems`/`pattern` 与代码一致；逐项验证“恰为上限接受、超限 422 `too_long`”；契约文件未改动 |
+
+### 偏差说明
+- `app.openapi()` 是 FastAPI 自动生成，只含成功状态码与默认 422，不含统一错误处理器产生的 4xx/5xx。因此状态码集合不用 `app.openapi()` 比对，而用“冻结文件每个 (路径, 方法, 状态码) 都有真实请求产出且响应体通过对应 schema”（`test_every_documented_status_is_produced_by_a_scenario`）；成功状态码仍与 `app.openapi()` 比对。如需让生成文档也带全错误响应，须在路由上声明 `responses`，属代码改动，未做。
+- POST /resumes 500 的冻结示例只有 `save_failed`，描述写明“或 internal_error”，测试按“示例 + 描述中出现的错误码”判定。
+- 变异验证 5 处（SCALAR_MAX、手机号 pattern、operationId、SameSite、BLOCK_MAX_ENTRIES），均被抓到。
+- 无新依赖（`jsonschema`、`pyyaml` 已在开发依赖中）。
