@@ -165,6 +165,9 @@ body {
   font-size: 12px;
   color: var(--muted);
 }
+.composer-error {
+  margin-bottom: 8px;
+}
 .composer-notice {
   font-size: 13px;
   color: var(--warn);
@@ -374,4 +377,26 @@ body {
 /* Narrow screens: "new chat" sits in the title bar */
 .app-header-action {
   margin-left: auto;
+}
+
+/* Phone width (360–599px): give editable values the whole row (integration drill SUGGEST-2). */
+@media (max-width: 599px) {
+  .field-edit {
+    flex-wrap: wrap;
+  }
+  .field-edit .field-label {
+    width: 100%;
+  }
+  .field-edit .field-value {
+    flex: 1 1 180px;
+  }
+  /* Touch targets >= 44px (SUGGEST-3); button.ant-btn out-ranks antd's size classes (e.g. .ant-btn-sm). */
+  button.ant-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  /* The format hint stays on the welcome panel; dropping it here keeps the bar from growing with 44px buttons. */
+  .composer-hint {
+    display: none;
+  }
 }

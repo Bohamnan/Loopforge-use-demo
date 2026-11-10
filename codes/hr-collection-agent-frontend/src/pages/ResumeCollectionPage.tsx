@@ -177,13 +177,17 @@ export default function ResumeCollectionPage() {
             disabled={busy}
             notice={selectionNotice}
             quickReplies={quickReplies}
+            error={
+              uploadError ? (
+                <ErrorAlert error={uploadError} timeoutMessage={UPLOAD_TIMEOUT_TEXT} badResponseMessage={UPLOAD_BAD_RESPONSE_TEXT} />
+              ) : null
+            }
           />
         ) : null
       }
     >
       <ChatThread focusKey={focusKey}>
         {content}
-        {uploadError ? <ErrorAlert error={uploadError} timeoutMessage={UPLOAD_TIMEOUT_TEXT} badResponseMessage={UPLOAD_BAD_RESPONSE_TEXT} /> : null}
       </ChatThread>
       <ConfirmDialog
         open={state.dialog === 'overwrite'}

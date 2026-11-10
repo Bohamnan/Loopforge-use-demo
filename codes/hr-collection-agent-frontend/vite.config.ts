@@ -27,5 +27,7 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
     restoreMocks: true,
+    // Layout.css is read as text by the responsive-layout test (jsdom applies no CSS); other CSS stays stubbed.
+    css: { include: [/Layout\.css/] },
   },
 });
