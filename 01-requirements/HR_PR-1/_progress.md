@@ -10,8 +10,8 @@
 |------|------|
 | **PRD** | `01-requirements/HR_PR-1/prd.md` |
 | **当前 Skill** | feature-developer |
-| **当前阶段** | backend 存储加固 + 2.1–2.3 审查中；frontend 3.1 + 跟踪项清理进行中 |
-| **状态** | 🔄 feature-developer 进行中 |
+| **当前阶段** | ⏸ 已暂停：backend 2.1–2.3 待审查（审查被中断）；frontend 3.1 进行到一半（跟踪项清理已提交 4 个，3.1 未完成） |
+| **状态** | ⏸ DL 要求暂停全部任务（2026-11-10），等待 DL 唤醒后恢复 |
 | **最后更新** | 2026-11-10 |
 
 **状态图例**：`🔄 进行中` / `⏸️ 等待人类确认` / `✅ 已完成` / `❌ 阻断`
@@ -149,6 +149,7 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | code-reviewer | frontend 第五批审查（6ab7ad8）：PASS_WITH_SUGGESTIONS（0/0/4），F-03 误报路径关闭、2.7/2.8 符合 P-08/C-07/TD-13；两个 DL 确认点建议接受 |
 | 2026-11-10 | Yin Yang（Dev Lead） | feature-developer | DL 确认 frontend 2.7、2.8 标 ✅，两个确认点接受；下发 frontend 3.1 及跟踪项清理 |
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 backend 存储加固（6295fe5）与 2.1–2.3（fb1210f、bac0405、71785cc）：复跑 pytest 721 passed、ruff 通过、无密钥；交审查 agent 做第六批审查 |
+| 2026-11-10 | Yin Yang（Dev Lead） | 主 agent | DL 要求暂停：worker-stop 停止 frontend（ctx_1e6c6f4f8173）与审查 agent（ctx_7a4bf2974859），进程已关闭，已提交工作不受影响；backend worker 空闲未动。恢复清单见下方「暂停恢复清单」 |
 
 ---
 
@@ -166,3 +167,17 @@
 |----|-------|---------|
 | backend | Yin Yang | `backend-docs/HR_PR-1/` |
 | frontend | Yin Yang | `frontend-docs/HR_PR-1/` |
+
+---
+
+## 暂停恢复清单（2026-11-10 暂停）
+
+> DL 唤醒后按顺序恢复。恢复前先执行 `orca orchestration worker-list --json` 核对各 worker 的状态。
+
+| # | 对象 | 暂停时的状态 | 恢复动作 |
+|---|---|---|---|
+| 1 | 审查 agent（worktree `review-batch1`） | 第六批审查（backend 存储加固 + 2.1–2.3，合并 `cfb87b3`）被中断，没有产出 | 重新启动审查 worker（Task `task_2e0f759e789f`），重新下发第六批审查 |
+| 2 | frontend（worktree `feature-frontend`） | 跟踪项清理已提交 4 个（c47bc02、18363a6、0f07f40、d306368，尚未合并到 feature）；任务 3.1 未完成；有未提交文件 `codes/hr-collection-agent-frontend/src/test/FakeBackend.ts`（3.1 进行中的产物，已保留） | 重新启动 frontend worker（Task `task_83570e762162`），从"任务 3.1"继续，先检查 FakeBackend.ts |
+| 3 | backend（worktree `feature-backend`） | 2.1–2.3 已完成并合并，等待第六批审查；worker 空闲（ctx_215fa78784b1） | 第六批审查通过后，下发 2.4（HIGH_RISK：确认保存、幂等、B-05 补偿） |
+| 4 | 待 DL 确认 | backend 2.1–2.3 的偏差 (1)(3)(4)；上传请求体缺少前置大小限制（POC 是否接受） | 随第六批审查结论一起提交给 DL |
+
