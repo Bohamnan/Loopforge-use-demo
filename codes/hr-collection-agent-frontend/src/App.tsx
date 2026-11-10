@@ -1,5 +1,6 @@
 import { ConfigProvider, type ThemeConfig } from 'antd';
 import ErrorBoundary from './components/ErrorBoundary';
+import ResumeCollectionPage from './pages/ResumeCollectionPage';
 
 /** Ant Design theme tokens taken from the prototype palette (global-info/prototype/style.css, TD-14). */
 export const appTheme: ThemeConfig = {
@@ -20,10 +21,9 @@ export const appTheme: ThemeConfig = {
 
 export default function App() {
   return (
-    <ConfigProvider theme={appTheme}>
+    <ConfigProvider theme={appTheme} button={{ autoInsertSpace: false }}>
       <ErrorBoundary>
-        {/* Placeholder; replaced by ResumeCollectionPage in task 2.1. */}
-        <h1>HR 简历信息收集</h1>
+        <ResumeCollectionPage />
       </ErrorBoundary>
     </ConfigProvider>
   );

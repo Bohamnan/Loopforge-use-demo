@@ -135,3 +135,30 @@ React 在开发模式下自身会向 console 输出异常信息（含 message）
 ### 遗留风险
 - `GO_FINAL_REQUESTED` 在 `view` 已是 `final` 时为幂等空操作。
 - 任务 2.x 的 hook 需用“前后状态对比”（`busy` 由 null 变为 upload / patch / confirm）触发请求，并捕获当时的 `epoch` 回传；该约定已在本文件注释中说明，尚未有 hook 层测试。
+
+## Task-2.1：页面外壳与启动 / 草稿读取
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/hooks/useResumeSession.ts | 新增 | `useReducer` 驱动会话状态机；启动时读取草稿（`bootstrap`，用 in-flight 标志保证 StrictMode 下只发一次 GET）；`retryBootstrap`、`dismissNotice`；`send(action)` 返回动作前后的状态，供后续切片在 `busy` 由 null 变为 upload / patch / confirm 时发起请求并回传 `epoch` |
+| codes/hr-collection-agent-frontend/src/pages/ResumeCollectionPage.tsx | 新增 | 按 `phase` 编排：读取中 / 读取失败（可重试）/ 空态 / 已恢复（仅恢复提示，内容展示见 2.3）；不直接请求接口 |
+| codes/hr-collection-agent-frontend/src/components/AppShell.tsx、NewChatButton.tsx、ChatThread.tsx、WelcomePanel.tsx、NoticeBanner.tsx、BootstrapErrorPanel.tsx | 新增 | 外壳仅含标题与“＋ 新对话”（无用户信息、历史列表、填写指南、隐私说明、示例文件按钮，P-02、P-11）；空态；四类提示文案；启动失败面板（隐藏上传入口，裁决 F-03） |
+| codes/hr-collection-agent-frontend/src/components/ErrorAlert.tsx | 新增 | 错误展示：后端错误只显示 `message` + 请求编号；前端自有码用固定文案；本地错误显示 `message`；`timeoutMessage` 可覆盖超时文案（2.2 使用） |
+| codes/hr-collection-agent-frontend/src/components/Layout.css | 新增 | 原型配色与基础布局（`style.css` 视觉参考） |
+| codes/hr-collection-agent-frontend/src/App.tsx、App.test.tsx | 修改 | 挂载 `ResumeCollectionPage`；`ConfigProvider` 关闭按钮自动插空格（避免“重 试”） |
+| codes/hr-collection-agent-frontend/src/test/setup.ts | 修改 | 补 `matchMedia` 的 jsdom polyfill（Ant Design 需要） |
+| 各组件 / 页面 `*.test.tsx` | 新增 | 见验证 |
+
+### 偏差说明
+- `ErrorAlert` 在 tasks 中归 2.2，因启动失败面板（2.1）需要它，提前到 2.1 实现；2.2 直接复用。
+- “读取草稿”加载提示在 2.1 用 `Spin` 内联；2.2 新增 `UploadProgressNotice` 后，页面保持这一处不变（只在上传时使用该组件）。
+- “＋ 新对话”按钮本任务只渲染并按 `busy` / 启动阶段禁用，点击逻辑与确认框在 2.7；侧栏响应式折叠在 2.8。
+- `reviewing` 阶段本任务只显示恢复提示，字段内容展示在 2.3。
+- `useResumeSession` 用 `useEffect` 同步 `latest` 引用（`react-hooks/refs` 禁止在渲染期写 ref）。
+
+### 遗留风险
+- 在 2.7 前点击“＋ 新对话”无反应（按钮已渲染但未接线）；2.2–2.5 的联调演示需知悉。
