@@ -8,6 +8,12 @@
 > 两个仓库均为新项目、无源码、无 OpenAPI，本报告只比对两份分析文档的口径，不涉及代码级核实。
 > 按 Skill 原则，各 Workbench「待澄清问题」不在本报告裁决范围，由 requirements-analyst 第二轮 Q&A 处理；本报告仅在其造成跨 Workbench 口径不一致时引用。
 
+**变更履历**：
+
+| 日期 | 变更 | 原因 |
+|---|---|---|
+| 2026-11-10 | 新增「契约审视：OpenAPI 草稿 v0.1.0-draft」节（O-01..O-13） | C-13：OpenAPI 冻结前须经本 Review 审视；同时审视 D-06 错误体变更 |
+
 ---
 
 ## 汇总状态
@@ -190,6 +196,47 @@
 | D-06 | 手机号 / 邮箱格式不合法时如何拒绝保存 | frontend R-04 | ✅ DL 采纳建议（2026-11-10）：前端即时提示并禁用确认按钮；backend 返回字段级错误，只带字段名和原因，不回显值（B-03）；统一错误体增加可选字段 `details: [{field, reason}]` |
 
 > D-06 属于接口契约变更：统一错误体由 `{code, message, request_id}` 扩展为可带 `details`。architecture-advisor 产出 OpenAPI 草稿时须落实，并同步 `rules/backend/api.md` 与 `rules/frontend/api.md` 中的错误体约定；契约冻结时仍须经本 Review 审视。
+
+---
+
+## 契约审视：OpenAPI 草稿 v0.1.0-draft（2026-11-10）
+
+> 审视对象：`backend-docs/HR_PR-1/03_api/openapi.yaml`（`openapi-spec-validator` 校验通过）、`03_api/api_design_resume.md`、`02_schema/sql_ddl_resume.md`。
+> 对照：REQ-BE-01..06、REQ-FE-01..06、本 Review C/D 裁决，以及 frontend 前置检查列出的 Step 2.2 信息需求（A 接口、B 类型、C 业务码、D 幂等、E Cookie、F 其他）。
+
+### 覆盖检查（frontend 信息需求 → OpenAPI）
+
+| 需求 | OpenAPI 提供 | 状态 |
+|---|---|---|
+| A 接口清单 | `POST /resume-drafts`、`GET /resume-drafts/current`、`PATCH /resume-drafts/current`、`POST /resumes`；不提供丢弃草稿、保存状态查询、修改删除接口 | ✅ 与 C-05 / C-07 / C-11 一致 |
+| B 简历模型结构 | `ResumeFields`：22 个字段，每个为 `{value, status}`；工作经历、项目经历、教育背景为子项数组；`languages` 独立 | ✅ 与 C-04 / C-14 一致 |
+| B 时间格式 | `date-time`（ISO 8601 UTC） | ✅ |
+| C 错误体 | `ErrorResponse{code, message, request_id, details?}`；`details[].field` 支持 `work_experiences[0].start_date` 路径 | ✅ D-06 已落实；`rules/backend/api.md` 已同步，`rules/frontend/api.md` 待 frontend Step 2.2 同步 |
+| C 业务码 | 13 个：文件类 5 个、解析类 3 个（含 `parse_timeout`）、`draft_not_found`、`validation_failed`、`confirmation_required`、`save_failed`、`internal_error` | ✅ 覆盖 frontend 列出的全部类别 |
+| D 幂等 | `already_saved` 布尔值 + `resume_id`；新增返回 201，命中返回 200 | ✅ D-04 |
+| E Cookie | `draft_token`，`HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`；上传时签发；保存时以 `Max-Age=0` 作废 | ✅ C-06 / C-11 / D-05 |
+| F 校验口径 | 魔数判型、≤ 10485760 字节；手机号、邮箱规则只写在描述里 | ⚠️ 见 O-05 |
+| Schema 对齐 | 草稿库与正式库为独立 SQLite 文件；`uq_resumes_identity(name_key, phone_key, email_key)`；令牌只存 SHA-256 | ✅ C-10 / C-12 / D-02 |
+
+### 待裁决项
+
+| # | 问题 | 来源 | 建议 | 裁决 |
+|---|---|---|---|---|
+| O-01 | 读取、更新成功时是否滑动续期 Cookie | backend 待确认 1 | 续期，与"7 天无活动"对齐 | 👉 _待填写_ |
+| O-02 | 上传失败时不创建草稿，也不动已有草稿和 Cookie | backend 待确认 2 | 采纳 | 👉 _待填写_ |
+| O-03 | 带有效旧令牌重新上传成功时，立即删除旧草稿（比 REQ-BE-01.6 多一步） | backend 待确认 3 | 采纳，减少残留的个人数据；超时等无法定位的旧草稿仍靠 7 天清理兜底。REQ-BE-01.6 的表述按此补充 | 👉 _待填写_ |
+| O-04 | 只有 `+86` 后恰好是 11 位大陆号时才去掉前缀 | backend 待确认 4 | 采纳。不带 `+` 的 `86…` 会先被 C-09 校验拒绝，那条分支实际不会触发，无害 | 👉 _待填写_ |
+| O-05 | 手机号正则：大陆号 `^1\d{10}$`，国际号 `^\+\d{6,15}$` | backend 待确认 5 | 采纳，并以 `pattern` 写进 OpenAPI 的 `ResumeFieldsUpdate.phone`，作为 frontend 即时校验的唯一来源 | 👉 _待填写_ |
+| O-06 | `{DATA_DIR}` / `{FILE_DIR}` 的具体路径 | backend 待确认 6 | `{DATA_DIR}` = 仓库内 `data/`（存 `drafts.db`、`resumes.db`），`{FILE_DIR}` = 仓库内 `file/`；都可以用环境变量覆盖，并加入 `.gitignore` | 👉 _待填写_ |
+| O-07 | 草稿清理间隔 1 小时 | backend 待确认 7 | 采纳 | 👉 _待填写_ |
+| O-08 | 新增返回 201，已保存过返回 200；frontend 只依赖 `already_saved` | backend 待确认 8 | 采纳 | 👉 _待填写_ |
+| O-09 | `PATCH` 的核心三项类型是 `string`，但没有禁止空字符串 | 主 agent 审视 | `name` / `phone` / `email` 加 `minLength: 1`；全空白字符串在服务层按 `required` 拒绝 | 👉 _待填写_ |
+| O-10 | `draft_not_found` 同时表示"页面打开时无可恢复草稿"（REQ-FE-05.3）和"确认时草稿不存在，可能已保存"（REQ-FE-04.7） | 主 agent 审视 | 接受同一个码，frontend 按调用的接口区分文案，在 OpenAPI 描述中写明 | 👉 _待填写_ |
+| O-11 | 工作、项目、教育经历是整块一个状态、整块替换，不是每条子项单独确认 | 主 agent 审视 | POC 接受。frontend 逐条展示、整块确认 | 👉 _待填写_ |
+| O-12 | 页面打开时没有草稿属于正常情况，接口却返回 404 | 主 agent 审视 | 接受。frontend 把这种 404 当作空态，不当作错误提示或日志 | 👉 _待填写_ |
+| O-13 | 接口没有限流（全局规范要求重要接口限流） | 主 agent 审视 | POC 接受此风险（localhost，约 5 人），记为已知风险；上线前另立需求处理 | 👉 _待填写_ |
+
+> 冻结条件：O-01..O-13 裁决完成，backend 按裁决修订 OpenAPI（至少 O-05、O-09、O-10 的描述），版本从 `0.1.0-draft` 改为 `0.1.0`，然后通知 frontend 进入 Step 2.2。
 
 ---
 
