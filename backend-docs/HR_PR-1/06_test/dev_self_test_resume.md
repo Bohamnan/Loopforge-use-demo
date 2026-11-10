@@ -658,3 +658,882 @@
 数据验证：`-- 抓取日志`
 
 
+## 4、接口④ 确认保存 — POST /api/v1/resumes
+
+#### TC-RES-004-HP-01：首次确认：201，记录+文件+草稿清理
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.3, AC-04.7, AC-01.1 |
+| 步骤/输入 | 上传→POST /api/v1/resumes {confirmed:true} |
+| 预期 | 201 already_saved=false；Set-Cookie `draft_token=; …; Max-Age=0`；file/ 恰 1 个 <id>.pdf 且与上传逐字节一致；草稿行与草稿文件已删；再 GET 404 |
+| 自动化 | tests/selftest/ `test_tc_res_004_hp_01` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT file_path, original_filename, content_type, file_size FROM resumes WHERE id='{变量:resumeId}'; -- file_path=<id>.pdf；SELECT count(*) FROM drafts; -- 0`
+
+#### TC-RES-004-HP-02：同一人再次确认：200 already_saved
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.5, AC-04.6 |
+| 步骤/输入 | 确认后再上传同一人并确认 |
+| 预期 | 200，resume_id/saved_at 同首次；resumes 仍 1 行；file/ 仍 1 个文件；草稿与 Cookie 清除 |
+| 自动化 | tests/selftest/ `test_tc_res_004_hp_02` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT count(*) FROM resumes; -- 1`
+
+#### TC-RES-004-HP-03：规范化等价命中同一幂等键
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.5 |
+| 步骤/输入 | 首次：`Zhang   San`/13800138000/`ZS@Example.com`；再次：` Zhang San `/`+86 138-0013-8000`/`zs@example.com` |
+| 预期 | 第二次 200 且同 resume_id；展示值保留首次原样，键列为规范化值 |
+| 自动化 | tests/selftest/ `test_tc_res_004_hp_03` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT name, phone, email, name_key, phone_key, email_key FROM resumes;`
+
+#### TC-RES-004-PV-01：无明确确认不保存
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.1 |
+| 步骤/输入 | body 为 {}、false、"yes"、1、null |
+| 预期 | 422 confirmation_required；resumes=0、file/ 空；草稿与令牌仍有效 |
+| 自动化 | tests/selftest/ `test_tc_res_004_pv_01` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT count(*) FROM resumes; -- 0；SELECT count(*) FROM drafts; -- 1`
+
+#### TC-RES-004-PV-02：核心三项缺失（各缺一项）
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.2 |
+| 步骤/输入 | 模型缺 name/phone/email 之一后确认 |
+| 预期 | 422 validation_failed，details 含该项 required；不写库不建文件；草稿保留 |
+| 自动化 | tests/selftest/ `test_tc_res_004_pv_02` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT count(*) FROM resumes; -- 0`
+
+#### TC-RES-004-PV-03：核心三项格式非法，修正后可保存
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.2 |
+| 步骤/输入 | 模型给 phone=12、email=nope → 确认 → PATCH 修正 → 确认 |
+| 预期 | 第一次 422（phone、email 均 invalid_format），resumes=0；修正后 201 |
+| 自动化 | tests/selftest/ `test_tc_res_004_pv_03` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT count(*) FROM resumes; -- 0 然后 1`
+
+#### TC-RES-004-BL-01：B-04：确认前正式库无数据
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.1, AC-05.1 |
+| 步骤/输入 | 上传、PATCH 后检查；确认后再检查 |
+| 预期 | 确认前 resumes 与子表均 0 行、草稿可读；确认后 1 行 |
+| 自动化 | tests/selftest/ `test_tc_res_004_bl_01` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT count(*) FROM resumes; SELECT count(*) FROM resume_work_experiences;`
+
+#### TC-RES-004-BL-02：B-05：记录与文件一一对应，无 tmp
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.3, AC-04.4 |
+| 步骤/输入 | 确认后对比 |
+| 预期 | 每条记录 file_path=<id>.pdf 与 file/ 文件名集合完全相等；无以 . 开头或 .tmp 结尾的文件 |
+| 自动化 | tests/selftest/ `test_tc_res_004_bl_02` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT id, file_path FROM resumes; -- 对 ls file/`
+
+#### TC-RES-004-BL-03：子表与 JSON 列落库
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.3 |
+| 步骤/输入 | 模型给 2 条工作经历、1 条教育、1 条项目、技能 2 项 |
+| 预期 | 子表行数与 seq 正确；skills_json 为合法 JSON |
+| 自动化 | tests/selftest/ `test_tc_res_004_bl_03` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT seq, company FROM resume_work_experiences WHERE resume_id='{变量:resumeId}' ORDER BY seq; SELECT json_valid(skills_json) FROM resumes;`
+
+#### TC-RES-004-BL-04：展示值只去首尾空白，键列规范化
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.5 |
+| 步骤/输入 | name=`  ZhangSan  `、phone=` 138-0013-8000 `、email=`  A@B.COM ` |
+| 预期 | name/phone/email 去首尾空白；phone_key=13800138000；email_key=a@b.com |
+| 自动化 | tests/selftest/ `test_tc_res_004_bl_04` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT name, phone, email, name_key, phone_key, email_key FROM resumes;`
+
+#### TC-RES-004-BL-05：D-03：未逐项确认的字段按草稿当前值保存；状态不入正式库
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.3 |
+| 步骤/输入 | 上传后不 PATCH 直接确认 |
+| 预期 | job_title/current_city 等取草稿值；resumes 表无状态列 |
+| 自动化 | tests/selftest/ `test_tc_res_004_bl_05` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT job_title, current_city FROM resumes; PRAGMA table_info(resumes); -- 无 status 列`
+
+#### TC-RES-004-BL-06：仅邮箱不同视为不同人
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.5 |
+| 步骤/输入 | 确认后再上传仅 email 不同者并确认 |
+| 预期 | 201 already_saved=false；resumes 2 行；file/ 2 个文件 |
+| 自动化 | tests/selftest/ `test_tc_res_004_bl_06` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT count(*) FROM resumes; -- 2`
+
+#### TC-RES-004-BL-07：并发确认同一幂等键（两个浏览器）
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.6, AC-04.4 |
+| 步骤/输入 | 两线程同时确认两份同键草稿 |
+| 预期 | 返回码为 {200,201}；resume_id 相同；resumes 1 行；file/ 1 个终态文件；两个草稿均清除 |
+| 自动化 | tests/selftest/ `test_tc_res_004_bl_07` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT count(*) FROM resumes; -- 1；SELECT count(*) FROM drafts; -- 0`
+
+#### TC-RES-004-BL-08：不提供修改/删除已确认记录的接口
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.9 |
+| 步骤/输入 | 对 /api/v1/resumes/{id} 与 /api/v1/resumes 发 PUT/PATCH/DELETE；检查 OpenAPI |
+| 预期 | 均 404/405；记录不变；OpenAPI 在 /api/v1/resumes* 下仅有 POST |
+| 自动化 | tests/selftest/ `test_tc_res_004_bl_08` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT count(*) FROM resumes WHERE id='{变量:resumeId}'; -- 1`
+
+#### TC-RES-004-EH-01：草稿不存在
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.8 |
+| 步骤/输入 | 无 Cookie 直接确认 |
+| 预期 | 404 draft_not_found；resumes=0 |
+| 自动化 | tests/selftest/ `test_tc_res_004_eh_01` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT count(*) FROM resumes; -- 0`
+
+#### TC-RES-004-EH-02：成功后用旧令牌重试（响应丢失场景）
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.8 |
+| 步骤/输入 | 确认成功后把旧令牌放回再确认 |
+| 预期 | 404 draft_not_found；resumes 仍 1 |
+| 自动化 | tests/selftest/ `test_tc_res_004_eh_02` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT count(*) FROM resumes; -- 1`
+
+#### TC-RES-004-EH-03：写库失败的补偿
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.4 |
+| 步骤/输入 | monkeypatch ResumeRepository.create_aggregate 抛错 |
+| 预期 | 500 save_failed，响应不含异常文本；resumes=0；file/ 空（无 tmp）；草稿保留且可重试成功 |
+| 自动化 | tests/selftest/ `test_tc_res_004_eh_03` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT count(*) FROM resumes; -- 0；ls file/ 空`
+
+#### TC-RES-004-EH-04：暂存文件失败的补偿
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.4 |
+| 步骤/输入 | monkeypatch ArchiveFileStore.stage 抛 OSError |
+| 预期 | 500 save_failed；无记录无文件；草稿保留 |
+| 自动化 | tests/selftest/ `test_tc_res_004_eh_04` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT count(*) FROM resumes; -- 0`
+
+#### TC-RES-004-EH-05：提交后重命名失败 → 重启对账 roll-forward
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.4 |
+| 步骤/输入 | monkeypatch promote 抛错；再用同目录启动新应用实例 |
+| 预期 | 500 save_failed；此时记录存在且仅有 .<id>.pdf.tmp；重启后终态文件出现且内容一致；再次上传确认得 already_saved=true |
+| 自动化 | tests/selftest/ `test_tc_res_004_eh_05` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT file_path FROM resumes; -- ls file/：先 tmp，重启后 <id>.pdf`
+
+#### TC-RES-004-EH-06：收尾（删草稿文件）失败不影响成功结果
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.7 |
+| 步骤/输入 | monkeypatch DraftFileStore.delete 抛 OSError |
+| 预期 | 仍 201；resumes 1 行；file/ 1 个文件 |
+| 自动化 | tests/selftest/ `test_tc_res_004_eh_06` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT count(*) FROM resumes; -- 1`
+
+#### TC-RES-004-DB-01：姓名 100 字符、最短合法邮箱、+国际 6 位号码
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.2 |
+| 步骤/输入 | 模型返回边界值后确认 |
+| 预期 | 201；length(name)=100；phone_key=+123456 |
+| 自动化 | tests/selftest/ `test_tc_res_004_db_01` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT length(name), phone_key FROM resumes;`
+
+#### TC-RES-004-DB-02：+86 前缀去除，其他国际号保留
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.5 |
+| 步骤/输入 | +8613800138000 确认；再确认 +85212345678 |
+| 预期 | 首个 phone_key=13800138000；国际号 201 为新记录且 phone_key 保留 + |
+| 自动化 | tests/selftest/ `test_tc_res_004_db_02` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT phone_key FROM resumes ORDER BY 1;`
+
+#### TC-RES-004-SE-01：确认路径日志与响应脱敏
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-06.3 |
+| 步骤/输入 | 确认两次（含 already_saved）后抓取日志 |
+| 预期 | 日志与响应均不含姓名/手机号/邮箱/文件名/令牌 |
+| 自动化 | tests/selftest/ `test_tc_res_004_se_01` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- 抓取日志`
+
+#### TC-RES-004-SE-02：SQL 注入样式姓名只作数据（参数绑定）
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-06.3 |
+| 步骤/输入 | name=`ZZ'; DROP TABLE resumes;--` |
+| 预期 | 201；姓名原样入库；resumes 表仍在 |
+| 自动化 | tests/selftest/ `test_tc_res_004_se_02` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT name FROM resumes; SELECT count(*) FROM sqlite_master WHERE name='resumes'; -- 1`
+
+
+## 5、启动对账与初始化（lifespan）
+
+#### TC-RES-005-HP-01：启动后目录、库、版本就绪
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-05.1, AC-04.4 |
+| 步骤/输入 | 启动应用（lifespan） |
+| 预期 | drafts/、file/ 存在；两库 user_version=1；4 张正式库表与 drafts 表存在；可接收请求 |
+| 自动化 | tests/selftest/ `test_tc_res_005_hp_01` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`PRAGMA user_version; SELECT name FROM sqlite_master WHERE type='table';`
+
+#### TC-RES-005-HP-02：启动顺序（design §5.4）
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.4, AC-05.5 |
+| 步骤/输入 | 给 Lifecycle 各步骤打桩记录顺序 |
+| 预期 | prepare_directories → init_databases → reconcile → cleanup → start_scheduler，之后才响应请求 |
+| 自动化 | tests/selftest/ `test_tc_res_005_hp_02` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- 记录顺序断言`
+
+#### TC-RES-005-BL-01：对账情形①：有记录+tmp → roll-forward
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.4 |
+| 步骤/输入 | 预置记录 A 与 .A.pdf.tmp，启动 |
+| 预期 | tmp 变为 A.pdf；记录保留 |
+| 自动化 | tests/selftest/ `test_tc_res_005_bl_01` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`ls file/ = [A.pdf]；SELECT file_path FROM resumes;`
+
+#### TC-RES-005-BL-02：对账情形②：tmp 无记录 → 删除
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.4 |
+| 步骤/输入 | 预置记录 A+A.pdf 与孤儿 tmp |
+| 预期 | 孤儿 tmp 被删，A.pdf 保留 |
+| 自动化 | tests/selftest/ `test_tc_res_005_bl_02` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`ls file/ = [A.pdf]`
+
+#### TC-RES-005-BL-03：对账情形③：终态文件无记录 → 删除
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.4 |
+| 步骤/输入 | 预置记录 A+A.pdf 与孤儿终态文件 |
+| 预期 | 孤儿被删，A.pdf 保留 |
+| 自动化 | tests/selftest/ `test_tc_res_005_bl_03` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`ls file/ = [A.pdf]`
+
+#### TC-RES-005-BL-04：对账保险丝：零记录时保留终态文件
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.4 |
+| 步骤/输入 | 空库 + file/ 有终态文件 |
+| 预期 | 文件保留，告警不删 |
+| 自动化 | tests/selftest/ `test_tc_res_005_bl_04` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`ls file/ 仍有该文件；SELECT count(*) FROM resumes; -- 0`
+
+#### TC-RES-005-BL-05：对账情形④：记录缺文件仅告警
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.4 |
+| 步骤/输入 | 预置记录 A（无任何文件）与记录 B+B.pdf |
+| 预期 | 启动成功；记录不删；日志有 reconcile_record_file_missing 含 A 的 id |
+| 自动化 | tests/selftest/ `test_tc_res_005_bl_05` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT count(*) FROM resumes; -- 2`
+
+#### TC-RES-005-BL-06：对账只在启动阶段由 lifecycle 调用
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.4 |
+| 步骤/输入 | 扫描 src 中 ReconcileService( 的调用点 |
+| 预期 | 仅 core/lifecycle.py |
+| 自动化 | tests/selftest/ `test_tc_res_005_bl_06` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- 源码扫描`
+
+#### TC-RES-005-EH-01：对账抛错不阻止启动
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.4 |
+| 步骤/输入 | monkeypatch ReconcileService.run 抛错 |
+| 预期 | 应用正常启动；日志有 reconcile_failed |
+| 自动化 | tests/selftest/ `test_tc_res_005_eh_01` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- HTTP 断言`
+
+#### TC-RES-005-EH-02：冲突：记录同时有 tmp 与终态文件
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.4 |
+| 步骤/输入 | 预置记录 A、A.pdf 与 .A.pdf.tmp |
+| 预期 | 两个文件均不删不改 |
+| 自动化 | tests/selftest/ `test_tc_res_005_eh_02` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`ls file/ 两个文件仍在`
+
+#### TC-RES-005-DB-01：全空环境启动
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-05.5 |
+| 步骤/输入 | 空 DATA_DIR/FILE_DIR |
+| 预期 | 两库 0 行，目录均为空，启动成功 |
+| 自动化 | tests/selftest/ `test_tc_res_005_db_01` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT count(*) FROM resumes; SELECT count(*) FROM drafts;`
+
+
+## 6、草稿清理（启动一次+定时）
+
+#### TC-RES-006-BL-01：7 天边界清理
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-05.5 |
+| 步骤/输入 | 上传后前进恰 7 天 → 清理；再 +1 秒 → 清理 |
+| 预期 | 恰 7 天保留；超 1 秒后草稿行与文件均删 |
+| 自动化 | tests/selftest/ `test_tc_res_006_bl_01` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT count(*) FROM drafts; -- 1 然后 0`
+
+#### TC-RES-006-BL-02：孤儿草稿文件 1 天窗口
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-05.5 |
+| 步骤/输入 | data/drafts 放 2 天前与 1 小时前的无行文件后清理 |
+| 预期 | 仅保留 1 小时前的文件 |
+| 自动化 | tests/selftest/ `test_tc_res_006_bl_02` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`ls data/drafts`
+
+#### TC-RES-006-BL-03：清理永不触碰 file/
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-05.5 |
+| 步骤/输入 | 确认一条记录，放一个 mtime 极旧的孤儿终态文件，时钟前进 400 天后清理 |
+| 预期 | file/ 内容、resumes 均不变 |
+| 自动化 | tests/selftest/ `test_tc_res_006_bl_03` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`ls file/ 前后一致；SELECT count(*) FROM resumes; -- 1`
+
+#### TC-RES-006-BL-04：启动时执行一次清理
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-05.5 |
+| 步骤/输入 | 草稿存在，应用关闭；时钟 +9 天重启 |
+| 预期 | 重启后草稿行与文件已被清除 |
+| 自动化 | tests/selftest/ `test_tc_res_006_bl_04` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT count(*) FROM drafts; -- 0`
+
+#### TC-RES-006-BL-05：调度线程按间隔清理（无请求触发）
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-05.5 |
+| 步骤/输入 | 间隔 0.05 秒；创建草稿后前进 8 天 |
+| 预期 | 5 秒内草稿被后台线程清除 |
+| 自动化 | tests/selftest/ `test_tc_res_006_bl_05` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`SELECT count(*) FROM drafts; -- 0`
+
+#### TC-RES-006-EH-01：单次清理失败不终止调度线程
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-05.5 |
+| 步骤/输入 | 第 2 次 run_once 抛错 |
+| 预期 | 线程继续运行 ≥4 次；日志有 cleanup_failed |
+| 自动化 | tests/selftest/ `test_tc_res_006_eh_01` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- 调用计数断言`
+
+
+## 7、模型调用（clients 层，含 1 MB 请求体预算、B-02/B-04/B-05/B-06）
+
+#### TC-RES-007-HP-01：PNG 照片请求形态
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-02.1, AC-06.2, AC-06.1 |
+| 步骤/输入 | DeepSeekClient（MockTransport）解析合成 PNG |
+| 预期 | POST api.deepseek.com …/chat/completions；model=deepseek-flash；Authorization 头带密钥，请求体不含密钥；image_url 为 data:image/jpeg;base64；体积 ≤995,904；返回 token 用量 |
+| 自动化 | tests/selftest/ `test_tc_res_007_hp_01` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- 捕获请求断言`
+
+#### TC-RES-007-HP-02：文本层 PDF 走文本块
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-02.1 |
+| 步骤/输入 | 解析含文本层的合成 PDF |
+| 预期 | 请求无 image_url，含 `text layer` 文本块 |
+| 自动化 | tests/selftest/ `test_tc_res_007_hp_02` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- 捕获请求断言`
+
+#### TC-RES-007-HP-03：扫描 PDF（无文本层）走图片块
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-02.1 |
+| 步骤/输入 | 解析合成扫描 PDF |
+| 预期 | 请求含 image_url |
+| 自动化 | tests/selftest/ `test_tc_res_007_hp_03` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- 捕获请求断言`
+
+#### TC-RES-007-BL-01：1 MB 预算：不可压缩噪点大图
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-02.1（约束：LLM ≤1 MB） |
+| 步骤/输入 | 3000×2000 与 1200×1600 随机噪点 PNG |
+| 预期 | 请求体 ≤995,904 B 且小于原图 |
+| 自动化 | tests/selftest/ `test_tc_res_007_bl_01` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- len(request.content)`
+
+#### TC-RES-007-BL-02：压到下限仍超限 → parse_failed 且不外发
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-02.5（约束：LLM ≤1 MB） |
+| 步骤/输入 | 把预算改小到 3000 B |
+| 预期 | 抛 ParseFailedError；传输层 0 次请求 |
+| 自动化 | tests/selftest/ `test_tc_res_007_bl_02` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- 请求计数 0`
+
+#### TC-RES-007-BL-03：像素炸弹（>2500 万像素）拒绝
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-02.5 |
+| 步骤/输入 | 小文件头声明 >25M 像素的 PNG |
+| 预期 | ParseFailedError；0 次请求 |
+| 自动化 | tests/selftest/ `test_tc_res_007_bl_03` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- 请求计数 0`
+
+#### TC-RES-007-BL-04：B-02：模型名与外发地址锁定
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-06.2 |
+| 步骤/输入 | DEEPSEEK_MODEL=other-model；BASE_URL=evil/http；model_copy 绕过后构造客户端 |
+| 预期 | Settings 校验失败且错误信息不回显配置值；绕过构造时 DeepSeekClient 抛 ValueError |
+| 自动化 | tests/selftest/ `test_tc_res_007_bl_04` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- 异常断言`
+
+#### TC-RES-007-BL-05：B-02：仅 clients 层引入 HTTP 栈/模型主机
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-06.2 |
+| 步骤/输入 | 扫描 src（除 clients、core/config） |
+| 预期 | 无 httpx/requests/urllib/socket 导入，无 api.deepseek.com 字面量 |
+| 自动化 | tests/selftest/ `test_tc_res_007_bl_05` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- 源码扫描`
+
+#### TC-RES-007-BL-06：B-01：无凭证 → parse_unavailable 且不外发；代码无密钥字面量
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-06.1, AC-02.5 |
+| 步骤/输入 | API key=None 解析；扫描 src 中 sk- 密钥样式 |
+| 预期 | ParseUnavailableError，0 次请求；无匹配 |
+| 自动化 | tests/selftest/ `test_tc_res_007_bl_06` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- 源码扫描`
+
+#### TC-RES-007-BL-07：B-06：测试禁网夹具生效
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-06.6 |
+| 步骤/输入 | 在测试里创建 socket 连接 |
+| 预期 | 抛 RuntimeError(network access is forbidden) |
+| 自动化 | tests/selftest/ `test_tc_res_007_bl_07` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- 异常断言`
+
+#### TC-RES-007-EH-01：读/连接超时 → parse_timeout，不重试
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-02.4 |
+| 步骤/输入 | 传输层抛 ReadTimeout、ConnectTimeout |
+| 预期 | ParseTimeoutError；仅 1 次请求 |
+| 自动化 | tests/selftest/ `test_tc_res_007_eh_01` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- 请求计数 1`
+
+#### TC-RES-007-EH-02：HTTP 401/402/403/404/429/500/503 → parse_unavailable
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-02.5 |
+| 步骤/输入 | MockTransport 返回对应状态 |
+| 预期 | ParseUnavailableError，异常文本不含供应商响应体；1 次请求 |
+| 自动化 | tests/selftest/ `test_tc_res_007_eh_02` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- 异常断言`
+
+#### TC-RES-007-EH-03：HTTP 400/413/422 → parse_failed
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-02.5 |
+| 步骤/输入 | 同上 |
+| 预期 | ParseFailedError |
+| 自动化 | tests/selftest/ `test_tc_res_007_eh_03` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- 异常断言`
+
+#### TC-RES-007-EH-04：响应体空/非 JSON/非对象/无 choices → parse_failed
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-02.3, AC-02.5 |
+| 步骤/输入 | 5 种异常响应 |
+| 预期 | ParseFailedError |
+| 自动化 | tests/selftest/ `test_tc_res_007_eh_04` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- 异常断言`
+
+#### TC-RES-007-EH-05：连接失败 → parse_unavailable
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-02.5 |
+| 步骤/输入 | 传输层抛 ConnectError |
+| 预期 | ParseUnavailableError |
+| 自动化 | tests/selftest/ `test_tc_res_007_eh_05` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- 异常断言`
+
+#### TC-RES-007-EH-06：超时配置 connect5/write30/read60/pool5，MODEL_TIMEOUT_SECONDS 可调
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-02.4 |
+| 步骤/输入 | 读取 client.timeout；MODEL_TIMEOUT_SECONDS=7 |
+| 预期 | (5,30,60,5)；自定义读超时 7 |
+| 自动化 | tests/selftest/ `test_tc_res_007_eh_06` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- 属性断言`
+
+#### TC-RES-007-EH-07：仅有 PDF 魔数的损坏 PDF → parse_failed，不外发
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-02.5 |
+| 步骤/输入 | 解析 300 字节伪 PDF |
+| 预期 | ParseFailedError |
+| 自动化 | tests/selftest/ `test_tc_res_007_eh_07` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- 请求计数 0`
+
+#### TC-RES-007-DB-01：token 用量只记数字
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-06.3 |
+| 步骤/输入 | 模型响应 usage 123/45 |
+| 预期 | 日志含 prompt_tokens=123、completion_tokens=45 |
+| 自动化 | tests/selftest/ `test_tc_res_007_db_01` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- 抓取日志`
+
+#### TC-RES-007-SE-01：日志不含请求内容、响应体、密钥、Bearer
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-06.3, AC-06.1 |
+| 步骤/输入 | 文本 PDF 含标记，响应含标记，解析失败 |
+| 预期 | 日志与 stdout 均无标记、密钥、Bearer |
+| 自动化 | tests/selftest/ `test_tc_res_007_se_01` |
+| 执行结果 | ✅ 通过 |
+
+数据验证：`-- 抓取日志`
+
+
+## 8、真实进程 + 真实 DeepSeek + 真实简历样品（脱敏）
+
+#### TC-RES-008-HP-01：真实进程启动：对账→清理→启动完成→监听
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.4, AC-05.5 |
+| 步骤/输入 | uvicorn --workers 1 127.0.0.1:8000，独立临时 DATA_DIR/FILE_DIR |
+| 预期 | 日志顺序 reconcile_done < cleanup_done < startup complete < running on；两库与目录存在；端口监听 |
+| 自动化 | scripts/self_test_live.py |
+| 执行结果 | ✅ 通过（start-up log order reconcile->cleanup->startup complete->listening; dirs and dbs exist） |
+
+数据验证：`ls DATA_DIR；日志顺序断言`
+
+#### TC-RES-008-EH-01：真实进程错误码
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-01.2, AC-04.8, AC-05.4 |
+| 步骤/输入 | 无 file 部件/.exe/空文件/PNG 改名 .pdf/10MiB+/无 Cookie GET 与 POST |
+| 预期 | 400/415/400/400/413/404/404；无 Cookie 被下发；drafts=0 |
+| 自动化 | scripts/self_test_live.py |
+| 执行结果 | ✅ 通过（failed checks: none） |
+
+数据验证：`SELECT count(*) FROM drafts; -- 0`
+
+#### TC-RES-008-BL-01：真实样品的 1 MB 外发预算
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-02.1（约束：LLM ≤1 MB） |
+| 步骤/输入 | 用应用同一函数 build_user_blocks 计算样品（PNG 约 740 KB）的请求体 |
+| 预期 | 请求体 ≤995,904（实测约 278 KB） |
+| 自动化 | scripts/self_test_live.py |
+| 执行结果 | ✅ 通过（source 759100 B -> request body 284772 B (limit 995904)） |
+
+数据验证：`-- 数字比较`
+
+#### TC-RES-008-HP-02：真实样品上传（真实 DeepSeek）
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-01.1, AC-02.1, AC-02.2, AC-02.6, AC-05.2 |
+| 步骤/输入 | POST 样品 PNG（/tmp，不入库） |
+| 预期 | 201；22 键；状态 ⊆{recognized,missing}；Cookie 属性正确；<75 s |
+| 自动化 | scripts/self_test_live.py |
+| 执行结果 | ✅ 通过（HTTP attempts=[201], 8.4s total, statuses=['missing', 'recognized']） |
+
+数据验证：`-- HTTP 断言`
+
+#### TC-RES-008-HP-03：逐字段对比真值（脱敏结论）
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-02.2, AC-02.3 |
+| 步骤/输入 | 对比姓名/邮箱/手机号/职位/工作年限/学历三项/证书/技能/项目段数 |
+| 预期 | 11/11 项一致（核心三项精确一致） |
+| 自动化 | scripts/self_test_live.py |
+| 执行结果 | ✅ 通过（11/11 matched: name=OK,email=OK,phone=OK,job_title=OK,work_years=OK,education_school=OK,education_major=OK,education_degree=OK,certificates=OK,skills=OK,projects_count=OK） |
+
+数据验证：`-- 脚本内存比对，不输出值`
+
+#### TC-RES-008-HP-04：GET 与上传一致
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-03.1, AC-05.3 |
+| 步骤/输入 | GET current |
+| 预期 | 200；draft_id 与 fields 与上传完全相同 |
+| 自动化 | scripts/self_test_live.py |
+| 执行结果 | ✅ 通过（HTTP 200） |
+
+数据验证：`-- HTTP 断言`
+
+#### TC-RES-008-HP-05：PATCH：核心三项+homepage 确认
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-03.2 |
+| 步骤/输入 | PATCH 提交 4 个字段 |
+| 预期 | 4 项 confirmed，其余 18 项与上传完全相同 |
+| 自动化 | scripts/self_test_live.py |
+| 执行结果 | ✅ 通过（HTTP 200; 4 fields confirmed, 18 untouched fields unchanged） |
+
+数据验证：`-- HTTP 断言`
+
+#### TC-RES-008-HP-06：确认并核对库与 file/ 一致
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.3, AC-04.7, AC-04.4 |
+| 步骤/输入 | POST /resumes |
+| 预期 | 201；resumes=1，projects=4，educations=1，drafts=0，data/drafts 空；file/ 仅 <id>.png 且 SHA-256 等于样品；姓名/手机/邮箱列等于真值；Cookie 清除 |
+| 自动化 | scripts/self_test_live.py |
+| 执行结果 | ✅ 通过（HTTP 201; counts={'resumes': 1, 'work': 0, 'projects': 4, 'educations': 1, 'drafts': 0, 'draft_files': 0}; file==sample(sha256)=True; identity columns==truth=True） |
+
+数据验证：`SELECT count(*) FROM resumes/子表/drafts; -- 摘要计数`
+
+#### TC-RES-008-EH-02：重启对账（真实进程）
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.4 |
+| 步骤/输入 | 关闭服务（SIGINT），在 file/ 放孤儿 tmp 与孤儿终态文件，重启 |
+| 预期 | 孤儿被清；记录文件保留；日志含 reconcile_*_removed；首次关闭退出码 0 |
+| 自动化 | scripts/self_test_live.py |
+| 执行结果 | ✅ 通过（exit code of first stop=0; after restart file/ holds only the record's file=True） |
+
+数据验证：`ls file/ 仅记录文件`
+
+#### TC-RES-008-HP-07：同一人再次确认（真实 DeepSeek）
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-04.5, AC-04.6 |
+| 步骤/输入 | 再次上传样品，PATCH 核心三项为真值后确认 |
+| 预期 | 200 already_saved=true，同 resume_id；resumes 仍 1 行；file/ 仍 1 个；草稿清除 |
+| 自动化 | scripts/self_test_live.py |
+| 执行结果 | ✅ 通过（upload attempts=[201], confirm HTTP 200; one record, one file; first model_call log: {"event": "model_call", "request_id": "req_b0976ba36e5f4856", "status_code": 200, "duration_ms": 8879, "code": null, "prompt_tokens": 1496, "completion_tokens": 1894}） |
+
+数据验证：`SELECT count(*) FROM resumes; -- 1`
+
+#### TC-RES-008-SE-01：真实进程日志脱敏
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-06.3, AC-06.1 |
+| 步骤/输入 | 扫描全部日志：姓名/邮箱/手机号/样品文件名/draft_token=/Bearer/API Key |
+| 预期 | 0 处泄露；事件仅白名单类型 |
+| 自动化 | scripts/self_test_live.py |
+| 执行结果 | ✅ 通过（69 log lines, leaked secret indexes=[], events=['cleanup_done', 'draft_created', 'model_call', 'reconcile_done', 'reconcile_final_removed', 'reconcile_tmp_removed', 'request_failed', 'resume_duplicate', 'resume_saved']） |
+
+数据验证：`-- 日志扫描`
+
+#### TC-RES-008-SE-02：优雅退出与清理
+
+| 项目 | 内容 |
+|---|---|
+| 追溯 AC | AC-05.5 |
+| 步骤/输入 | SIGINT 关闭 |
+| 预期 | 退出码 0；日志含 Application shutdown complete，无 scheduler_stop_timeout；端口 8000 释放；临时目录已删 |
+| 自动化 | scripts/self_test_live.py |
+| 执行结果 | ✅ 通过（exit codes=0,0; shutdown complete logged; port 8000 released） |
+
+数据验证：`lsof -i :8000 无输出`
+
+
