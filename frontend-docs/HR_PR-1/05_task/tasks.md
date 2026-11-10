@@ -39,7 +39,7 @@
 
 > 多个切片共用的工程脚手架、类型、api 封装与纯逻辑。先于所有切片完成。
 
-### Task 1.1：工程脚手架与质量门禁
+### Task 1.1：工程脚手架与质量门禁 ✅
 - **关联：** REQ-FE-06.1、06.2、06.3、06.6、REQ-FE-05.1；design.md §3.5（Vite 配置）、§7.2、§9.1（安全性静态）；TD-13、TD-14
 - **内容：** 在 `codes/hr-collection-agent-frontend/` 初始化工程：
   - Vite + React 18 + TypeScript（`strict`）+ Ant Design（React 版）；脚本 `npm ci` / `npm run build` / `npm test` / `npm run lint`（与 AGENTS.md 一致）。
@@ -57,10 +57,10 @@
 
 #### 子任务
 
-- [ ] `package.json`、`.npmrc`、`tsconfig*.json`、`index.html`、锁文件（精确版本）
-- [ ] `vite.config.ts`（proxy 与 Cookie 要求）、Vitest 配置与 `setup`
-- [ ] ESLint 配置与三条自定义约束
-- [ ] 安装说明中注明默认 registry 的项目例外
+- [x] `package.json`、`.npmrc`、`tsconfig*.json`、`index.html`、锁文件（精确版本）
+- [x] `vite.config.ts`（proxy 与 Cookie 要求）、Vitest 配置与 `setup`
+- [x] ESLint 配置与三条自定义约束
+- [x] 安装说明中注明默认 registry 的项目例外
 
 ### Task 1.2：应用入口、主题与错误边界
 - **关联：** REQ-FE-06.3；design.md §3.5（App / main、ErrorBoundary）、TD-14、§7.1（渲染异常）
