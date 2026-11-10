@@ -39,7 +39,7 @@
 
 > 多个切片共用的工程脚手架、类型、api 封装与纯逻辑。先于所有切片完成。
 
-### Task 1.1：工程脚手架与质量门禁
+### Task 1.1：工程脚手架与质量门禁 ✅
 - **关联：** REQ-FE-06.1、06.2、06.3、06.6、REQ-FE-05.1；design.md §3.5（Vite 配置）、§7.2、§9.1（安全性静态）；TD-13、TD-14
 - **内容：** 在 `codes/hr-collection-agent-frontend/` 初始化工程：
   - Vite + React 18 + TypeScript（`strict`）+ Ant Design（React 版）；脚本 `npm ci` / `npm run build` / `npm test` / `npm run lint`（与 AGENTS.md 一致）。
@@ -57,12 +57,12 @@
 
 #### 子任务
 
-- [ ] `package.json`、`.npmrc`、`tsconfig*.json`、`index.html`、锁文件（精确版本）
-- [ ] `vite.config.ts`（proxy 与 Cookie 要求）、Vitest 配置与 `setup`
-- [ ] ESLint 配置与三条自定义约束
-- [ ] 安装说明中注明默认 registry 的项目例外
+- [x] `package.json`、`.npmrc`、`tsconfig*.json`、`index.html`、锁文件（精确版本）
+- [x] `vite.config.ts`（proxy 与 Cookie 要求）、Vitest 配置与 `setup`
+- [x] ESLint 配置与三条自定义约束
+- [x] 安装说明中注明默认 registry 的项目例外
 
-### Task 1.2：应用入口、主题与错误边界
+### Task 1.2：应用入口、主题与错误边界 ✅
 - **关联：** REQ-FE-06.3；design.md §3.5（App / main、ErrorBoundary）、TD-14、§7.1（渲染异常）
 - **内容：** `src/main.tsx`、`src/App.tsx`（Ant Design `ConfigProvider`，主题 token 取自原型 `style.css` 配色：`--navy` `--blue` `--warn` `--ok` `--red` 等）、`src/components/ErrorBoundary.tsx`（通用文案 + “刷新页面”，不输出简历内容）；`App` 暂以占位页面挂载（后续由 2.1 替换为 `ResumeCollectionPage`）。
 - **测试：** `ErrorBoundary`：子组件抛错时显示通用文案且不泄露错误对象内容；`console.error` 调用不含子树文本；`App` 渲染冒烟，主题 token 生效（`ConfigProvider` 存在）。
@@ -71,10 +71,10 @@
 
 #### 子任务
 
-- [ ] 入口与 `ConfigProvider` 主题
-- [ ] `ErrorBoundary` 与测试
+- [x] 入口与 `ConfigProvider` 主题
+- [x] `ErrorBoundary` 与测试
 
-### Task 1.3：types（与 OpenAPI 0.1.1 同名）
+### Task 1.3：types（与 OpenAPI 0.1.1 同名） ✅
 - **关联：** REQ-FE-06.4、06.5；design.md §3.1、F-02（手写类型）；`interface_spec_resume.md` §四
 - **内容：** `src/types/ResumeModel.ts`（`FieldStatus`、`StringField`、`StringListField`、三个经历列表字段、`WorkExperience`、`ProjectExperience`、`Education`、`ResumeFields` 22 字段、`ResumeFieldsUpdate`）、`Draft.ts`（`OriginalFileInfo`、`DraftResponse`、`DraftUpdateRequest`）、`Resume.ts`（`CreateResumeRequest`、`CreateResumeResponse`）、`Errors.ts`（`ErrorCode` 13 值、`ErrorDetail` 及 `reason` 5 值、`ErrorResponse`、`ClientErrorCode`）。每个文件头注明对应 OpenAPI 版本 0.1.1；标量允许 `null` 体现为 `string | null`。
 - **测试：** 类型级测试（`tsc --noEmit` 纳入 `npm run build`）；用 Vitest 编写“契约镜像”测试：`ResumeFields` 的 22 个键集合、`FieldStatus` 4 值、`ErrorCode` 13 值、`reason` 5 值，与一份测试内的期望常量（按 OpenAPI 0.1.1 逐项核对）一致，防止漏项或漂移。
@@ -83,10 +83,10 @@
 
 #### 子任务
 
-- [ ] 4 个类型文件与文件头版本注释
-- [ ] 契约镜像测试
+- [x] 4 个类型文件与文件头版本注释
+- [x] 契约镜像测试
 
-### Task 1.4：api 封装层
+### Task 1.4：api 封装层 ✅
 - **关联：** REQ-FE-06.1、06.3、06.4、01.4、01.6、05.1；design.md §3.2、§6（ApiClient / ResumeDraftApi / ResumeApi）、§7.2、DD-02/05/06/10；O-12、F-05
 - **内容：** `src/api/ApiError.ts`、`ApiClient.ts`、`ResumeDraftApi.ts`、`ResumeApi.ts`。
   - `ApiClient`：前缀 `/api/v1`；`credentials: 'same-origin'`；JSON 设 `Content-Type`，`FormData` 不手设；`AbortController` 超时（上传 75s，其余 30s）；区分 `client_timeout` 与 `network_error`；非 2xx 解析 `ErrorResponse`（含 `details`），缺字段或非 JSON 时 `unknown_error` 并使用通用文案；日志仅 `request_id` / `code` / HTTP 状态。
@@ -98,12 +98,12 @@
 
 #### 子任务
 
-- [ ] `ApiError` 与工厂
-- [ ] `ApiClient`（超时、错误转换、日志约束）
-- [ ] `ResumeDraftApi`、`ResumeApi`
-- [ ] 契约样例的 mock 工厂（供后续切片测试复用，放 `src/test/`）
+- [x] `ApiError` 与工厂
+- [x] `ApiClient`（超时、错误转换、日志约束）
+- [x] `ResumeDraftApi`、`ResumeApi`
+- [x] 契约样例的 mock 工厂（供后续切片测试复用，放 `src/test/`）
 
-### Task 1.5：hooks/model 纯逻辑
+### Task 1.5：hooks/model 纯逻辑 ✅
 - **关联：** REQ-FE-01.1、01.2、02.1、02.2、03.4、03.5、04.1、04.2；design.md §3.3、§4.2–§4.4、§6（SectionConfig / FieldRules / UploadPrecheck / SectionView）、§6.1（`FIELD_MAX_LENGTH`）、TD-06、TD-07；G-01、G-02、CR-01、CR-01a
 - **内容：** `src/hooks/model/SectionConfig.ts`（11 个分区、22 字段、控件类型、核心标记、子项字段配置）、`FieldRules.ts`（`normalizePhone`、`PHONE_PATTERN`、`EMAIL_PATTERN`、`EMAIL_MAX_LENGTH = 254`、`FIELD_MAX_LENGTH` 按 design §6.1 逐项取自 OpenAPI 0.1.1、`validateCore`、`reasonText`、字段路径 `a[0].b` 解析）、`UploadPrecheck.ts`（扩展名、MIME、10485760 字节、0 字节、多文件取第一个并提示）、`SectionView.ts`（分区状态汇总优先级 `missing` > `uncertain` > `recognized` > `confirmed`、`firstTodoSection`、`coreReady`、`unconfirmedCount`、`hasUnsubmittedEdits`、分区内高亮排序）。文件均为纯 TS，无 DOM。
 - **测试：** 手机号：`13800138000`、`+85212345678` 通过，10 位 / 含字母 / `+` 位数不足拒绝，`138 0013 8000`、`138-0013-8000` 规范化后通过，提交原值超 32 字符拒绝；邮箱：`a@b.co` 通过，`a@b`、`a b@c.d`、255 字符拒绝；`FIELD_MAX_LENGTH` 每个上限做边界断言（等于通过、超 1 失败），并与 OpenAPI 0.1.1 数值核对；核心三项空白拒绝；`UploadPrecheck`：`.PDF` 通过、`.docx` 拒绝、恰好 10 MB 通过、10 MB + 1 拒绝、0 字节拒绝；`SectionConfig` 的字段集合与 `ResumeFields` 22 键一一对应、分区合计 22；`SectionView`：状态优先级、活跃分区选取（含全部已确认）、`coreReady`、未确认计数、缓冲存在判定。
@@ -112,12 +112,12 @@
 
 #### 子任务
 
-- [ ] `SectionConfig`
-- [ ] `FieldRules`（含上限表）
-- [ ] `UploadPrecheck`
-- [ ] `SectionView`
+- [x] `SectionConfig`
+- [x] `FieldRules`（含上限表）
+- [x] `UploadPrecheck`
+- [x] `SectionView`
 
-### Task 1.6：SessionReducer（会话状态机）
+### Task 1.6：SessionReducer（会话状态机） ✅
 - **关联：** REQ-FE-01.5、03.2、04.3–04.8、05.2、05.3；design.md §3.3（SessionReducer）、§5.2、§5.3、§6、TD-02/03/04/05/12；O-02、O-10、D-01
 - **内容：** `src/hooks/model/SessionReducer.ts`：状态类型与全部动作 / 转移（design §5.3 逐行实现）：`bootstrapping` / `bootstrap_failed` / `empty` / `reviewing` / `saved`；`view`、`busy` 互斥、`epoch` 丢弃过期响应、`editBuffer`、`fieldErrors`、`notice`、`error`、`pendingFile`、`overwriteAcknowledged`、`savedSummary`、`dialog`。纯函数，无副作用。
 - **测试：** 逐条覆盖 §5.3 转移表：GET 200 / 404 / 其他失败；上传 201 与失败（失败不清旧草稿，O-02）；覆盖确认流转；PATCH 200 / 422 / `draft_not_found` / 其他失败；进入 / 退出最终确认；确认成功（`already_saved` 两分支）、`draft_not_found`（→ 空态 + `maybe_saved`）、422、超时 / 5xx（停留 `final`）；新对话与 `overwriteAcknowledged`；`busy` 非空时拒绝新请求类动作；过期 epoch 的响应不改变状态；`saved` 后状态不含手机号 / 邮箱等简历内容。
@@ -126,8 +126,8 @@
 
 #### 子任务
 
-- [ ] 状态与动作类型
-- [ ] 转移实现与表驱动测试
+- [x] 状态与动作类型
+- [x] 转移实现与表驱动测试
 
 ---
 
