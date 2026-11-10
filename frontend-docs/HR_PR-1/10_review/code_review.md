@@ -208,7 +208,7 @@
 | 表单校验与契约一致 | ✅ | `FieldRow` 使用第一批 `validateScalar`（pattern/上限同 OpenAPI），不自定数值；后端 422 `details` 只显示 reason 文案 |
 
 ### 第一批 SUGGEST-1 是否关闭
-**已关闭。** `api/ApiClient.ts:53-58`：读取响应体失败时先判断 `timedOut`，为真抛 `ApiError.timeout()`（并经外层 catch 保持 `client_timeout`）；`ApiClient.test.ts` 新增 2 个用例（响应头已到、body 挂起；成功与错误响应各一）。第一批其余 SUGGEST（长度按码点、契约漂移检测、ESLint 收紧、audit 跟踪）仍为跟踪项，本批未处理，符合 DL 裁决。
+**已关闭。** `api/ApiClient.ts:52-58`：读取响应体失败时先判断 `timedOut`，为真抛 `ApiError.timeout()`（并经外层 catch 保持 `client_timeout`）；`ApiClient.test.ts` 新增 2 个用例（响应头已到、body 挂起；成功与错误响应各一）。第一批其余 SUGGEST（长度按码点、契约漂移检测、ESLint 收紧、audit 跟踪）仍为跟踪项，本批未处理，符合 DL 裁决。
 
 ### BLOCKING Issues
 无。
@@ -217,7 +217,7 @@
 无。
 
 ### SUGGESTIONS
-- **第二批-SUGGEST-1（拖拽文件可能让浏览器离开页面，丢失未提交编辑）**：`components/ComposerBar.tsx:34-48`，`onDrop/onDragOver` 监听仅在 `!disabled` 且 `ComposerBar` 已挂载时注册。上传/保存进行中（`busy`）、启动阶段、读取失败、已保存阶段（composer 不渲染）把文件拖进页面，浏览器会按默认行为打开该文件并**离开当前页**，内存中的编辑缓冲（TD-03）和在途请求都会丢失。建议始终注册 `dragover/drop` 的 `preventDefault()`，只在可上传时才调用 `onFiles`。
+- **第二批-SUGGEST-1（拖拽文件可能让浏览器离开页面，丢失未提交编辑）**：`components/ComposerBar.tsx:32-47`，`onDrop/onDragOver` 监听仅在 `!disabled` 且 `ComposerBar` 已挂载时注册。上传/保存进行中（`busy`）、启动阶段、读取失败、已保存阶段（composer 不渲染）把文件拖进页面，浏览器会按默认行为打开该文件并**离开当前页**，内存中的编辑缓冲（TD-03）和在途请求都会丢失。建议始终注册 `dragover/drop` 的 `preventDefault()`，只在可上传时才调用 `onFiles`。
 - **第二批-SUGGEST-2（业务规则在页面与组件中重复）**：`pages/ResumeCollectionPage.tsx` 的快捷指令 `blocked`（`alreadyConfirmed`/`dirty`/`sectionConfirmBlock`）与 `SectionCard.tsx` 的 `confirmDisabled` 是同一条规则的两份实现；AGENTS.md 要求业务规则只放 `hooks/model/`。建议在 `SectionView.ts` 提供 `canConfirmSection(...)`，两处共用，避免后续改一处漏一处。
 - **第二批-SUGGEST-3（“＋ 新对话”在 2.7 前点击无反应）**：`NewChatButton` 在可用状态下 `onClick` 为空。建议 2.7 前直接禁用（或不渲染），避免联调/演示时误判为缺陷；若保持现状，请确保 2.7 与 2.6 同一批次交付。
 - **第二批-SUGGEST-4（空白行在失焦时被移除可能引发误点）**：`StringListEditor.tsx` 的 `onBlur` 会立刻删除空白行，行高变化可能让同一次点击落在相邻的“删除”按钮上（按下时失焦、抬起时布局已变）。属可能性判断，未实机复现；建议用 `onMouseDown` 阻止按钮抢焦点，或延后到 `requestAnimationFrame` 后再删，并在 2.8 的键盘/可达性验收里覆盖。

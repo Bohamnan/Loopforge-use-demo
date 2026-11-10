@@ -240,7 +240,7 @@
 ### QUESTIONS
 
 #### 第二批-QUESTION-1：外发目标主机是否也要在代码里限定
-**位置**：`src/app/clients/deepseek_client.py:92-94`（`base_url=settings.deepseek_base_url.rstrip("/")`）；`core/config.py:16`
+**位置**：`src/app/clients/deepseek_client.py:95`（`base_url=settings.deepseek_base_url.rstrip("/")`）；`core/config.py:16`
 **问题**：`Authorization: Bearer <key>` 与简历内容会发往 `DEEPSEEK_BASE_URL` 指向的任何地址（上文探测中 `http://example.invalid` 被接受，含明文 http）。第一批 SUGGEST-7 曾建议在 1.8 spike 后再决定是否限定；spike 已验证 `https://api.deepseek.com` 可用。是否要求：仅允许 `https` 且主机在批准清单（`api.deepseek.com`）内，否则 fail-closed？
 **需要谁裁决**：Dev Lead
 **不同答案的影响**：限定则与修复 BLOCK-1 一并实现，成本很小，B-02 才真正落在代码上；不限定则需在部署文档中明确“`DEEPSEEK_BASE_URL` 变更属于需要批准的变更”，并接受误配风险。我建议限定。
