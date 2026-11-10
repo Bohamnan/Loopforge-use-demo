@@ -140,11 +140,24 @@ def test_zero_budget_fails_before_any_work() -> None:
         render_pdf(syn.build_text_pdf([syn.RESUME_LINES]), timeout_seconds=0)
 
 
-def test_deadline_is_checked_between_pages(monkeypatch: pytest.MonkeyPatch) -> None:
-    ticks = iter(range(0, 1000))
-    monkeypatch.setattr(pdf_renderer, "_now", lambda: next(ticks) * 10.0)  # 10 "seconds" per call
+def test_deadline_is_checked_between_pages_after_work_has_started(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clock = [0.0]
+    processed: list[int] = []
+    original = pdf_renderer._page_text
+
+    def slow_page_text(page: object) -> str:
+        clock[0] += 10.0  # each page "takes" 10 seconds
+        processed.append(1)
+        return original(page)
+
+    monkeypatch.setattr(pdf_renderer, "_now", lambda: clock[0])
+    monkeypatch.setattr(pdf_renderer, "_page_text", slow_page_text)
     with pytest.raises(ParseFailedError):
         render_pdf(syn.build_text_pdf([syn.RESUME_LINES] * 5), timeout_seconds=25)
+    # Pages 1-3 were processed (t=30 >= 25), the check before page 4 stopped the work.
+    assert len(processed) == 3
 
 
 def test_generous_budget_succeeds() -> None:

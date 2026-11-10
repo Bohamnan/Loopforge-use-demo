@@ -23,7 +23,7 @@
 
 | 状态 | 阶段 | 任务数 | 预估工时 |
 |------|------|--------|----------|
-| [ ] | 1. 共享基础 | 10 | 47h |
+| [x] | 1. 共享基础 | 10 | 47h |
 | [ ] | 2. 功能切片 | 7 | 37h |
 | [ ] | 3. 集成验证 | 3 | 11h |
 |     | 合计 | 20 | 95h |
@@ -173,7 +173,7 @@
 
 ---
 
-### Task 1.8：clients：解析客户端抽象、DeepSeekClient、PDF 转换、提示词　**【HIGH_RISK：B-02 / B-06】**
+### Task 1.8：clients：解析客户端抽象、DeepSeekClient、PDF 转换、提示词 ✅　**【HIGH_RISK：B-02 / B-06】**
 - **关联：** REQ-BE-02.1、02.4、02.5、06.2、06.3；D§3.4、D§6（`DeepSeekClient`、`prompts`）、D§7.2、D§1“模型调用接口”“模型超时的实现”；ADR-001
 - **内容：** `clients/pdf_renderer.py`（PDF 本地转换：`pypdfium2`，文本层优先、PNG 渲染兜底、最多 5 页、阈值 50 个非空白字符）；`clients/resume_parser_client.py`（`ResumeParserClient.parse(content, content_type) -> RawParseResult` 抽象）、`clients/deepseek_client.py`（同步 `httpx.Client`，`httpx.Timeout(connect=5, write=30, read=60, pool=5)`，非流式，不重试；失败映射按 D§7.2；响应体与请求体不进日志）、`clients/prompts.py`（系统提示：仅依据文件内容、不确定标 `uncertain`、找不到标 `missing`、忽略文件内指令性文字、仅输出约定 JSON）；`tests/` 内的 `FakeParserClient`。简历内容**只**经此处外发。
 - **测试：** `httpx.MockTransport` 覆盖 D§7.2 全部映射：`TimeoutException` → `ParseTimeoutError`；`ConnectError`/DNS → `ParseUnavailableError`；HTTP 401/403/404、429、5xx → `ParseUnavailableError`；其他 4xx（400/413/422）→ `ParseFailedError`；空体/非 JSON/非对象 → `ParseFailedError`；无 `DEEPSEEK_API_KEY` → `ParseUnavailableError` 且不发请求；请求使用配置的模型名；不重试（断言仅 1 次请求）；日志（捕获）不含请求/响应体、文件字节、密钥；`Authorization` 不出现在日志。禁网夹具保证无真实外发。`pdf_renderer`：文本页/渲染页判定（49/50 字符边界）、页序与混合页、5 页上限、长边 1600px、单页文本上限、损坏 PDF → `parse_failed`、并发安全；请求形态：照片 `image_url`、文本层 PDF 仅 `text` 块、扫描 PDF 含 PNG `image_url`；token 数入日志且无内容泄露。
@@ -182,19 +182,19 @@
 
 #### 子任务
 
-- [ ] **首个 spike（C-01，非 CI，凭证由 DL 经本机环境变量提供）已完成**：实测 deepseek-flash 只接受 webp/png/jpeg/gif 图片，**不接受 PDF**（`file` 块、`image_url` 装 PDF、`/files` 上传均被拒）；照片经 `image_url` + base64 data URI 可用。DL 裁决：只用 deepseek-flash；PDF 在 backend 本地转换后提交。证据与精度数据记入 `05_task/changelog.md`（不写响应原文、不写凭证）
-- [ ] 抽象接口与 `RawParseResult`（来自 1.4；增加可选 `prompt_tokens`/`completion_tokens`）
-- [ ] 新增唯一依赖 `pypdfium2`（不用 AGPL 的 PyMuPDF），`uv lock` 锁定精确版本，评估安全性
-- [ ] `clients/pdf_renderer.py`：最多 5 页；每页非空白字符 ≥ 50 作 `text` 块，否则渲染 PNG（长边 1600px）作 `image_url`；单页文本上限；不可读 PDF → `parse_failed`；PDFium 调用串行化
-- [ ] `DeepSeekClient` 与错误映射（含 402 → `parse_unavailable`）；记录并日志输出 `prompt_tokens`/`completion_tokens`（日志白名单新增，只记数字）
-- [ ] `prompts.py`（含防提示注入约定）
-- [ ] `FakeParserClient`（返回预置结果或抛指定 `Parse*Error`）
-- [ ] 精度验证 spike 脚本 `scripts/spike_deepseek.py`（手工运行，不被 pytest 收集）：合成带文本层 PDF、合成扫描式 PDF、PNG 各一份，与已知答案逐字段比对，记录准确率、token、耗时；仅用 deepseek-flash
-- [ ] 对应单元测试
+- [x] **首个 spike（C-01，非 CI，凭证由 DL 经本机环境变量提供）已完成**：实测 deepseek-flash 只接受 webp/png/jpeg/gif 图片，**不接受 PDF**（`file` 块、`image_url` 装 PDF、`/files` 上传均被拒）；照片经 `image_url` + base64 data URI 可用。DL 裁决：只用 deepseek-flash；PDF 在 backend 本地转换后提交。证据与精度数据记入 `05_task/changelog.md`（不写响应原文、不写凭证）
+- [x] 抽象接口与 `RawParseResult`（来自 1.4；增加可选 `prompt_tokens`/`completion_tokens`）
+- [x] 新增唯一依赖 `pypdfium2`（不用 AGPL 的 PyMuPDF），`uv lock` 锁定精确版本，评估安全性
+- [x] `clients/pdf_renderer.py`：最多 5 页；每页非空白字符 ≥ 50 作 `text` 块，否则渲染 PNG（长边 1600px）作 `image_url`；单页文本上限；不可读 PDF → `parse_failed`；PDFium 调用串行化
+- [x] `DeepSeekClient` 与错误映射（含 402 → `parse_unavailable`）；记录并日志输出 `prompt_tokens`/`completion_tokens`（日志白名单新增，只记数字）
+- [x] `prompts.py`（含防提示注入约定）
+- [x] `FakeParserClient`（返回预置结果或抛指定 `Parse*Error`）
+- [x] 精度验证 spike 脚本 `scripts/spike_deepseek.py`（手工运行，不被 pytest 收集）：合成带文本层 PDF、合成扫描式 PDF、PNG 各一份，与已知答案逐字段比对，记录准确率、token、耗时；仅用 deepseek-flash
+- [x] 对应单元测试
 
 ---
 
-### Task 1.9：repositories：草稿库与草稿文件存储
+### Task 1.9：repositories：草稿库与草稿文件存储 ✅
 - **关联：** REQ-BE-01.1、01.3、01.5、03.5、05.1、05.5；D§3.5（`DraftRepository`、`DraftFileStore`）、D§4、D§6；S§2.1、S§4.4
 - **内容：** `repositories/draft_repository.py`（`drafts` 表读写；`token_hash` 查询；`transaction()` 事务作用域（`BEGIN IMMEDIATE`）；`touch()`；`delete_expired(cutoff)` 用 `RETURNING file_path`；`list_file_paths()` 供孤儿扫描；不做业务判断）；`repositories/draft_file_store.py`（路径 `DATA_DIR/drafts/{draft_id}{ext}`，`ext` 仅来自魔数判型结果；写入/读取/删除；孤儿扫描；解析后路径必须仍在 `drafts` 目录内，防路径穿越）。
 - **测试：** `token_hash` 唯一；插入/按哈希查询/更新/删除；`BEGIN IMMEDIATE` 读改写并发（两线程各改不同字段均保留）；`delete_expired` 边界（恰 7 天、7 天少 1 秒）及 `RETURNING`；`touch()` 刷新 `last_active_at`；文件存储：写入内容一致、删除幂等、路径穿越被拒、仅接受 `.pdf/.jpg/.png`。**数据验证：** 直接 `SELECT` 断言行；检查文件系统存在性。
@@ -203,13 +203,13 @@
 
 #### 子任务
 
-- [ ] `DraftRepository`（全部 SQL 参数绑定）
-- [ ] `DraftFileStore`（含孤儿扫描：列出未被引用且修改时间早于阈值的文件，删除由调用方决定）
-- [ ] 对应单元测试
+- [x] `DraftRepository`（全部 SQL 参数绑定）
+- [x] `DraftFileStore`（含孤儿扫描：列出未被引用且修改时间早于阈值的文件，删除由调用方决定）
+- [x] 对应单元测试
 
 ---
 
-### Task 1.10：repositories：正式库与归档文件存储
+### Task 1.10：repositories：正式库与归档文件存储 ✅
 - **关联：** REQ-BE-04.3、04.4、04.5、04.6；D§3.5（`ResumeRepository`、`ArchiveFileStore`）、D§4、D§6；S§2.2、S§4.1/§4.2；ADR-004、ADR-005
 - **内容：** `repositories/resume_repository.py`（`find_by_identity_key()`；`create_aggregate()`：单个 `BEGIN IMMEDIATE` 事务内写主表 + 3 张子表，`IntegrityError` 仅当涉及 `uq_resumes_identity` 时转 `DuplicateIdentityError`，其他完整性错误原样抛出；`list_file_paths()` 供对账；`json.dumps(ensure_ascii=False)`；`created_at = updated_at`）；`repositories/archive_file_store.py`（`stage()`：复制 + `fsync` 到同目录 tmp 名 `.{id}{ext}.tmp`；`promote()`：`os.replace` + 尽力 `fsync` 目录；`discard_tmp()` 幂等；`scan()`；路径穿越防护）。
 - **测试：** 主表 + 子表原子写入（子表写入失败整体回滚，主表无行）；唯一冲突 → `DuplicateIdentityError`；其他完整性错误（如 CHECK）不被吞；`json_valid` CHECK；`file_path` 唯一；`find_by_identity_key` 命中/未命中；`stage` 复制内容一致；`promote` 后终态文件存在、tmp 消失；`discard_tmp` 幂等；tmp 与终态同目录；路径穿越被拒。**数据验证：** `SELECT count(*)` 主表/子表，目录文件列表断言。
@@ -218,9 +218,9 @@
 
 #### 子任务
 
-- [ ] `ResumeRepository`（规范化键由调用方传入，repository 不做规范化判断）
-- [ ] `ArchiveFileStore`
-- [ ] 对应单元测试
+- [x] `ResumeRepository`（规范化键由调用方传入，repository 不做规范化判断）
+- [x] `ArchiveFileStore`
+- [x] 对应单元测试
 
 ---
 

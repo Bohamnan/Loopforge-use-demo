@@ -399,3 +399,23 @@ def test_markers_inside_the_document_text_cannot_close_the_data_section() -> Non
     texts = [b["text"] for b in user_blocks(rec)]
     assert texts.count(DOC_BEGIN) == 1 and texts.count(DOC_END) == 1
     assert not any(DOC_END in t or DOC_BEGIN in t for t in texts if t not in (DOC_BEGIN, DOC_END))
+
+
+def test_environment_proxies_are_ignored(monkeypatch: pytest.MonkeyPatch) -> None:
+    """B-02: proxy environment variables must not redirect outbound resume data."""
+    for name in (
+        "HTTPS_PROXY",
+        "https_proxy",
+        "HTTP_PROXY",
+        "http_proxy",
+        "ALL_PROXY",
+        "all_proxy",
+    ):
+        monkeypatch.setenv(name, "http://proxy.invalid:3128")
+    settings = Settings(_env_file=None, deepseek_api_key=SecretStr(KEY))
+    client = DeepSeekClient(settings)  # real transport, nothing is sent on construction
+    try:
+        assert client._http._mounts == {}  # proxies would appear as URL-pattern mounts
+        assert client._http.trust_env is False
+    finally:
+        client.close()
