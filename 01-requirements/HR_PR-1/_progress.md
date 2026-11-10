@@ -10,7 +10,7 @@
 |------|------|
 | **PRD** | `01-requirements/HR_PR-1/prd.md` |
 | **当前 Skill** | architecture-advisor |
-| **当前阶段** | backend 设计阶段完成（AGENTS.md 已确认），待进入 feature-developer；frontend 技术设计确认通过 → 对齐 OpenAPI 0.1.1 + Step 4 任务拆分 |
+| **当前阶段** | frontend 任务清单已确认 → Step 5 补全仓库约定；复核通过后前后端同时进入 feature-developer |
 | **状态** | 🔄 architecture-advisor 进行中 |
 | **最后更新** | 2026-11-10 |
 
@@ -51,8 +51,8 @@
 | 需求汇总（第二轮技术 Q&A + requirements.md） | requirements-analyst | Dev Lead/BA | ✅ 已确认 | 2026-11-10 | `backend-docs/HR_PR-1/01_requirements/requirements.md`；`frontend-docs/HR_PR-1/01_requirements/requirements.md` |
 | 架构设计（Schema+接口） | architecture-advisor | 各 Workbench 工程师 | ✅ backend（OpenAPI 0.1.0 冻结，0.1.1 待修订 G-01/G-02）/ frontend（Step 2.2 评审通过） | 2026-11-10 | `backend-docs/HR_PR-1/02_schema/`、`03_api/`；`frontend-docs/HR_PR-1/03_api/interface_spec_resume.md` |
 | 技术设计 | architecture-advisor | 各 Workbench 工程师 | ✅ backend / ✅ frontend（2026-11-10） | 2026-11-10 | `backend-docs/HR_PR-1/04_design/design.md`；`frontend-docs/HR_PR-1/04_design/design.md` |
-| 任务拆分 | architecture-advisor | 各 Workbench 工程师 | ✅ backend（20 任务 / 91h）/ frontend — | 2026-11-10 | `backend-docs/HR_PR-1/05_task/tasks.md` |
-| 仓库约定补全与复核（仅新项目 Workbench） | architecture-advisor（Step 5） | 各 Workbench 工程师/Dev Lead | ✅ backend（已确认）/ frontend 待 Step 5 | — | backend、frontend 仓库 `AGENTS.md` |
+| 任务拆分 | architecture-advisor | 各 Workbench 工程师 | ✅ backend（20 任务 / 91h）/ ✅ frontend（15 任务 / 79h） | 2026-11-10 | `backend-docs/HR_PR-1/05_task/tasks.md`；`frontend-docs/HR_PR-1/05_task/tasks.md` |
+| 仓库约定补全与复核（仅新项目 Workbench） | architecture-advisor（Step 5） | 各 Workbench 工程师/Dev Lead | ✅ backend（已确认）/ 🔄 frontend 进行中 | — | backend、frontend 仓库 `AGENTS.md` |
 | 代码实现 | feature-developer | 各 Workbench 工程师 | — | — | — |
 | 代码审查 | code-reviewer | 各 Workbench 工程师 | — | — | — |
 | 开发自测用例 | dev-self-test | 各 Workbench 工程师 | — | — | — |
@@ -126,6 +126,8 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | architecture-advisor | frontend 技术设计确认：ADR-006 ACCEPTED；Q-DL-01..06 采纳（输入区无文本框、纯逻辑放 hooks/model、保存卡保留三项摘要、新对话后刷新恢复旧草稿可接受、兼容/无障碍范围、用户信息与历史会话去掉）；REQ-FE-04.4 澄清 v1.2 |
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent | DL 决定（简单方式）：业务代码直接放在本仓库 codes/ 下随工作台分支管理，不另建独立代码仓库；根 AGENTS.md/CLAUDE.md 同步说明 |
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent | DL 决定：backend 与 frontend 一起进入 feature-developer——待 frontend 任务清单确认（及其 Step 5 仓库约定复核）后同时开工；backend 首批为任务 1.1–1.7 |
+| 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 frontend 设计对齐 0.1.1（020ca8b）与任务拆分（81ebf62） |
+| 2026-11-10 | Yin Yang（Dev Lead） | architecture-advisor | frontend 任务清单确认：T-DL-01 默认 registry 例外写入 AGENTS.md；T-DL-02 任务 2.6 仅依赖 2.4、集成以 2.5 为准；T-DL-03 工时不含 Step 5 与审查（知悉） |
 
 ---
 
