@@ -218,3 +218,24 @@ describe('sectionConfirmBlock', () => {
     expect(sectionConfirmBlock(getSection('skills'), sampleFields(), { skills: [] })).toBeNull();
   });
 });
+
+describe('buildSectionUpdate: empty experience items', () => {
+  it('drops items with no content from the submitted list', () => {
+    const { update } = buildSectionUpdate(getSection('work'), sampleFields(), {
+      work_experiences: [{ company: 'A公司' }, {}, { company: '  ', responsibilities: [' '] }, { position: '主管' }],
+    });
+    expect(update.work_experiences).toEqual([{ company: 'A公司' }, { position: '主管' }]);
+  });
+
+  it('can submit an empty list to confirm the section as empty', () => {
+    const { update } = buildSectionUpdate(getSection('project'), sampleFields(), { project_experiences: [{}] });
+    expect(update.project_experiences).toEqual([]);
+  });
+
+  it('reports errors with the indexes the user sees, even when empty items are dropped before them', () => {
+    const { errors } = buildSectionUpdate(getSection('education'), sampleFields(), {
+      educations: [{}, { school: 'x'.repeat(2001) }],
+    });
+    expect(errors).toEqual({ 'educations[1].school': 'too_long' });
+  });
+});

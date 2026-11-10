@@ -8,6 +8,7 @@ import type { ResumeFields, ResumeFieldsUpdate } from '../types/ResumeModel';
 import ErrorAlert from './ErrorAlert';
 import FieldRow from './FieldRow';
 import FieldStatusTag from './FieldStatusTag';
+import ObjectListEditor from './ObjectListEditor';
 import ReadOnlySection from './ReadOnlySection';
 import StringListEditor from './StringListEditor';
 
@@ -82,8 +83,16 @@ export default function SectionCard({
       );
     }
     if (field.kind === 'objectList') {
-      // Item-level editing arrives with task 2.5; until then the list is shown read-only.
-      return <ReadOnlySection key={key} section={{ ...section, fields: [field] }} fields={fields} buffer={buffer} />;
+      return (
+        <ObjectListEditor
+          key={key}
+          {...common}
+          field={field}
+          value={(currentValue(fields, buffer, key) as Record<string, unknown>[] | undefined) ?? []}
+          errors={errorsOf(fieldErrors, key)}
+          onChange={(items) => onEdit?.({ [key]: items })}
+        />
+      );
     }
     return (
       <FieldRow

@@ -108,6 +108,10 @@ function cleanItem(item: Record<string, unknown>): Record<string, unknown> {
   return cleaned;
 }
 
+function isEmptyItem(item: Record<string, unknown>): boolean {
+  return Object.values(item).every((v) => v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0));
+}
+
 /**
  * Builds the PATCH body for confirming one section (design §4.4): every field of the section is sent,
  * taking the unsubmitted edit if present, else the current draft value (a missing scalar becomes null,
@@ -139,8 +143,9 @@ export function buildSectionUpdate(
       if (problem) errors[problem.index === undefined ? key : `${key}[${problem.index}]`] = problem.reason;
     } else {
       const items = ((current ?? []) as Record<string, unknown>[]).map(cleanItem);
-      update[key] = items;
+      // Errors use the indexes the user sees; items left completely empty are not submitted.
       for (const detail of validateObjectList(key, items)) errors[detail.field] = detail.reason;
+      update[key] = items.filter((item) => !isEmptyItem(item));
     }
   }
   return { update: update as ResumeFieldsUpdate, errors };

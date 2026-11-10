@@ -295,3 +295,33 @@ body {
   gap: 8px;
   margin-bottom: 8px;
 }
+
+/* Experience items */
+.item-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  padding: 4px 10px 8px;
+  background: #fff;
+}
+.item-card summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--navy);
+  padding: 4px 0;
+}
+.item-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+.item-sub {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+.sub-input {
+  flex: 1;
+  min-width: 0;
+}

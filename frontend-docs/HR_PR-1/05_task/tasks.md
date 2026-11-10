@@ -188,7 +188,7 @@
 - [x] `useResumeSession` 编辑与分区提交
 - [x] 请求体构造与 422 映射
 
-### Task 2.5：分区核对 — 经历类子项编辑（REQ-FE-03.3）
+### Task 2.5：分区核对 — 经历类子项编辑（REQ-FE-03.3） ✅
 - **关联：** REQ-FE-03.3、03.6；design.md §3.4（ObjectListEditor）、§4.4、§6（ObjectListEditor）、§6.1（经历区块上限）；O-11、CR-01a
 - **内容：** `ObjectListEditor`：工作经历、项目经历、教育背景的多条子项新增 / 修改 / 删除（可折叠卡片，无重排）；工作经历子项含 `responsibilities` / `achievements` 两个文本列表（复用 `StringListEditor`）；子项条数上限 20、子项内字符串上限 2000、`responsibilities` / `achievements` 条数上限 30，均取自 `FIELD_MAX_LENGTH`；删除子项后清除该分区下标类 `fieldErrors`；字段路径 `work_experiences[0].start_date` 映射到对应行；列表整块提交。
 - **测试：** 新增 / 修改 / 删除子项后提交体为完整新列表；达到 20 条时新增禁用；子项字符串超 2000 提示；`responsibilities` 超 30 条禁用新增；422 `details` 的下标路径定位到正确子项行；删除子项后旧下标错误被清除；空列表可作为“确认留空”提交；三类经历区块的子项字段与 OpenAPI 的 `WorkExperience` / `ProjectExperience` / `Education` 字段一致。
@@ -197,8 +197,8 @@
 
 #### 子任务
 
-- [ ] `ObjectListEditor` 与子项配置渲染
-- [ ] 下标错误映射与清除
+- [x] `ObjectListEditor` 与子项配置渲染
+- [x] 下标错误映射与清除
 
 ### Task 2.6：最终确认与保存结果（REQ-FE-04，HIGH_RISK：约束 F-03）
 - **关联：** REQ-FE-04.1–04.8；design.md §3.4（FinalReviewCard、SavedResultCard、ConfirmDialog）、§5.1、§5.3（最终确认相关行）、§6、§7.1、§9.2、TD-04/11；B-04、F-03、C-05、C-10、C-11、D-01、D-03、D-04、O-08、O-10、P-09、Q-DL-03

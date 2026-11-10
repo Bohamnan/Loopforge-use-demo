@@ -242,3 +242,27 @@ React 在开发模式下自身会向 console 输出异常信息（含 message）
 ### 遗留风险
 - 编辑缓冲只在内存，刷新页面会丢失未提交编辑（TD-03，已知行为）。
 - 点击“确认本区”时若同一分区已 `confirmed` 且无编辑，按钮为“已确认”且禁用；用户需先改动才能再次提交（符合设计 §6）。
+
+## Task-2.5：分区核对 — 经历类子项编辑（REQ-FE-03.3）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/components/ObjectListEditor.tsx | 新增 | 工作 / 项目 / 教育经历的多条子项新增、修改、删除（可折叠卡片 `<details>`，无重排）；子项字段由 `SectionConfig` 驱动；工作经历内含职责 / 业绩两个文本列表；条数上限 20（取自 `FIELD_MAX_LENGTH`），子列表上限 30、单项 2000（取自 `EXPERIENCE_ITEM_LIMIT`）；字段路径 `work_experiences[1].start_date` 的错误显示在对应子项行；整表错误；提交态锁定 |
+| codes/hr-collection-agent-frontend/src/components/StringListEditor.tsx | 修改 | 支持嵌套使用：`fieldKey` 可为子项路径、`maxItems` 覆盖、`bare` 隐藏状态标签与外层标记；原有行为不变 |
+| codes/hr-collection-agent-frontend/src/components/SectionCard.tsx | 修改 | 经历类字段改用 `ObjectListEditor`（替换 2.4 的只读展示） |
+| codes/hr-collection-agent-frontend/src/hooks/model/SectionView.ts、SectionView.test.ts | 修改 | `buildSectionUpdate`：提交时丢弃“完全为空”的子项（用户新增后未填写）；错误仍按用户所见下标报告 |
+| codes/hr-collection-agent-frontend/src/components/Layout.css | 修改 | 子项卡片样式 |
+| 测试 | 新增 | `ObjectListEditor.test.tsx`、`ResumeCollectionPage.items.test.tsx`；扩充 `SectionView.test.ts` |
+
+### 偏差说明
+- 新增的**空白子项在提交时被丢弃**（设计 §4.4 只写“列表提交完整新列表”）：避免把只点了“添加一条”却没填的占位项存入草稿；全部为空则提交 `[]`（即“确认留空”）。
+- 删除子项后清除下标类字段错误：由 reducer 的 `FIELD_EDITED` 对该字段的全部路径错误一并清除（任何对该列表的编辑都会清掉它的旧错误，下次确认时重新校验），因此不会出现错位提示。
+- 子项以 `<details open>` 折叠，未提供“全部收起 / 展开”。
+
+### 遗留风险
+- 子项无 id、以下标为 key：删除或在中间插入时，已折叠 / 展开的状态会随下标移动（仅影响显示，不影响数据）。
+- 嵌套列表（职责 / 业绩）的 `status` 与“未提交修改”标记显示在外层经历字段上，子项级没有单独状态（契约中整块一个状态，O-11）。
