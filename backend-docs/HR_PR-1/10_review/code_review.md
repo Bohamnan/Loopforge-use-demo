@@ -432,3 +432,87 @@
 | SUGGEST-1（目录内符号链接）、SUGGEST-3（promote 静默覆盖） | 在 2.4 之前修复：DraftFileStore 拒绝符号链接（lstat + O_NOFOLLOW）；promote 前检查终态文件已存在则报错，不覆盖 |
 | 其余 SUGGEST | 记为跟踪项 |
 
+
+---
+
+## 第六批审查（存储加固 + 任务 2.1–2.3：上传创建草稿、读取续期、提交校对结果）
+
+- 日期：2026-11-10；Review 模式：Ticket-aware Review；Reviewer：Yin Yang（dev-lead，审查 agent 代行）
+- 审查对象：合并提交 cfb87b3，含 `6295fe5`（存储加固）、`fb1210f`（2.1）、`bac0405`（2.2）、`71785cc`（2.3）；本 worktree 已 `git merge feature`，HEAD 含 cfb87b3。对照 design、tasks、openapi.yaml 0.1.1、ADR-001..006、AGENTS.md（项目根与 backend 代码根）。
+- 本批结论：**PASS_WITH_SUGGESTIONS**（0 BLOCK / 0 QUESTION / 6 SUGGEST；另有 4 个待 DL 裁决的偏差，我的建议均为“接受”，见下）
+- 上下文限制：B-05 保存顺序、补偿与对账在 2.4/2.5，本批不下结论。B-04 只能确认“本批三个接口不写正式库”，“确认后才入库”的正向路径在 2.4 审查。未做真实模型调用，也未实测并发与超大上传。
+
+### Review Scope
+| 文件 | 变更类型 | 对应 Task | 风险 |
+|---|---|---|---|
+| `core/db.py`、`repositories/draft_file_store.py`、`archive_file_store.py` | 修改（加固） | 第四批 SUGGEST-1/2/3 | 中高（文件安全） |
+| `services/upload_validation.py`、`api/routes/resume_drafts.py`（POST）、`api/deps.py`、`main.py` | 新增/修改 | 2.1 | **高**（上传、文件落盘、令牌） |
+| `services/parse_normalizer.py` | 新增 | 2.1 | **高**（模型输出为不可信数据，B-04） |
+| `services/draft_service.py`（create/get/update）、`field_validation.py`、`api/error_handlers.py`、`api/cookies.py` | 新增/修改 | 2.1–2.3 | **高**（令牌哈希、B-04、错误响应） |
+| `tests/**`（api、services、repositories、core） | 新增/修改 | — | — |
+
+### 核对结果
+| 检查项 | 结论 | 证据 |
+|---|---|---|
+| 上传校验与大小限制 | ✅（读取阶段）⚠（前置限制，见确认点 ⑤） | `upload_validation.validate_upload`：缺文件 → 扩展名白名单（先于读取）→ 64KB 分块、超 10485760 字节立即抛 `FileTooLargeError` → 空文件 → 魔数与扩展名一致；`content_type` 只来自魔数，客户端 Content-Type 被忽略（有测试）；10MB 恰好通过、+1 报 413 且不调用模型 |
+| 令牌与哈希 | ✅ | `ids.generate_token`＝`secrets.token_urlsafe(32)`（256 位），库内只存 `hash_token`（SHA-256）；`create`/`get`/`update` 均先哈希再查；明文令牌只出现在 Set-Cookie；Cookie 属性 `HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`，由 `cookies.py` 单点生成；404/422/失败路径不设置 Cookie |
+| SQL 参数绑定 | ✅ | 本批未新增 SQL 文本；`get/touch_and_get/update_fields/delete_by_token_hash` 复用第四批已审的仓储，值全部 `?` 绑定 |
+| 文件路径安全 | ✅ | 文件名＝服务端 UUID + 魔数得出的扩展名，用户文件名只作展示（basename、截断 255）；`DraftFileStore` 经 `lstat` 拒绝任何符号链接、`read` 用 `O_NOFOLLOW`，`list_files` 只列普通文件；`ArchiveFileStore.promote` 已存在即 `FileExistsError`，不覆盖（`lexists` 覆盖悬空链接）。第四批 SUGGEST-1/2/3 均落实，有红灯验证记录 |
+| SQLite ≥ 3.35 启动检查 | ✅ | `core/db._init` 在创建任何文件前检查 `sqlite_version_info`；测试用 3 个过低版本与 3 个合法版本验证，过低时不创建文件 |
+| 错误响应不泄露内部 | ✅ | `details` 只含字段路径 + reason 代码，`issues_from_pydantic` 丢弃 `input/msg`；任意异常 → `InternalError`（固定文案）；测试用哨兵值断言 6 个字段 + 核心三项不回显；错误体统一 `{code,message,request_id}`；`log_event` 的 `stack` 不含异常消息 |
+| B-04（确认前不入库） | ✅（本批范围） | `services/`、`api/` 无任何 `ResumeRepository`/`ArchiveFileStore`/`resumes.db` 引用（grep 确认）；POST/GET/PATCH 只写 `drafts.db` 与 `data/drafts/`；`normalize` 拒绝模型返回的 `confirmed`（降为 `uncertain`），`check_invariants` 在出口断言“无 confirmed、missing⇔空值”；有“全部字段声称 confirmed”的提示注入样本测试；PATCH 路由 docstring 与代码一致“不代表用户确认保存” |
+| 日志脱敏 | ✅ | `draft_created` 只记 `draft_id`；清理失败只记类名与栈帧；测试断言日志不含文件名、文件内容、令牌、提交值；`log_event` 白名单未放宽 |
+| 契约一致（openapi 0.1.1） | ✅ | 三个接口路径、operationId、状态码（201/200、400/413/415、404、422）、Set-Cookie 续期（同值、Max-Age=604800）、`expires_at`＝最后活动 + 7 天；响应由测试用 OpenAPI 校验；PATCH 的“出现即 confirmed、null/[] 确认留空、区块整体替换、核心三项不得留空、不回显值”与描述一致；GET 不返回 next_field/question（C-03） |
+| 分层 | ✅ | 路由只做解析与转换，`validate_upload` 在 services，`DraftService` 不含 SQL（事务经仓储 `transaction()`）；`deps` 懒创建 `DeepSeekClient`（无密钥也能启动），经 clients 层出口，B-02 不变 |
+| 过期与滑动续期 | ✅ | `get` 与清理使用同一规则（空闲超过 7 天；恰好 7 天有效）；过期草稿不被刷新；`touch_and_get` 单语句刷新 `last_active_at`，不改 `updated_at`；`update` 在 `BEGIN IMMEDIATE` 内读-合并-写，2 线程各 10 次更新不同字段全部保留（并发测试） |
+| 失败补偿（O-02/O-03） | ✅ | `create` 在 `except BaseException` 内清理临时文件后重新抛出，覆盖模型错误、归一失败、插入失败与意外异常；旧草稿仅在新草稿成功后删除，失败只记 `old_draft_cleanup_failed` |
+| 测试 | ✅ | 见下表；2.3 有变异验证（把 `validate_update` 调用改为空，23 个用例失败），已读 changelog，未重做 |
+
+### BLOCKING Issues
+无。
+
+### QUESTIONS
+无（下列偏差已按“DL 确认点”给出建议，裁决前不改变本批结论）。
+
+### 已知偏差：待 DL 裁决，建议均为“接受”
+1. **PATCH 一次性合并返回 Pydantic 错误与核心字段语义错误——建议接受。** `error_handlers._handle_validation` 对 PATCH 路径把 `issues_from_pydantic` 与 `core_issues_from_raw(exc.body["fields"])` 去重合并，只输出字段路径与 reason，不含值；与 design §5.2“收集全部问题”和用户体验一致，不增加泄露面。代价：校验逻辑有 Schema 与 `field_validation` 两处，靠 `_check_core` 单点实现收敛，可接受。注意：请求体校验先于令牌检查，无 Cookie 且 body 非法时返回 422 而非 404，不泄露信息，可接受。
+2. **模型给值却标 `missing` 时保留值并降为 `uncertain`——建议接受。** 优于丢值（丢值要用户重打）也优于信任（`recognized` 会让用户误以为可信）；用户必须在对话中确认才会变 `confirmed`，不违反 B-04“不猜测补全”（值来自简历而非推测）。已写入测试和 changelog；建议把该规则补进 design §1“解析结果降级规则”，保持文档与实现一致。
+3. **标量去首尾空白、手机号保留展示值——建议接受。** 展示值保留用户写法，幂等键由 `identity_key.phone_key`（去空格/连字符、`+86`/`86` 前缀）规范化，二者分离合理；`build_identity` 对展示值也只做 `strip`。2.4 须保证：校验用 `validate_core_fields`（去噪后匹配），存储用展示值，键用 `identity_key`，避免两处规范化不一致。
+4. **上传请求体缺少前置大小限制——建议 POC 接受并登记跟踪项。** 我读取的事实：Starlette 在进入路由前已把整个 multipart 体写入 `SpooledTemporaryFile`（超过 1MB 落盘），`_read_limited` 只限制随后读入内存的量，所以超大上传仍会先占用临时磁盘并读完整个体。POC 为本机 `127.0.0.1`、约 5 人，无外部攻击面，最坏后果是临时磁盘/带宽占用，请求结束后临时文件被回收。若将来对外暴露，需加 Content-Length 前置检查（超限直接 413，约 15 行纯 ASGI 中间件，chunked 传输仍须另行限制）。PATCH 的 JSON 体同样没有大小前置限制，字段上限在解析之后才生效，同一条跟踪项覆盖。
+
+### SUGGESTIONS（不阻断）
+- **第六批-SUGGEST-1（PATCH 文本列表与区块条目不清理空白项）**：`draft_service._confirmed_node` 对文本列表和区块原样存储。我复现：`skills=[" ", "", "a"]` 存为 `[' ', '', 'a']` 且状态 `confirmed`；`educations=[{}]` 存为一条全 `None` 的条目。与 `normalize` 的“空条目丢弃”不一致，且 changelog 只说明了“不做元素去空白”。建议文本列表丢弃空白项并去首尾空白，区块丢弃全空条目（空集合则等同确认留空），并补测试；若 DL 希望“用户提交原样”，请在 design 写明。
+- **第六批-SUGGEST-2（`original_filename` 未过滤控制字符）**：`_display_name` 只取 basename 并截断 255，换行、NUL 等控制字符会原样存库并回显。JSON 序列化会转义，且日志不记文件名，当前无注入路径；建议过滤控制字符（或替换为空），避免日后用在响应头或文件系统时出问题。
+- **第六批-SUGGEST-3（`DraftFileStore.delete` 的 TOCTOU 窗口）**：`lstat` 检查与 `unlink` 之间仍有极小窗口（changelog 已披露，`read` 已用 `O_NOFOLLOW`）。目录由服务端独占，POC 可接受；可用 `os.unlink(dir_fd=...)` 配合目录文件描述符进一步收紧。登记跟踪项即可。
+- **第六批-SUGGEST-4（`get` 的两语句）**：`get_by_token_hash` 与 `touch_and_get` 之间草稿被清理会返回 404（已处理为 `DraftNotFoundError`，无数据风险）。若想一步到位，可让 `touch_and_get` 的 SQL 带 `last_active_at >= cutoff` 条件，把过期判断与刷新合成一条语句；非必要。
+- **第六批-SUGGEST-5（design 文档同步）**：把“有值但声称 missing → uncertain”“PATCH 合并错误报告”“标量去首尾空白”写进 design，避免 3.1 契约测试与 2.4 实现各自解读；并在 AGENTS.md 增加“上传体大小无前置限制”的已知限制说明。
+- **第六批-SUGGEST-6（`create` 中 `except BaseException`）**：能保证清理，但同时拦截 `KeyboardInterrupt/SystemExit` 时仍会重新抛出，行为正确；ruff 通过。建议改为 `except Exception` 再加 `finally` 标记成功位的写法更易读，纯风格项。
+
+### 测试与验证证据
+| 项目 | 状态 | 说明 |
+|---|---|---|
+| B-04 | ✅（本批） | 本批三个接口不接触正式库（grep 无引用）；`normalize` 的 confirmed 拒绝与提示注入样本有测试；正向“确认后入库”在 2.4 |
+| B-05 | 不适用 | 2.4/2.5 |
+| 数据层断言 | ✅ | 上传：行、文件内容、令牌哈希与 Cookie 一致；GET：`last_active_at` 刷新且 `updated_at` 不变；PATCH：库内 `fields_json` 与 `updated_at`，422 时均未变化 |
+| 异常路径 | ✅ | 缺文件/空文件/魔数不一致/413/415、模型三类失败、归一失败、意外异常、插入失败、404 四种令牌、38 种非法 PATCH |
+| 安全 | ✅ | 无密钥入库（本批新增代码未出现凭证）；日志与错误响应脱敏有测试 |
+| mock 策略 | ✅ | 解析器用 fake `ResumeParserClient`（`tests/fakes.py`），仓储用真实 SQLite 与临时目录；无真实模型调用 |
+
+### 本批复跑（merge 后，本 worktree）
+| 命令 | 结果 |
+|---|---|
+| `uv sync --frozen` | ✅ Checked 35 packages |
+| `uv run python -m compileall src`（先清 `__pycache__`） | ✅ 退出码 0，输出 39 行 `Compiling '...'`，确认有真实编译动作 |
+| `uv run pytest` | ✅ **721 passed**，1 warning（既有 `StarletteDeprecationWarning`），0 failed，0 skipped（上一批为 449，本批净增 272） |
+| `uv run ruff check .` | ✅ All checks passed |
+| `uv run ruff format --check .` | ✅ 85 files already formatted |
+| 额外探针 | `PYTHONPATH=src` 调用 `_confirmed_node` 复现 SUGGEST-1；运行后 `git status` 无变更 |
+
+### 正向反馈
+- 把“模型输出不可信”做成出口不变式（`check_invariants`）加提示注入样本测试，B-04 的防线落在数据层，而不是靠约定。
+- 校验、规范化和幂等键各有单点实现（`_check_core`、`identity_key`），为 2.4 复用打好基础。
+- 错误响应只含字段路径和 reason，测试用哨兵值反向证明不回显；日志白名单没有为方便而放宽。
+- 第四批 SUGGEST 当批落实并附红灯验证；偏差与遗留风险在 changelog 中披露充分，包括上传体大小这类不利事实。
+
+### 更新后的本批结论
+**PASS_WITH_SUGGESTIONS**。建议 DL 接受 4 个偏差；SUGGEST-1 建议在 2.4 开工前处理（确认保存会读取这些列表），其余记为跟踪项。进入 2.4 前请带上：展示值与幂等键分离的约定（偏差 3）。
