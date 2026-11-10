@@ -86,10 +86,16 @@ class ArchiveFileStore:
         return name
 
     def promote(self, resume_id: str, ext: str) -> str:
-        """Atomically rename tmp to the final name (call only after the DB commit)."""
+        """Atomically rename tmp to the final name (call only after the DB commit).
+
+        Never overwrites: an existing final file raises FileExistsError and tmp is kept.
+        """
         src = self._root / tmp_name(resume_id, ext)
         name = final_name(resume_id, ext)
-        os.replace(src, self._root / name)
+        target = self._root / name
+        if os.path.lexists(target):  # also true for symlinks and dangling links
+            raise FileExistsError("final archive file already exists; refusing to overwrite")
+        os.replace(src, target)
         self._fsync_directory()
         return name
 
