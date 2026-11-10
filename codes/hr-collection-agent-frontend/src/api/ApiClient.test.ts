@@ -142,6 +142,17 @@ describe('ApiClient.request', () => {
     expect(((await pending) as ApiError).code).toBe('client_timeout');
   });
 
+  it('rejects a 2xx body that fails the given shape check as unknown_error', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    stubFetch(() => jsonResponse(200, { unexpected: true }));
+    const isOk = (value: unknown): value is { ok: boolean } => typeof value === 'object' && value !== null && 'ok' in value;
+    const error = (await request('/x', { method: 'GET', validate: isOk }).catch((e: unknown) => e)) as ApiError;
+    expect(error.code).toBe('unknown_error');
+    expect(error.status).toBe(200);
+    stubFetch(() => jsonResponse(200, { ok: true }));
+    await expect(request('/x', { method: 'GET', validate: isOk })).resolves.toEqual({ ok: true });
+  });
+
   it('exposes the contract timeouts', () => {
     expect(UPLOAD_TIMEOUT_MS).toBe(75_000);
     expect(DEFAULT_TIMEOUT_MS).toBe(30_000);

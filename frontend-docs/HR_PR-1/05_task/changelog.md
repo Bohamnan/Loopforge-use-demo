@@ -309,5 +309,90 @@ React 在开发模式下自身会向 console 输出异常信息（含 message）
 
 ### 遗留风险
 - HIGH_RISK：请人类审查 F-03 路径——`SavedResultCard` 的唯一入口（`reducer CONFIRM_SUCCEEDED`）、`draft_not_found` 与各类失败不会进入成功态。
-- 超时 / 网络失败后“结果未知”的文案依赖 backend 确认接口幂等（ADR-004）；已保存但响应丢失的情形，重试会得到 `already_saved=true`，界面显示“该简历已保存过”。
+- 超时 / 网络失败后“结果未知”。（2026-11-10 更正，第三批审查 SUGGEST-1）如果首次请求其实已经保存、只是响应丢了，backend 已删除草稿并使令牌失效（C-11），重试会得到 **404 `draft_not_found`**，界面显示“可能已保存，请重新上传核实”（D-01），不会得到 `already_saved=true`；`already_saved=true` 只出现在同一个人此前已保存、而本次仍持有有效草稿的情形（ADR-004）。原先写“重试会得到 `already_saved=true`”是错误的。
 - “＋ 新对话”仍待 2.7；`saved` 与 `empty` 阶段点击该按钮暂无反应，使用“上传下一份”即可。
+
+## Fix-2.6a：保存响应形状校验，防误报“已保存”（第三批审查 SUGGEST-2，F-03 加固）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/api/ResponseShapes.ts | 新增 | `isCreateResumeResponse`：`resume_id` 非空字符串、`already_saved` 为布尔值、`saved_at` 为可解析的日期字符串；`isDraftResponse`：`draft_id` / `expires_at` 非空字符串、`original_file.filename` 非空、22 个字段齐全且每个为 `{value, status}`（`status` 属 4 种状态之一；列表字段 `value` 为数组，标量 `value` 为 `string \| null`） |
+| codes/hr-collection-agent-frontend/src/api/ApiClient.ts | 修改 | `RequestOptions.validate`：2xx 响应体不满足形状时按 `unknown_error` 处理（保留 HTTP 状态、走同一日志规则，不暴露响应体） |
+| codes/hr-collection-agent-frontend/src/api/ResumeApi.ts | 修改 | `createResume` 使用 `isCreateResumeResponse` |
+| codes/hr-collection-agent-frontend/src/api/ResumeDraftApi.ts | 修改 | 三个草稿接口（上传、读取、更新）使用 `isDraftResponse` |
+| 测试 | 新增 / 修改 | `ResponseShapes.test.ts`（保存响应 15 种非法形状、草稿 22 个缺字段等）、`ResumeApi.test`（8 种 2xx 非法形状 → `unknown_error`）、`ResumeDraftApi.test`（三个接口 × 3 种非法草稿）、`ApiClient.test`（`validate` 选项）、`ResumeCollectionPage.final.test`（200 `{}`、201 `{}`、缺 `already_saved`、`already_saved` 非布尔 → 停在最终确认页、有错误提示、可重试，无“已保存”） |
+
+### 其他接口的同类风险
+- 草稿接口的 2xx 响应也会被页面直接读取 22 个字段，形状不对会使界面崩溃或把不完整的数据当作草稿，因此一并加了 `isDraftResponse`。
+- **读取草稿（GET current）** 返回形状不对时是**错误**（进入“读取失败，可重试”），不是“没有草稿”——避免用户误以为没有草稿而上传覆盖。
+- 错误响应（非 2xx）的形状校验在第一批已有（非契约错误体 → `unknown_error`）。
+
+### 偏差说明
+`saved_at` 额外要求可被 `Date.parse` 解析（审查只要求字符串），这样“已保存 + 乱码时间”的组合不会出现（对应 SUGGEST-4 的前置条件）。
+
+### 遗留风险
+形状校验是最小校验，不核对各字段内容的业务含义（例如列表项内部字段）；这些仍由 TypeScript 类型与后端契约保证。
+
+## Task-2.7：新对话与覆盖确认（P-08、TD-12）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/hooks/useResumeSession.ts | 修改 | 新增 `requestNewChat`、`confirmNewChat`（reducer 的 `NEW_CHAT_*` 动作早已就绪，本任务补入口） |
+| codes/hr-collection-agent-frontend/src/pages/ResumeCollectionPage.tsx | 修改 | “＋ 新对话”接线；`new_chat` 确认框（偏差 ② 的剩余部分）：说明界面将清空、服务端未确认草稿仍保留、刷新会恢复、再次上传会覆盖；有未提交编辑时追加“未提交的修改将丢失”；无草稿 / 结果页直接清空，不弹框 |
+| codes/hr-collection-agent-frontend/src/components/NoticeBanner.tsx、NoticeBanner.test.tsx | 修改 | **SUGGEST-5**：去掉与结果卡重复的 `already_saved` 提示（`BannerKind` 排除该项；该句只由 `SavedResultCard` 显示）；页面不再把该通知交给横幅 |
+| codes/hr-collection-agent-frontend/src/pages/ResumeCollectionPage.newchat.test.tsx | 新增 | 9 例，见验证 |
+
+### 验证要点
+空态直接清空且不调接口；有草稿先确认并写明后果；取消保留草稿与未提交编辑；确认后清空界面且不调任何接口（无丢弃接口）；确认后的下一次上传不再二次确认覆盖（`overwriteAcknowledged`）；重新加载页面仍会恢复旧草稿（已知行为 Q-DL-04）；最终确认页同样先询问；结果页直接清空；请求进行中按钮禁用。
+
+### 偏差说明
+按设计实现，无偏差。reducer 的 `notice: 'already_saved'` 仍保留，作为“结果页应显示已保存过”的标记，仅不再由横幅渲染。
+
+### 遗留风险
+“新对话”后刷新页面会恢复旧草稿（TD-12，已知行为，对话框已明示）。
+
+## Task-2.8：无障碍与响应式（TD-13）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/hooks/useChatScroll.ts | 新增 | 纯函数 `focusKeyOf` + 薄封装 `useChatScroll`：只返回“该滚动 / 聚焦的区块 key”（`section:<key>` / `final` / `saved` / null），不碰 DOM |
+| codes/hr-collection-agent-frontend/src/components/ChatThread.tsx | 修改 | 按 `focusKey` 查找 `[data-focus-key]`，`scrollIntoView`（环境没有该方法时跳过）并 `focus({ preventScroll: true })`；key 不变不重复聚焦 |
+| codes/hr-collection-agent-frontend/src/components/SectionCard.tsx、FinalReviewCard.tsx、SavedResultCard.tsx | 修改 | 标题加 `data-focus-key` 与 `tabIndex={-1}` 作为聚焦目标 |
+| codes/hr-collection-agent-frontend/src/hooks/useNarrowScreen.ts、components/AppShell.tsx | 新增 / 修改 | `matchMedia('(max-width: 859px)')`：窄屏时侧栏收起，“＋ 新对话”移到标题栏，仍唯一且可达；侧栏 `aria-label="会话操作"` |
+| codes/hr-collection-agent-frontend/src/hooks/model/UploadPrecheck.ts | 修改 | `isFileDrag`：`types` 含 `Files`（拖拽过程中文件尚不可读）或已有文件 |
+| codes/hr-collection-agent-frontend/src/hooks/usePreventFileDropNavigation.ts、components/ComposerBar.tsx | 修改 | **SUGGEST-3**：只取消文件拖拽的默认行为，文本 / 链接拖拽不受影响；`ComposerBar` 提示用 `role="status"` |
+| codes/hr-collection-agent-frontend/src/components/SavedResultCard.tsx | 修改 | **SUGGEST-4**：`formatSavedAt` 无法解析时返回 `null`，结果卡隐藏“保存时间”行，不再显示原始乱码（保存响应的 `saved_at` 已在 api 层校验为可解析日期） |
+| codes/hr-collection-agent-frontend/src/hooks/useStableKeys.ts、components/ObjectListEditor.tsx、StringListEditor.tsx | 新增 / 修改 | 子项 / 文本行改用稳定 key（随新增 / 删除同步，外部长度变化时重置）：删除中间项后其余卡片保持同一 DOM（折叠状态不错位） |
+| codes/hr-collection-agent-frontend/src/components/FinalReviewCard.tsx | 修改 | “还有 n 项字段未确认”提示改 `role="status"` |
+| codes/hr-collection-agent-frontend/src/pages/ResumeCollectionPage.tsx | 修改 | 使用 `useChatScroll` 与 `ChatThread` 的 `focusKey` |
+| 测试 | 新增 | `useChatScroll`、`useStableKeys`、`ChatThread`、`AppShell.responsive`、`ObjectListEditor.keys`、`ResumeCollectionPage.a11y`，并扩充 `ComposerBar`、`usePreventFileDropNavigation`、`SavedResultCard`、`FinalReviewCard`、`UploadPrecheck` |
+
+### 跟踪项处理情况
+| 跟踪项 | 处理 |
+|---|---|
+| alert 连续播报 | 已处理：恢复提示（2.6）、未确认字段提示、输入区提示均为 `role="status"`；页面上只有真正的错误（`ErrorAlert`）与需行动的警告（草稿失效、可能已保存）是 `alert`。测试断言“有恢复提示时错误仍只有一个 alert” |
+| 子项用下标作为 key | 已处理（`useStableKeys`，经历子项与文本行） |
+| SUGGEST-3 全局拦截 drop 影响文本拖拽 | 已处理 |
+| SUGGEST-4 `formatSavedAt` 回退 | 已处理 |
+| 屏幕阅读器专项验收 | 不做（Q-DL-05 已裁定范围：基础键盘 + `aria-live`，不做读屏专项）；已验证标签、焦点、`status`/`alert` 角色，但没有用真实读屏软件验证 |
+| 窄屏用 Drawer | 未用：直接把“＋ 新对话”放进标题栏（设计 §6 允许“顶栏按钮承载”），避免新增交互层 |
+
+### 偏差说明
+- 焦点会在“有草稿显示出来”（恢复或上传成功）时移到当前待核对分区标题，这是设计 TD-13 的“跨分区推进后焦点移到新分区标题”的延伸；页面刚打开且读取失败 / 空态时不移动焦点。
+- 其余按设计实现。
+
+### 遗留风险
+- 字段级错误文本通过 `aria-describedby` 关联到输入框，没有单独 `role="alert"`（避免多个错误同时连续播报）；未经真实读屏验证。
+- 浏览器兼容只在 jsdom 中验证，未在 Chrome / Edge / Safari / Firefox 实机验证（任务 3.1 之后的人工验收项）。

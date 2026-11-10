@@ -72,6 +72,13 @@ describe('FinalReviewCard', () => {
     expect(screen.queryByText(/项字段未确认/)).not.toBeInTheDocument();
   });
 
+  it('announces the unconfirmed-fields hint politely instead of as an alert, and marks the heading as a focus target', () => {
+    setup({ unconfirmedCount: 3 });
+    expect(screen.getByRole('status')).toHaveTextContent('还有 3 项字段未确认');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '最终确认' })).toHaveAttribute('data-focus-key', 'final');
+  });
+
   it('goes back through "我还要修改"', async () => {
     const { onBack } = setup();
     await userEvent.click(screen.getByRole('button', { name: '我还要修改' }));
@@ -88,6 +95,10 @@ describe('FinalReviewCard', () => {
     const { onConfirm } = setup({ error: ApiError.timeout() });
     expect(screen.getByRole('alert')).toHaveTextContent('未收到保存结果');
     expect(screen.getByText(/不能确认是否已保存/)).toBeInTheDocument();
+    // honest about the possible outcomes: retrying may succeed, or report that the draft is gone (maybe saved)
+    expect(screen.getByText(/再试一次/)).toBeInTheDocument();
+    expect(screen.getByText(/可能已经保存，请重新上传核实/)).toBeInTheDocument();
+    expect(screen.queryByText(/不会产生重复记录/)).not.toBeInTheDocument();
     expect(screen.queryByText('已保存')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '确认提交' }));
     expect(onConfirm).toHaveBeenCalledTimes(1);

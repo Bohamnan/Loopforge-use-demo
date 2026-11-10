@@ -210,7 +210,7 @@ describe('REQ-FE-04.4 保存成功：已保存 + 上传下一份，只保留姓�
     expect(within(card).getByText('已保存')).toBeInTheDocument();
     expect(within(card).getByText('测试用户甲')).toBeInTheDocument();
     expect(within(card).getByText('合成简历.pdf')).toBeInTheDocument();
-    expect(within(card).getByText(formatSavedAt('2026-11-10T09:00:00Z'))).toBeInTheDocument();
+    expect(within(card).getByText(formatSavedAt('2026-11-10T09:00:00Z') as string)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '上传下一份' })).toBeInTheDocument();
     // everything else is gone from the page
     expect(document.body.textContent).not.toContain('13800138000');
@@ -319,6 +319,41 @@ describe('REQ-FE-04.6 超时 / 网络失败：不提示成功，可直接重试�
   });
 });
 
+describe('REQ-FE-04.6 超时后其实已保存：重试得到 404 → 可能已保存（D-01、C-11）', () => {
+  it('first attempt times out, the retry finds the draft gone and says "maybe saved", never "saved"', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    let attempt = 0;
+    const mock = stubFetch((url, init) => {
+      if (url !== '/api/v1/resumes') return jsonResponse(200, allConfirmed());
+      attempt += 1;
+      // 1st: the save went through on the server but the answer never arrives; 2nd: the draft is already gone
+      return attempt === 1
+        ? (new Promise<Response>((_res, rej) => init.signal?.addEventListener('abort', () => rej(new DOMException('a', 'AbortError')))) as unknown as Response)
+        : errorResponse(404, { code: 'draft_not_found' });
+    });
+    renderPage();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    fireEvent.click(submit());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent('未收到保存结果');
+    noSuccessShown();
+    fireEvent.click(submit());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.getByText('可能已保存，请重新上传核实')).toBeInTheDocument();
+    noSuccessShown();
+    expect(screen.queryByText('该简历已保存过')).not.toBeInTheDocument();
+    expect(document.querySelectorAll('[data-field]')).toHaveLength(0);
+    expect(posts(mock)).toHaveLength(2);
+  });
+});
+
 describe('REQ-FE-04.7 草稿不存在：可能已保存，请重新上传核实（D-01）', () => {
   it('shows the check hint in the empty state and never a success', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -392,5 +427,23 @@ describe('a stray file drop must never leave the page (review SUGGEST: drag-and-
     stubFetch(() => new Promise<Response>(() => undefined) as unknown as Response);
     renderPage();
     expect(dropFile()).toBe(false);
+  });
+});
+
+
+describe('a 2xx answer that is not a valid save response is never shown as success (review SUGGEST-2, F-03)', () => {
+  it.each([
+    ['200 with {}', 200, {}],
+    ['201 with {}', 201, {}],
+    ['missing already_saved', 201, { resume_id: 'r1', saved_at: '2026-11-10T09:00:00Z' }],
+    ['already_saved is not a boolean', 201, { resume_id: 'r1', already_saved: 'yes', saved_at: '2026-11-10T09:00:00Z' }],
+  ])('%s keeps the final review with an error and a retry', async (_name, status, payload) => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await openFinal(allConfirmed(), () => jsonResponse(status, payload));
+    await userEvent.click(submit());
+    await screen.findByRole('alert');
+    noSuccessShown();
+    expect(screen.getByRole('heading', { name: /最终确认/ })).toBeInTheDocument();
+    expect(submit()).toBeEnabled();
   });
 });

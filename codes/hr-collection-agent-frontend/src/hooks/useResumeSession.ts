@@ -177,6 +177,16 @@ export function useResumeSession() {
     if (before.busy === null && after.busy === 'confirm') startConfirm(after.epoch);
   }, [send, startConfirm]);
 
+  /** "＋ 新对话": clears the screen at once when nothing is at stake, otherwise opens the confirmation. */
+  const requestNewChat = useCallback(() => {
+    send({ type: 'NEW_CHAT_REQUESTED' });
+  }, [send]);
+
+  /** Confirmed: the screen is cleared; the server draft stays until the next upload overwrites it (C-07). */
+  const confirmNewChat = useCallback(() => {
+    send({ type: 'NEW_CHAT_CONFIRMED' });
+  }, [send]);
+
   const uploadNext = useCallback(() => {
     send({ type: 'UPLOAD_NEXT' });
   }, [send]);
@@ -197,6 +207,8 @@ export function useResumeSession() {
     confirmResume,
     proceedUnconfirmed,
     uploadNext,
+    requestNewChat,
+    confirmNewChat,
     dismissDialog,
     dismissNotice,
     requestUpload,

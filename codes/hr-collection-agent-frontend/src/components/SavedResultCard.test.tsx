@@ -12,7 +12,7 @@ describe('SavedResultCard', () => {
     expect(screen.getByText('已保存')).toBeInTheDocument();
     expect(screen.getByText('测试用户甲')).toBeInTheDocument();
     expect(screen.getByText('合成简历.pdf')).toBeInTheDocument();
-    expect(screen.getByText(formatSavedAt(summary.saved_at))).toBeInTheDocument();
+    expect(screen.getByText(formatSavedAt(summary.saved_at) as string)).toBeInTheDocument();
     expect(screen.queryByText(/记录编号|RS-|resume_id/)).not.toBeInTheDocument();
   });
 
@@ -35,6 +35,18 @@ describe('SavedResultCard', () => {
 
   it('formats the saved time in a readable local form that keeps the year', () => {
     expect(formatSavedAt('2026-11-10T09:00:00Z')).toMatch(/2026/);
-    expect(formatSavedAt('not a date')).toBe('not a date');
+  });
+
+  it('shows no garbage when the time cannot be read: the time row is left out (review SUGGEST-4)', () => {
+    expect(formatSavedAt('not a date')).toBeNull();
+    render(<SavedResultCard summary={{ ...summary, saved_at: 'not a date' }} alreadySaved={false} onUploadNext={() => undefined} />);
+    expect(screen.getByText('已保存')).toBeInTheDocument();
+    expect(screen.queryByText('保存时间')).not.toBeInTheDocument();
+    expect(screen.queryByText('not a date')).not.toBeInTheDocument();
+  });
+
+  it('puts keyboard focus on the result title when it is the focus target', () => {
+    render(<SavedResultCard summary={summary} alreadySaved={false} onUploadNext={() => undefined} />);
+    expect(document.querySelector('[data-focus-key="saved"]')).toHaveAttribute('tabindex', '-1');
   });
 });

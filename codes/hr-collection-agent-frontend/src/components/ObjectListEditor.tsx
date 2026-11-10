@@ -1,4 +1,5 @@
 import { Button, Input, Tag } from 'antd';
+import { useStableKeys } from '../hooks/useStableKeys';
 import { FIELD_MAX_LENGTH, EXPERIENCE_ITEM_LIMIT, reasonText } from '../hooks/model/FieldRules';
 import type { FieldConfig, ItemFieldConfig } from '../hooks/model/SectionConfig';
 import type { ErrorReason } from '../types/Errors';
@@ -29,6 +30,7 @@ function itemTitle(item: Item): string {
 /** Add / edit / delete for the items of an experience list. No reordering. */
 export default function ObjectListEditor({ field, status, value, dirty, disabled, errors, onChange }: ObjectListEditorProps) {
   const config = field.item;
+  const rows = useStableKeys(value.length);
   if (!config) return null;
   const maxItems = FIELD_MAX_LENGTH[field.key].maxItems;
   const atLimit = maxItems !== undefined && value.length >= maxItems;
@@ -83,21 +85,27 @@ export default function ObjectListEditor({ field, status, value, dirty, disabled
       <div className="field-value">
         {value.length === 0 ? <span className="value-empty">（未提供）</span> : null}
         {value.map((item, index) => (
-          <details className="item-card" open data-item key={index}>
+          <details className="item-card" open data-item key={rows.keys[index] ?? index}>
             <summary>
               {config.itemLabel} {index + 1}
               {itemTitle(item)}
             </summary>
             <div className="item-body">
               {config.fields.map((sub) => renderSub(item, index, sub))}
-              <Button size="small" danger disabled={disabled} aria-label="删除这一条" onClick={() => onChange(value.filter((_, i) => i !== index))}>
+              <Button size="small" danger disabled={disabled} aria-label="删除这一条" onClick={() => {
+                  rows.remove(index);
+                  onChange(value.filter((_, i) => i !== index));
+                }}>
                 删除
               </Button>
             </div>
           </details>
         ))}
         {errors[field.key] ? <div className="field-error">{reasonText(errors[field.key] as ErrorReason)}</div> : null}
-        <Button size="small" disabled={disabled || atLimit} onClick={() => onChange([...value, {}])}>
+        <Button size="small" disabled={disabled || atLimit} onClick={() => {
+            rows.add();
+            onChange([...value, {}]);
+          }}>
           ＋ 添加一条
         </Button>
         {atLimit ? <span className="value-empty">（最多 {maxItems} 条）</span> : null}

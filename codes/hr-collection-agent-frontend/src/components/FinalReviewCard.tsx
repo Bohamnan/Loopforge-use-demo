@@ -43,14 +43,16 @@ export default function FinalReviewCard({
   const outcomeUnknown = error !== null && 'code' in error && ['client_timeout', 'network_error', 'unknown_error'].includes(error.code);
   return (
     <div className="final-card">
-      <h2>最终确认</h2>
+      <h2 data-focus-key="final" tabIndex={-1}>
+        最终确认
+      </h2>
       <p className="value-empty">请核对下面的全部内容；点击“确认提交”后才会保存。</p>
-      {unconfirmedCount > 0 ? <Alert type="warning" showIcon message={`还有 ${unconfirmedCount} 项字段未确认。`} /> : null}
+      {unconfirmedCount > 0 ? <Alert type="warning" showIcon role="status" message={`还有 ${unconfirmedCount} 项字段未确认。`} /> : null}
       {SECTIONS.map((section) => (
         <SectionCard key={section.key} section={section} fields={fields} buffer={buffer} active={false} />
       ))}
       {error ? <ErrorAlert error={error} timeoutMessage={TIMEOUT_TEXT} /> : null}
-      {outcomeUnknown ? <p className="value-empty">当前不能确认是否已保存，可直接重试（重复提交不会产生重复记录）。</p> : null}
+      {outcomeUnknown ? <p className="value-empty">当前不能确认是否已保存。可以再试一次；如果提示草稿不存在，说明可能已经保存，请重新上传核实。</p> : null}
       {!coreReady ? (
         <div className="final-block">
           <span className="field-error">请先确认姓名、手机号、邮箱后再提交。</span>

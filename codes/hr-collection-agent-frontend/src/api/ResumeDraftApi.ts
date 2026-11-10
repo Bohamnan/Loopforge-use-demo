@@ -2,12 +2,18 @@ import type { DraftResponse } from '../types/Draft';
 import type { ResumeFieldsUpdate } from '../types/ResumeModel';
 import { ApiError } from './ApiError';
 import { UPLOAD_TIMEOUT_MS, request } from './ApiClient';
+import { isDraftResponse } from './ResponseShapes';
 
 /** POST /resume-drafts: upload a resume and synchronously create (or overwrite) the draft. */
 export function createResumeDraft(file: File): Promise<DraftResponse> {
   const form = new FormData();
   form.append('file', file);
-  return request<DraftResponse>('/resume-drafts', { method: 'POST', body: form, timeoutMs: UPLOAD_TIMEOUT_MS });
+  return request<DraftResponse>('/resume-drafts', {
+    method: 'POST',
+    body: form,
+    timeoutMs: UPLOAD_TIMEOUT_MS,
+    validate: isDraftResponse,
+  });
 }
 
 /**
@@ -16,7 +22,11 @@ export function createResumeDraft(file: File): Promise<DraftResponse> {
  */
 export async function getCurrentResumeDraft(): Promise<DraftResponse | null> {
   try {
-    return await request<DraftResponse>('/resume-drafts/current', { method: 'GET', quietCodes: ['draft_not_found'] });
+    return await request<DraftResponse>('/resume-drafts/current', {
+      method: 'GET',
+      quietCodes: ['draft_not_found'],
+      validate: isDraftResponse,
+    });
   } catch (error) {
     if (error instanceof ApiError && error.code === 'draft_not_found') {
       return null;
@@ -27,5 +37,5 @@ export async function getCurrentResumeDraft(): Promise<DraftResponse | null> {
 
 /** PATCH /resume-drafts/current: submit corrected / confirmed fields; the response replaces the local draft. */
 export function updateCurrentResumeDraft(fields: ResumeFieldsUpdate): Promise<DraftResponse> {
-  return request<DraftResponse>('/resume-drafts/current', { method: 'PATCH', body: { fields } });
+  return request<DraftResponse>('/resume-drafts/current', { method: 'PATCH', body: { fields }, validate: isDraftResponse });
 }

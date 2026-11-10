@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_UPLOAD_BYTES, pickSingleFile, precheckFile } from './UploadPrecheck';
+import { MAX_UPLOAD_BYTES, isFileDrag, pickSingleFile, precheckFile } from './UploadPrecheck';
 
 function fileOf(name: string, size: number, type: string): File {
   const file = new File(['x'], name, { type });
@@ -63,5 +63,20 @@ describe('UploadPrecheck.pickSingleFile', () => {
 
   it('returns no file for an empty selection', () => {
     expect(pickSingleFile([])).toEqual({ file: null, multiple: false });
+  });
+});
+
+describe('UploadPrecheck.isFileDrag', () => {
+  const f = fileOf('a.pdf', 1, 'application/pdf');
+  it('is true when the types include Files, even before the files can be read', () => {
+    expect(isFileDrag({ types: ['Files'], files: [] as unknown as FileList })).toBe(true);
+  });
+  it('is true when files are present', () => {
+    expect(isFileDrag({ types: [], files: [f] as unknown as FileList })).toBe(true);
+  });
+  it('is false for text, links, and missing data', () => {
+    expect(isFileDrag({ types: ['text/plain', 'text/uri-list'], files: [] as unknown as FileList })).toBe(false);
+    expect(isFileDrag(null)).toBe(false);
+    expect(isFileDrag(undefined)).toBe(false);
   });
 });

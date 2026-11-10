@@ -36,6 +36,27 @@ describe('createResume', () => {
     },
   );
 
+  describe('a 2xx response with the wrong shape is never a success (F-03)', () => {
+    it.each([
+      ['200 {}', 200, {}],
+      ['201 {}', 201, {}],
+      ['200 null', 200, null],
+      ['200 []', 200, []],
+      ['missing already_saved', 201, { resume_id: 'r1', saved_at: '2026-11-10T09:00:00Z' }],
+      ['already_saved not a boolean', 201, { resume_id: 'r1', already_saved: 'false', saved_at: '2026-11-10T09:00:00Z' }],
+      ['empty resume_id', 201, { resume_id: '', already_saved: false, saved_at: '2026-11-10T09:00:00Z' }],
+      ['missing saved_at', 201, { resume_id: 'r1', already_saved: false }],
+    ])('%s -> unknown_error', async (_name, status, payload) => {
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      stubFetch(() => jsonResponse(status, payload));
+      const error = (await createResume().catch((e: unknown) => e)) as ApiError;
+      expect(error).toBeInstanceOf(ApiError);
+      expect(error.code).toBe('unknown_error');
+      expect(error.status).toBe(status);
+      expect(JSON.stringify(spy.mock.calls)).not.toContain('r1');
+    });
+  });
+
   it('times out after 30s and does not retry', async () => {
     vi.useFakeTimers();
     vi.spyOn(console, 'error').mockImplementation(() => undefined);

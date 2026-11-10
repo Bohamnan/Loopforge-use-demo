@@ -110,3 +110,29 @@ describe('updateCurrentResumeDraft', () => {
     expect(error.details).toEqual([{ field: 'work_experiences[0].start_date', reason: 'too_long' }]);
   });
 });
+
+describe('a 2xx draft response with the wrong shape is rejected as unknown_error', () => {
+  const broken = [
+    ['empty object', {}],
+    ['no fields', { ...sampleDraft(), fields: undefined }],
+    ['a field is missing', (() => { const d = sampleDraft() as unknown as { fields: Record<string, unknown> }; delete d.fields.phone; return d; })()],
+  ] as const;
+
+  it.each(broken)('upload with %s', async (_n, payload) => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    stubFetch(() => jsonResponse(201, payload));
+    expect(((await createResumeDraft(new File(['x'], 'a.pdf')).catch((e: unknown) => e)) as ApiError).code).toBe('unknown_error');
+  });
+
+  it.each(broken)('restore with %s is an error, not "no draft"', async (_n, payload) => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    stubFetch(() => jsonResponse(200, payload));
+    expect(((await getCurrentResumeDraft().catch((e: unknown) => e)) as ApiError).code).toBe('unknown_error');
+  });
+
+  it.each(broken)('update with %s', async (_n, payload) => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    stubFetch(() => jsonResponse(200, payload));
+    expect(((await updateCurrentResumeDraft({}).catch((e: unknown) => e)) as ApiError).code).toBe('unknown_error');
+  });
+});

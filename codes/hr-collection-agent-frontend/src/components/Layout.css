@@ -370,3 +370,8 @@ body {
   width: 80px;
   color: var(--muted);
 }
+
+/* Narrow screens: "new chat" sits in the title bar */
+.app-header-action {
+  margin-left: auto;
+}
