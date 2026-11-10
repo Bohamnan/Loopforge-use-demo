@@ -125,7 +125,7 @@
 
 ---
 
-### Task 1.5：core：SQLite 辅助与两库初始化
+### Task 1.5：core：SQLite 辅助与两库初始化 ✅
 - **关联：** REQ-BE-05.1、04.5；D§3.2（SQLite 辅助）、D§1“持久化访问”“启动顺序”；S§2（DDL）、S§4
 - **内容：** `core/db.py`：连接工厂（`PRAGMA foreign_keys=ON`、`busy_timeout=5000`）、`init_drafts_db()`、`init_resumes_db()`（DDL 照 `sql_ddl_resume.md`，`user_version=1`，`IF NOT EXISTS`），写事务 `BEGIN IMMEDIATE` 的辅助。
 - **测试：** 初始化幂等（重复执行不报错、不改数据）；`user_version=1`；全部表/索引/唯一约束/CHECK 存在（含 `uq_drafts_token_hash`、`idx_drafts_last_active`、`uq_resumes_identity`、`uq_resumes_file_path`、`json_valid` CHECK）；两库为独立文件；`foreign_keys` 生效（子表引用不存在的 `resume_id` 失败）。**数据验证：** 用 `sqlite_master` 查询断言结构。
@@ -134,9 +134,9 @@
 
 #### 子任务
 
-- [ ] DDL 逐表对照 `02_schema/sql_ddl_resume.md`，不凭记忆
-- [ ] 连接工厂与事务辅助
-- [ ] 对应单元测试
+- [x] DDL 逐表对照 `02_schema/sql_ddl_resume.md`，不凭记忆
+- [x] 连接工厂与事务辅助
+- [x] 对应单元测试
 
 ---
 

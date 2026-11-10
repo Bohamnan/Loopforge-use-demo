@@ -95,3 +95,23 @@ ResumeFieldsUpdate 的 phone/email 格式依赖 1.6 的 field_validation 才完�
 
 ---
 
+## Task-1.5：core：SQLite 辅助与两库初始化
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/core/db.py | 新增 | connect（foreign_keys、busy_timeout）、transaction（BEGIN IMMEDIATE）、init_drafts_db/init_resumes_db（user_version=1，IF NOT EXISTS，拒绝更新版本） |
+| codes/hr-collection-agent-backend/tests/core/test_db.py | 新增 | 表/索引/约束/CHECK/外键级联/幂等/事务/写者串行 |
+| codes/hr-collection-agent-backend/pyproject.toml | 修改 | ruff 对 db.py 的 E501 豁免（原样 DDL） |
+
+### 偏差说明
+按设计实现。DDL 由 sql_ddl_resume.md 的 SQL 块程序化提取并仅去除注释，未手改列定义。补充：init 遇到 user_version 大于支持版本时抛 RuntimeError（design 未规定，防止旧代码操作新库）；连接使用 isolation_level=None，事务全部显式。
+
+### 遗留风险
+无。
+
+---
+
