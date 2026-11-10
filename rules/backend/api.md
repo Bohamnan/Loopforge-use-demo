@@ -25,7 +25,7 @@ type: rules
 
 ## 3. 错误码 / 异常约定
 
-- 统一错误体：`{code, message, request_id}`。
+- 统一错误体：`{code, message, request_id}`；字段级校验失败时可选附带 `details: [{field, reason}]`（只含字段名与原因代码，不回显用户填写的值）。
 - HTTP 状态码表达错误类别，业务码用字符串。
 - 错误响应不得包含用户提交内容原文或敏感个人信息，也不暴露系统内部细节。
 
@@ -35,4 +35,4 @@ type: rules
 
 | 日期 | 变更内容 | 变更人 |
 |------|---------|-------|
-| （初始为空，由团队维护） | — | — |
+| 2026-11-10 | 统一错误体增加可选字段 `details: [{field, reason}]`（HR_PR-1 裁决 D-06）；契约变更须经 cross-workbench-reviewer 审视，`rules/frontend/api.md` 需同步 | Yin Yang |

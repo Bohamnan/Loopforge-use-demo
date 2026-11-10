@@ -1,0 +1,559 @@
+openapi: 3.1.0
+info:
+  title: HR 简历信息收集 API（hr-collection-agent）
+  version: 0.1.0-draft
+  description: |
+    HR_PR-1 backend OpenAPI **草稿**（architecture-advisor Step 2.2），尚未冻结。
+    冻结前须经 cross-workbench-reviewer 审视（C-13）。
+
+    约定：
+    - 路径前缀 `/api/v1`；JSON 字段 snake_case；时间为 ISO 8601 UTC。
+    - 无账号体系。未确认草稿由 HttpOnly Cookie `draft_token` 定位（`HttpOnly; SameSite=Lax; Path=/`，7 天）。前端不读取、不存储该令牌。
+    - 错误统一为 `{code, message, request_id}`，可选 `details: [{field, reason}]`（D-06）；`details` 只含字段名与原因，不回显用户填写的值。
+    - 错误响应不得包含简历原文、模型原始返回或内部细节（B-03）。
+    - 同源部署（localhost，Vite dev proxy 转发 `/api`）：不需要 CORS。
+servers:
+  - url: http://localhost:8000
+    description: 本地 POC（同源，经前端 dev proxy 转发 /api）
+tags:
+  - name: resume-drafts
+    description: 未确认草稿：上传解析、读取、校对更新
+  - name: resumes
+    description: 已确认简历：确认并保存
+
+paths:
+  /api/v1/resume-drafts:
+    post:
+      tags: [resume-drafts]
+      operationId: createResumeDraft
+      summary: 上传简历文件并同步解析，创建未确认草稿
+      description: |
+        关联 REQ-BE-01、REQ-BE-02、REQ-BE-05.2。
+        - 每次调用都**新建**草稿和新令牌（非幂等，D-05）；Cookie 以最新一次成功响应为准。
+        - 当前浏览器已有草稿时，视为“重新上传覆盖”（C-07）；不提供丢弃草稿接口。
+        - 同步等待模型：后端调用模型超时 60 秒（C-08）；前端请求超时建议 75 秒。
+        - **失败时不创建草稿，不改变浏览器已有的 Cookie 与草稿**。
+        - 不自动重试模型调用。
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: 简历文件。仅 PDF / JPG / JPEG / PNG，单个，≤ 10 MB（10485760 字节）。类型以文件头魔数为准，不以扩展名为准。
+      responses:
+        '201':
+          description: 草稿已创建，已解析
+          headers:
+            Set-Cookie:
+              description: 草稿访问令牌，`draft_token=<随机值>; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DraftResponse' }
+        '400':
+          description: file_missing / file_empty / file_content_mismatch
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              examples:
+                file_missing: { $ref: '#/components/examples/FileMissing' }
+                file_empty: { $ref: '#/components/examples/FileEmpty' }
+                file_content_mismatch: { $ref: '#/components/examples/FileContentMismatch' }
+        '413':
+          description: file_too_large
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              examples:
+                file_too_large: { $ref: '#/components/examples/FileTooLarge' }
+        '415':
+          description: unsupported_file_type
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              examples:
+                unsupported_file_type: { $ref: '#/components/examples/UnsupportedFileType' }
+        '502':
+          description: parse_failed（模型拒绝该输入、返回错误或完全无法解析）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              examples:
+                parse_failed: { $ref: '#/components/examples/ParseFailed' }
+        '503':
+          description: parse_unavailable（模型能力/授权/凭证不可用；不回退到其他解析方式）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              examples:
+                parse_unavailable: { $ref: '#/components/examples/ParseUnavailable' }
+        '504':
+          description: parse_timeout（模型调用超过 60 秒）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              examples:
+                parse_timeout: { $ref: '#/components/examples/ParseTimeout' }
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/resume-drafts/current:
+    get:
+      tags: [resume-drafts]
+      operationId: getCurrentResumeDraft
+      summary: 读取当前浏览器的未确认草稿（页面启动/恢复）
+      description: |
+        关联 REQ-BE-03.1、REQ-BE-03.5、REQ-BE-05.3/05.4。
+        - 草稿由 Cookie `draft_token` 定位，路径不含草稿 id。
+        - 返回所有字段的值与状态；**不**返回“下一个待确认字段”或提问文案（C-03）。
+        - 成功时刷新草稿最近活动时间，并续期 Cookie（滑动 7 天，待 DL 确认）。
+        - 令牌缺失、无效、已作废或草稿已过期 → 404 `draft_not_found`，不含任何简历内容。
+      security:
+        - draftCookie: []
+      responses:
+        '200':
+          description: 当前草稿
+          headers:
+            Set-Cookie:
+              description: 续期的草稿访问令牌（同值，Max-Age 重置为 604800）
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DraftResponse' }
+        '404':
+          $ref: '#/components/responses/DraftNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags: [resume-drafts]
+      operationId: updateCurrentResumeDraft
+      summary: 提交校对结果（修正/补充/确认字段）
+      description: |
+        关联 REQ-BE-03.2/03.3/03.4/03.5。
+        - 只提交有变化或被确认的字段（部分更新）；**出现在请求中的字段一律置为 `confirmed`**，未出现的字段保持原值与原状态。
+        - 标量字段提交 `null`、列表字段提交 `[]` 表示“确认留空”，状态为 `confirmed`；核心三项（name/phone/email）不允许留空。
+        - 列表区块（工作经历、项目经历、教育背景及文本列表）为**整体替换**：多条子项的新增、修改、删除通过提交完整的新列表实现。
+        - 幂等：同一请求重复提交结果相同。
+        - 手机号：11 位大陆号，或以 `+` 开头的国际号（先去除空格与连字符再校验）；邮箱：格式校验。不合法 → 422 `validation_failed`，`details` 给出字段名与原因，**不回显值**（C-09、D-06）。
+        - 此接口只更新草稿，不写正式库、不代表“用户确认保存”（B-04）。
+      security:
+        - draftCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DraftUpdateRequest' }
+            example:
+              fields:
+                name: 张三
+                phone: '13800138000'
+                skills: [Python, SQL]
+      responses:
+        '200':
+          description: 更新后的草稿
+          headers:
+            Set-Cookie:
+              description: 续期的草稿访问令牌（同值，Max-Age 重置为 604800）
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DraftResponse' }
+        '404':
+          $ref: '#/components/responses/DraftNotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/resumes:
+    post:
+      tags: [resumes]
+      operationId: createResume
+      summary: 用户明确确认后，保存简历记录及原始文件（幂等）
+      description: |
+        关联 REQ-BE-04。草稿由 Cookie 定位。
+        - 请求体 `confirmed` 必须为 `true`，表示用户明确确认（B-04）。缺失或 false → 422 `confirmation_required`。
+        - 保存前置条件：姓名、手机号、邮箱齐全且格式合法；其余字段可为空，未被确认的字段按草稿当前值保存（用户点击最终确认即视为确认当前显示的全部内容，D-03）。
+        - **幂等键** = 规范化后的 姓名 + 手机号 + 邮箱（C-10、D-02）。同键已存在（含并发确认）→ **不新增、不覆盖**，返回已有记录 id，`already_saved = true`，HTTP 200；本次内容与临时文件被丢弃，不回显已有记录内容（D-04）。
+        - 首次保存成功 → HTTP 201，`already_saved = false`。
+        - 两种成功情形下均：删除该草稿与临时文件，并通过 `Set-Cookie` 使令牌过期（C-11）。
+        - 草稿不存在 / 令牌无效（含“首次已成功但响应丢失后的重试”）→ 404 `draft_not_found`（D-01）；前端提示“可能已保存，请重新上传核实”。
+        - 保存过程任一步失败 → 500 `save_failed`，已补偿，不留孤立文件或记录（B-05）；草稿保留，可重试。
+        - 已确认记录不可修改/删除，本期不提供相应接口（C-11）。
+      security:
+        - draftCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateResumeRequest' }
+            example: { confirmed: true }
+      responses:
+        '201':
+          description: 保存成功（新增记录）
+          headers:
+            Set-Cookie:
+              description: 令牌作废：`draft_token=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreateResumeResponse' }
+              example:
+                resume_id: 3f2b8c1e-5d4a-4e0b-9a77-0c1d2e3f4a5b
+                already_saved: false
+                saved_at: '2026-11-10T08:30:00Z'
+        '200':
+          description: 已保存过（幂等命中，未新增、未覆盖）
+          headers:
+            Set-Cookie:
+              description: 令牌作废：`draft_token=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreateResumeResponse' }
+              example:
+                resume_id: 3f2b8c1e-5d4a-4e0b-9a77-0c1d2e3f4a5b
+                already_saved: true
+                saved_at: '2026-11-09T03:12:00Z'
+        '404':
+          $ref: '#/components/responses/DraftNotFound'
+        '422':
+          description: confirmation_required（缺少明确确认），或 validation_failed（核心三项缺失/格式不合法，带 details）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              examples:
+                confirmation_required: { $ref: '#/components/examples/ConfirmationRequired' }
+                validation_failed: { $ref: '#/components/examples/ValidationFailedExample' }
+        '500':
+          description: save_failed（保存失败，已补偿）或 internal_error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              examples:
+                save_failed: { $ref: '#/components/examples/SaveFailed' }
+
+components:
+  securitySchemes:
+    draftCookie:
+      type: apiKey
+      in: cookie
+      name: draft_token
+      description: 草稿访问令牌。由上传接口经 Set-Cookie 下发；HttpOnly，前端不可读取。
+
+  responses:
+    DraftNotFound:
+      description: draft_not_found（令牌缺失/无效/已作废，或草稿不存在/已过期）
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          examples:
+            draft_not_found: { $ref: '#/components/examples/DraftNotFound' }
+    ValidationFailed:
+      description: validation_failed（字段校验不通过；details 只含字段名与原因）
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          examples:
+            validation_failed: { $ref: '#/components/examples/ValidationFailedExample' }
+    InternalError:
+      description: internal_error（未预期错误；不含内部细节）
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          examples:
+            internal_error: { $ref: '#/components/examples/InternalError' }
+
+  schemas:
+    FieldStatus:
+      type: string
+      enum: [recognized, uncertain, missing, confirmed]
+      description: |
+        字段状态（C-04）。recognized=已识别待确认；uncertain=不确定；missing=缺失；confirmed=用户已确认。
+        missing 时值为 null / []；recognized 与 uncertain 时值非空。
+
+    ErrorCode:
+      type: string
+      description: 业务码（字符串）。完整清单与 HTTP 状态见 api_design_resume.md §五。
+      enum:
+        - file_missing
+        - file_empty
+        - file_content_mismatch
+        - file_too_large
+        - unsupported_file_type
+        - parse_failed
+        - parse_unavailable
+        - parse_timeout
+        - draft_not_found
+        - validation_failed
+        - confirmation_required
+        - save_failed
+        - internal_error
+
+    ErrorDetail:
+      type: object
+      required: [field, reason]
+      properties:
+        field:
+          type: string
+          description: 出错字段名，如 `phone`、`email`、`work_experiences[0].start_date`。仅字段名，不含值。
+        reason:
+          type: string
+          description: 原因代码。
+          enum: [required, invalid_format, invalid_type, too_long, unknown_field]
+
+    ErrorResponse:
+      type: object
+      required: [code, message, request_id]
+      properties:
+        code: { $ref: '#/components/schemas/ErrorCode' }
+        message:
+          type: string
+          description: 面向用户的非敏感提示（前端只展示 message）。不含简历原文、模型原始返回、内部细节。
+        request_id:
+          type: string
+          description: 请求标识，用于排查；与服务端日志中的 request_id 对应。
+        details:
+          type: array
+          description: 可选。字段级错误（D-06）；只带字段名与原因，不回显用户填写的值（B-03）。
+          items: { $ref: '#/components/schemas/ErrorDetail' }
+
+    WorkExperience:
+      type: object
+      properties:
+        company: { type: [string, 'null'] }
+        position: { type: [string, 'null'] }
+        start_date: { type: [string, 'null'], description: 形如 2021.03 }
+        end_date: { type: [string, 'null'], description: 形如 2024.06 或 至今 }
+        department: { type: [string, 'null'] }
+        reports_to: { type: [string, 'null'] }
+        team_size: { type: [string, 'null'] }
+        responsibilities: { type: array, items: { type: string }, default: [] }
+        achievements: { type: array, items: { type: string }, default: [] }
+      additionalProperties: false
+
+    ProjectExperience:
+      type: object
+      properties:
+        name: { type: [string, 'null'] }
+        start_date: { type: [string, 'null'] }
+        end_date: { type: [string, 'null'] }
+        background: { type: [string, 'null'] }
+        role: { type: [string, 'null'] }
+        tech: { type: [string, 'null'] }
+        outcome: { type: [string, 'null'] }
+      additionalProperties: false
+
+    Education:
+      type: object
+      properties:
+        start_date: { type: [string, 'null'] }
+        end_date: { type: [string, 'null'] }
+        school: { type: [string, 'null'] }
+        major: { type: [string, 'null'] }
+        degree: { type: [string, 'null'] }
+        honors: { type: [string, 'null'] }
+      additionalProperties: false
+
+    StringField:
+      type: object
+      required: [value, status]
+      properties:
+        value: { type: [string, 'null'] }
+        status: { $ref: '#/components/schemas/FieldStatus' }
+    StringListField:
+      type: object
+      required: [value, status]
+      properties:
+        value: { type: array, items: { type: string } }
+        status: { $ref: '#/components/schemas/FieldStatus' }
+    WorkExperienceListField:
+      type: object
+      required: [value, status]
+      properties:
+        value: { type: array, items: { $ref: '#/components/schemas/WorkExperience' } }
+        status: { $ref: '#/components/schemas/FieldStatus' }
+    ProjectExperienceListField:
+      type: object
+      required: [value, status]
+      properties:
+        value: { type: array, items: { $ref: '#/components/schemas/ProjectExperience' } }
+        status: { $ref: '#/components/schemas/FieldStatus' }
+    EducationListField:
+      type: object
+      required: [value, status]
+      properties:
+        value: { type: array, items: { $ref: '#/components/schemas/Education' } }
+        status: { $ref: '#/components/schemas/FieldStatus' }
+
+    ResumeFields:
+      type: object
+      description: 简历模型的 22 个字段，每个字段带值与状态。来源 `global-info/简历模板.md`（C-14）。name / phone / email 为保存前必须具备的核心信息。
+      additionalProperties: false
+      required:
+        - name
+        - job_title
+        - expected_city
+        - expected_salary
+        - available_time
+        - phone
+        - email
+        - homepage
+        - gender
+        - birth_month
+        - political_status
+        - current_city
+        - work_years
+        - highest_education
+        - strengths
+        - work_experiences
+        - project_experiences
+        - educations
+        - skills
+        - certificates_honors
+        - languages
+        - self_evaluation
+      properties:
+        name: { $ref: '#/components/schemas/StringField' }
+        job_title: { $ref: '#/components/schemas/StringField' }
+        expected_city: { $ref: '#/components/schemas/StringField' }
+        expected_salary: { $ref: '#/components/schemas/StringField' }
+        available_time: { $ref: '#/components/schemas/StringField' }
+        phone: { $ref: '#/components/schemas/StringField' }
+        email: { $ref: '#/components/schemas/StringField' }
+        homepage: { $ref: '#/components/schemas/StringField' }
+        gender: { $ref: '#/components/schemas/StringField' }
+        birth_month: { $ref: '#/components/schemas/StringField' }
+        political_status: { $ref: '#/components/schemas/StringField' }
+        current_city: { $ref: '#/components/schemas/StringField' }
+        work_years: { $ref: '#/components/schemas/StringField' }
+        highest_education: { $ref: '#/components/schemas/StringField' }
+        strengths: { $ref: '#/components/schemas/StringListField' }
+        work_experiences: { $ref: '#/components/schemas/WorkExperienceListField' }
+        project_experiences: { $ref: '#/components/schemas/ProjectExperienceListField' }
+        educations: { $ref: '#/components/schemas/EducationListField' }
+        skills: { $ref: '#/components/schemas/StringListField' }
+        certificates_honors: { $ref: '#/components/schemas/StringListField' }
+        languages: { $ref: '#/components/schemas/StringListField' }
+        self_evaluation: { $ref: '#/components/schemas/StringField' }
+
+    ResumeFieldsUpdate:
+      type: object
+      description: 部分更新；仅包含要修正/补充/确认的字段，值即最终值。出现的字段将被置为 confirmed。标量可为 null（确认留空，核心三项除外），列表字段可为 []。
+      additionalProperties: false
+      properties:
+        name: { type: string, description: 核心字段，不可为空 }
+        job_title: { type: [string, 'null'] }
+        expected_city: { type: [string, 'null'] }
+        expected_salary: { type: [string, 'null'] }
+        available_time: { type: [string, 'null'] }
+        phone: { type: string, description: 核心字段；11 位大陆号或 + 开头国际号 }
+        email: { type: string, description: 核心字段；邮箱格式 }
+        homepage: { type: [string, 'null'] }
+        gender: { type: [string, 'null'] }
+        birth_month: { type: [string, 'null'] }
+        political_status: { type: [string, 'null'] }
+        current_city: { type: [string, 'null'] }
+        work_years: { type: [string, 'null'] }
+        highest_education: { type: [string, 'null'] }
+        strengths: { type: array, items: { type: string } }
+        work_experiences: { type: array, items: { $ref: '#/components/schemas/WorkExperience' } }
+        project_experiences: { type: array, items: { $ref: '#/components/schemas/ProjectExperience' } }
+        educations: { type: array, items: { $ref: '#/components/schemas/Education' } }
+        skills: { type: array, items: { type: string } }
+        certificates_honors: { type: array, items: { type: string } }
+        languages: { type: array, items: { type: string } }
+        self_evaluation: { type: [string, 'null'] }
+
+    OriginalFileInfo:
+      type: object
+      required: [filename, content_type, size_bytes]
+      properties:
+        filename: { type: string, description: 用户原文件名，仅用于展示 }
+        content_type:
+          type: string
+          enum: [application/pdf, image/jpeg, image/png]
+        size_bytes: { type: integer, minimum: 1, maximum: 10485760 }
+
+    DraftResponse:
+      type: object
+      required: [draft_id, original_file, fields, created_at, updated_at, expires_at]
+      properties:
+        draft_id: { type: string, format: uuid, description: 草稿标识（展示/日志用；后续接口凭 Cookie 定位，不需传入） }
+        original_file: { $ref: '#/components/schemas/OriginalFileInfo' }
+        fields: { $ref: '#/components/schemas/ResumeFields' }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        expires_at:
+          type: string
+          format: date-time
+          description: 若此后无活动，草稿将被清理的时间（= 最近活动时间 + 7 天）。
+
+    DraftUpdateRequest:
+      type: object
+      required: [fields]
+      properties:
+        fields: { $ref: '#/components/schemas/ResumeFieldsUpdate' }
+      additionalProperties: false
+
+    CreateResumeRequest:
+      type: object
+      required: [confirmed]
+      properties:
+        confirmed:
+          type: boolean
+          description: 用户明确确认。必须为 true；否则返回 confirmation_required，不保存。
+      additionalProperties: false
+
+    CreateResumeResponse:
+      type: object
+      required: [resume_id, already_saved, saved_at]
+      properties:
+        resume_id: { type: string, format: uuid, description: 简历记录 id }
+        already_saved:
+          type: boolean
+          description: true=同一个人（规范化 姓名+手机号+邮箱）此前已保存过，本次未新增、未覆盖；false=本次新增。前端据此展示“已保存过”或“已保存”。
+        saved_at:
+          type: string
+          format: date-time
+          description: 该记录的保存时间（already_saved=true 时为首次保存时间）。
+
+  examples:
+    FileMissing:
+      value: { code: file_missing, message: 请选择要上传的简历文件。, request_id: req_01 }
+    FileEmpty:
+      value: { code: file_empty, message: 文件内容为空，请重新选择。, request_id: req_01 }
+    FileContentMismatch:
+      value: { code: file_content_mismatch, message: 文件内容与格式不符，请上传有效的 PDF、JPG 或 PNG 文件。, request_id: req_01 }
+    FileTooLarge:
+      value: { code: file_too_large, message: 文件超过 10 MB，请压缩后重试。, request_id: req_01 }
+    UnsupportedFileType:
+      value: { code: unsupported_file_type, message: 仅支持 PDF、JPG、JPEG、PNG 格式。, request_id: req_01 }
+    ParseFailed:
+      value: { code: parse_failed, message: 简历解析失败，请更换文件后重新上传。, request_id: req_01 }
+    ParseUnavailable:
+      value: { code: parse_unavailable, message: 解析服务暂不可用，请稍后重试。, request_id: req_01 }
+    ParseTimeout:
+      value: { code: parse_timeout, message: 解析超时，请重新上传。, request_id: req_01 }
+    DraftNotFound:
+      value: { code: draft_not_found, message: 没有可恢复的草稿，请重新上传简历。, request_id: req_01 }
+    ConfirmationRequired:
+      value: { code: confirmation_required, message: 请先明确确认后再保存。, request_id: req_01 }
+    ValidationFailedExample:
+      value:
+        code: validation_failed
+        message: 部分信息不符合要求，请修改后重试。
+        request_id: req_01
+        details:
+          - { field: phone, reason: invalid_format }
+          - { field: email, reason: required }
+    SaveFailed:
+      value: { code: save_failed, message: 保存失败，请稍后重试。, request_id: req_01 }
+    InternalError:
+      value: { code: internal_error, message: 服务异常，请稍后重试。, request_id: req_01 }
