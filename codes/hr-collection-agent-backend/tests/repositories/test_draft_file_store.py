@@ -122,3 +122,64 @@ def test_store_never_touches_files_outside_its_directory(
     name = store.save(ID, "application/pdf", b"x")
     store.delete(name)
     assert keep.read_bytes() == b"archive"
+
+
+# ---- review SUGGEST-1: symlinks inside the directory are rejected too ------------------------
+
+
+@pytest.fixture
+def linked(store: DraftFileStore, data_dir: Path) -> tuple[str, str]:
+    """a.pdf is a symlink to b.pdf, both inside the drafts directory."""
+    b = store.save("00000000-0000-4000-8000-0000000000bb", "application/pdf", b"B-content")
+    a = "00000000-0000-4000-8000-0000000000aa.pdf"
+    (data_dir / "drafts" / a).symlink_to(data_dir / "drafts" / b)
+    return a, b
+
+
+def test_read_refuses_a_symlink_to_another_file_in_the_directory(
+    store: DraftFileStore, linked: tuple[str, str]
+) -> None:
+    a, b = linked
+    with pytest.raises(ValueError, match="file name"):
+        store.read(a)
+    assert store.read(b) == b"B-content"
+
+
+def test_delete_refuses_a_symlink_and_keeps_the_target(
+    store: DraftFileStore, data_dir: Path, linked: tuple[str, str]
+) -> None:
+    a, b = linked
+    with pytest.raises(ValueError, match="file name"):
+        store.delete(a)
+    assert (data_dir / "drafts" / b).read_bytes() == b"B-content"  # target not deleted
+    assert (data_dir / "drafts" / a).is_symlink()  # link untouched
+
+
+def test_resolve_refuses_a_symlink(store: DraftFileStore, linked: tuple[str, str]) -> None:
+    with pytest.raises(ValueError, match="file name"):
+        store.resolve(linked[0])
+
+
+def test_list_files_skips_symlinks_and_dangling_links(
+    store: DraftFileStore, data_dir: Path, linked: tuple[str, str]
+) -> None:
+    (data_dir / "drafts" / "00000000-0000-4000-8000-0000000000cc.png").symlink_to(
+        data_dir / "drafts" / "missing.png"
+    )
+    assert [f.name for f in store.list_files()] == [linked[1]]
+
+
+def test_read_opens_with_nofollow_even_if_the_check_is_bypassed(
+    store: DraftFileStore, data_dir: Path, linked: tuple[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Defence in depth: a link swapped in after the lstat check is still not followed."""
+    a, _ = linked
+    monkeypatch.setattr(DraftFileStore, "_reject_symlink", lambda self, path: None)
+    with pytest.raises(ValueError, match="file name"):
+        store.read(a)
+
+
+def test_regular_files_still_work_after_hardening(store: DraftFileStore) -> None:
+    name = store.save(ID, "image/png", b"png-bytes")
+    assert store.read(name) == b"png-bytes"
+    assert store.delete(name) is True

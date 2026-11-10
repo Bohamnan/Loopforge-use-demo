@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from app.core.db import (
+    MIN_SQLITE_VERSION,
     SCHEMA_VERSION,
     connect,
     init_drafts_db,
@@ -232,3 +233,31 @@ def test_begin_immediate_serialises_writers(drafts_path: Path) -> None:
         t.join()
     with transaction(other):  # lock released
         _insert_draft(other)
+
+
+# ---- review SUGGEST-2: SQLite must support RETURNING (>= 3.35) -------------------------------
+
+
+def test_minimum_sqlite_version_constant() -> None:
+    assert MIN_SQLITE_VERSION == (3, 35, 0)
+    assert sqlite3.sqlite_version_info >= MIN_SQLITE_VERSION  # the runtime used by the tests
+
+
+@pytest.mark.parametrize("init", [init_drafts_db, init_resumes_db])
+@pytest.mark.parametrize("version", [(3, 34, 1), (3, 8, 0), (2, 99, 0)])
+def test_old_sqlite_fails_startup_with_a_clear_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, init, version: tuple[int, int, int]
+) -> None:
+    monkeypatch.setattr(sqlite3, "sqlite_version_info", version)
+    with pytest.raises(RuntimeError, match=r"SQLite >= 3\.35"):
+        init(tmp_path / "x.db")
+    assert not (tmp_path / "x.db").exists()  # nothing created
+
+
+@pytest.mark.parametrize("version", [(3, 35, 0), (3, 50, 4), (4, 0, 0)])
+def test_supported_sqlite_versions_start(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, version: tuple[int, int, int]
+) -> None:
+    monkeypatch.setattr(sqlite3, "sqlite_version_info", version)
+    init_drafts_db(tmp_path / "ok.db")
+    assert (tmp_path / "ok.db").exists()

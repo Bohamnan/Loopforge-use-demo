@@ -40,3 +40,24 @@ class FakeParserClient:
         if self.error is not None:
             raise self.error
         return self.result
+
+
+def make_raw_result(**overrides: object):  # noqa: ANN201
+    """A model-like result for a fictional person. Override or add field nodes by key."""
+    from app.schemas.parse import RawParseResult
+
+    def node(value: object, status: str = "recognized") -> dict:
+        return {"value": value, "status": status}
+
+    data: dict = {
+        "name": node("ZHANG SAN"),
+        "job_title": node("BACKEND ENGINEER"),
+        "phone": node("13800138000"),
+        "email": node("ZS@EXAMPLE.COM"),
+        "current_city": node("SHANGHAI", "uncertain"),
+        "skills": node(["PYTHON", "SQL"]),
+        "educations": node([{"school": "EXAMPLE UNIVERSITY", "start_date": "2015"}]),
+        "work_experiences": node([{"company": "EXAMPLE CORP", "responsibilities": ["BUILD"]}]),
+    }
+    data.update(overrides)
+    return RawParseResult(data=data, prompt_tokens=10, completion_tokens=5)

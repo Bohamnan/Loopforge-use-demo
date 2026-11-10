@@ -166,3 +166,29 @@ def test_symlinked_final_file_is_not_followed(
     with pytest.raises(ValueError, match="file name"):
         store.remove(f"{RID}.pdf")
     assert outside.exists()
+
+
+# ---- review SUGGEST-3: promote never overwrites an existing final file -----------------------
+
+
+def test_promote_refuses_to_overwrite_an_existing_final_file(
+    store: ArchiveFileStore, file_dir: Path, source: Path
+) -> None:
+    (file_dir / f"{RID}.pdf").write_bytes(b"ORIGINAL ARCHIVE")
+    store.stage(source, RID, ".pdf")
+    with pytest.raises(FileExistsError, match="final"):
+        store.promote(RID, ".pdf")
+    assert (file_dir / f"{RID}.pdf").read_bytes() == b"ORIGINAL ARCHIVE"  # untouched
+    assert store.exists_tmp(RID, ".pdf")  # tmp kept for reconciliation
+
+
+def test_promote_refuses_when_the_final_name_is_a_symlink(
+    store: ArchiveFileStore, file_dir: Path, source: Path, tmp_path: Path
+) -> None:
+    outside = tmp_path / "outside.pdf"
+    outside.write_bytes(b"outside")
+    (file_dir / f"{RID}.pdf").symlink_to(outside)
+    store.stage(source, RID, ".pdf")
+    with pytest.raises(FileExistsError):
+        store.promote(RID, ".pdf")
+    assert outside.read_bytes() == b"outside"

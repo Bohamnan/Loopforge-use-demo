@@ -334,3 +334,114 @@ TestClient 来自 fastapi.testclient，运行时有 StarletteDeprecationWarning�
 
 ---
 
+## 存储加固（第四批审查 SUGGEST-1、SUGGEST-2、SUGGEST-3）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+**依据**：`backend-docs/HR_PR-1/10_review/code_review.md` 及 Dev Lead 裁决（第四批）；须在 2.4 之前完成
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/repositories/draft_file_store.py | 修改 | SUGGEST-1：`resolve/read/delete` 用 `os.lstat` 拒绝任何符号链接（含指向目录内另一文件的链接）；`read` 用 `O_NOFOLLOW` 打开作纵深防御（链接在检查后被替换也不跟随，ELOOP 转 `ValueError`）；`list_files` 用 `lstat` 只列普通文件 |
+| codes/hr-collection-agent-backend/src/app/repositories/archive_file_store.py | 修改 | SUGGEST-3：`promote` 前若终态名已存在（含符号链接/悬空链接）抛 `FileExistsError`，不覆盖，tmp 保留供对账 |
+| codes/hr-collection-agent-backend/src/app/core/db.py | 修改 | SUGGEST-2：新增 `MIN_SQLITE_VERSION = (3, 35, 0)`，`init_drafts_db/init_resumes_db` 在创建任何文件前检查 `sqlite3.sqlite_version_info`，不满足抛 `RuntimeError("SQLite >= 3.35 is required ...")` |
+| codes/hr-collection-agent-backend/AGENTS.md | 修改 | 写明 SQLite ≥ 3.35 要求、沿用 Python 自带 SQLite（本机部署，DL 决定）、启动检查；追加变更履历 |
+| codes/hr-collection-agent-backend/tests/repositories/test_draft_file_store.py | 修改 | 新增 5 个用例：复现审查场景 a.pdf→b.pdf（read 拒绝；delete 拒绝且 b 不被删、链接保留）、resolve 拒绝、`list_files` 跳过符号链接与悬空链接、绕过检查时 `O_NOFOLLOW` 仍拒绝、普通文件不受影响 |
+| codes/hr-collection-agent-backend/tests/repositories/test_archive_file_store.py | 修改 | 新增 2 个用例：已有终态文件时 promote 抛错且内容不变、tmp 保留；终态名为符号链接时抛错且外部文件不变 |
+| codes/hr-collection-agent-backend/tests/core/test_db.py | 修改 | 新增 10 个用例：版本常量；2 个初始化函数 × 3 个过低版本（3.34.1、3.8.0、2.99.0）均启动失败且不创建文件；3 个受支持版本（3.35.0、3.50.4、4.0.0）正常 |
+
+### 偏差说明
+- 红灯验证：去掉 `src/app/repositories` 的修复后 6 个新用例失败（其余为既有行为的回归保护），恢复后通过。
+- 其余第四批 SUGGEST（4/5/6/7）按 DL 裁决记为跟踪项，未处理。
+
+### 遗留风险
+- `lstat` 检查与后续 `unlink`/`open` 之间仍存在极小 TOCTOU 窗口（`read` 已用 `O_NOFOLLOW` 关闭，`delete` 未用）；目录由服务端独占，POC 可接受。
+- `promote` 为“检查后替换”，不是原子的不覆盖语义；文件名含新生成 UUID，正常路径不会冲突。
+
+---
+
+## Task-2.1：接口①：上传简历，同步解析，创建草稿
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/services/upload_validation.py | 新增 | `validate_upload`：缺文件 → 扩展名白名单（.pdf/.jpg/.jpeg/.png，大小写不敏感，先于读取）→ 64KB 分块读取、超 10485760 字节立即中止 → 空文件 → 魔数判型并与扩展名一致；`content_type` 只来自魔数；原文件名取 basename 并截断 255 |
+| codes/hr-collection-agent-backend/src/app/services/parse_normalizer.py | 新增 | `normalize`/`check_invariants`：模型输出当不可信数据——非对象或全部字段不可用 → `ParseFailedError`；**模型返回的 `confirmed`、未知/非法状态一律降为 `uncertain`**；空值 → `missing`；有值但声称 `missing` → `uncertain`（保留值，不猜测补全也不丢弃）；数字转文本、字符串包成列表、超长截断、超条数截断、非对象条目丢弃均降为 `uncertain`；未知键忽略；补齐 22 键；出口断言 missing⇔空值、recognized/uncertain⇔非空、无 confirmed |
+| codes/hr-collection-agent-backend/src/app/services/draft_service.py | 新增 | `DraftService.create`：服务端 ID → 写临时文件 → 调模型 → 归一 → 生成令牌（库内存 SHA-256）→ 插入；任何失败（含非业务异常）清理临时文件且不动旧草稿/Cookie（O-02）；成功后若带有效旧令牌则删除旧草稿行与文件（O-03，失败仅记 `old_draft_cleanup_failed` 日志）；`to_response` 计算 `expires_at = last_active + 7 天` |
+| codes/hr-collection-agent-backend/src/app/api/routes/resume_drafts.py | 新增 | `POST /api/v1/resume-drafts`（operationId `createResumeDraft`，201）：路由只调用 `validate_upload` 与 `DraftService.create`，成功后下发 `draft_token` Cookie；失败路径不设置 Cookie |
+| codes/hr-collection-agent-backend/src/app/api/deps.py | 修改 | `get_parser`（DeepSeekClient 懒创建，应用无密钥也能启动）、`get_draft_service` 装配 |
+| codes/hr-collection-agent-backend/src/app/main.py | 修改 | `create_app` 增加仅供测试注入的 `parser_client`/`clock`/`ids`；挂载 `resume_drafts` 路由 |
+| codes/hr-collection-agent-backend/pyproject.toml | 修改 | ruff bugbear 允许 `fastapi.File` 作默认值 |
+| codes/hr-collection-agent-backend/tests/services/test_upload_validation.py | 新增 | 38 个用例：四种类型与大小写、缺文件、7 种不支持扩展名（不读取流）、10485760 字节通过与 +1 超限、超限提前中止读取（读取量有上界）、空文件、10 种魔数不一致、文件名 basename/截断 |
+| codes/hr-collection-agent-backend/tests/services/test_parse_normalizer.py | 新增 | 54 个用例：22 键补全、未知键忽略、非对象/全不可用 → parse_failed；**11 种非法或 `confirmed` 状态均降为 uncertain**、**提示注入样本（所有字段都声称 confirmed）结果中没有任何 confirmed**、空值恒为 missing、类型/长度/条数降级、块条目清洗、不变式正反例 |
+| codes/hr-collection-agent-backend/tests/services/test_draft_service_create.py | 新增 | 21 个用例（真实 SQLite 与临时目录）：落库/落盘/令牌哈希、响应内容、时间戳、O-02（三种模型错误、归一失败、意外异常、插入失败均不留行不留文件且旧草稿/令牌不变）、O-03（有效旧令牌删旧行与旧文件、无效旧令牌忽略、旧清理失败不影响上传）、日志脱敏 |
+| codes/hr-collection-agent-backend/tests/api/test_resume_drafts_upload.py | 新增 | 28 个接口级用例：201 响应与 Cookie 属性（HttpOnly、SameSite=Lax、Path=/、Max-Age=604800、无 Secure）、令牌与库内哈希一致、数据层断言（行、文件内容）、客户端 Content-Type 被忽略、每次上传新草稿新令牌、重传删旧草稿、模型失败保持旧草稿与 Cookie、400 file_missing/file_empty/file_content_mismatch、413（10MB+1，不调用模型）、10MB 恰好通过、415、502/503/504、意外错误 500 且不泄露、日志不含文件名/内容/令牌、响应符合 OpenAPI `DraftResponse` |
+| codes/hr-collection-agent-backend/tests/openapi_support.py、tests/fakes.py、tests/services/conftest.py、tests/api/conftest.py | 新增/修改 | OpenAPI 校验辅助、`make_raw_result`、`DraftEnv` 夹具、接口测试环境夹具 |
+
+### 偏差说明
+- 按设计实现，并落实审查跟踪项：**ParseNormalizer 拒绝模型返回的 `confirmed`**（测试见 `test_parse_normalizer.py` 的 `test_confirmed_and_unknown_statuses_become_uncertain`、`test_prompt_injection_cannot_produce_confirmed`）。
+- 数据库初始化与目录创建仍待任务 2.7（lifespan）；在此之前直接用 uvicorn 启动时需先存在 `data/drafts.db`。测试夹具自行调用 `init_drafts_db`。
+- `file` 参数声明为可选，由 `validate_upload` 统一抛出 `file_missing`（与异常处理器对 multipart 解析失败的映射一致）。
+- “有值但声称 missing”的处理（保留为 uncertain）是设计未明确的取舍，已写入测试。
+
+### 遗留风险
+- Starlette 在调用路由前已把整个 multipart 请求写入临时文件，因此“超限立即中止读取”只对读取阶段生效，超大上传仍会先占用临时磁盘；POC（本机、约 5 人）可接受，未做请求体大小前置限制。
+- 上传接口同步等待模型（最长约 60 秒）并在线程池中执行，多人并发时占用线程；POC 规模可接受。
+
+---
+
+## Task-2.2：接口②：读取当前草稿并滑动续期
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/services/draft_service.py | 修改 | `DraftService.get`：按 `sha256(token)` 取草稿；令牌缺失/空/未知/已过期（空闲超过 7 天，与清理任务同一规则，恰好 7 天仍有效）统一抛 `DraftNotFoundError`；过期草稿不被刷新；命中则用 `UPDATE … RETURNING` 原子刷新 `last_active_at`（`updated_at` 不变）并返回新的 `expires_at` |
+| codes/hr-collection-agent-backend/src/app/api/routes/resume_drafts.py | 修改 | `GET /api/v1/resume-drafts/current`（operationId `getCurrentResumeDraft`）：成功后 `cookies.renew`（同值令牌、`Max-Age=604800`，O-01）；不返回“下一个待确认字段”或提问文案（C-03）；404 不设置 Cookie |
+| codes/hr-collection-agent-backend/tests/services/test_draft_service_get.py | 新增 | 10 个用例：返回与刷新、4 种缺失/未知令牌、过期（+1 秒）不被刷新、恰好 7 天有效、滑动窗口 24 天仍有效、已删除、404 异常无内容 |
+| codes/hr-collection-agent-backend/tests/api/test_resume_drafts_get.py | 新增 | 13 个接口级用例：200 与上传响应一致、无 next_field/question、Cookie 续期（同值、HttpOnly/SameSite=Lax/Path=/、Max-Age=604800、无 Secure）、`expires_at` 与库内 `last_active_at` 刷新且 `updated_at` 不变（数据层断言）、18 天活跃仍存活、404 draft_not_found（无 Cookie/未知/空/过期；无 Set-Cookie、响应只含 code/message/request_id、不含简历内容）、新上传后旧令牌失效、符合 OpenAPI（`DraftResponse`、`ErrorResponse`）、日志不含内容与令牌 |
+
+### 偏差说明
+- 按设计实现。过期判断放在 service（读取时即视为不存在），而不是等待清理任务，以满足 OpenAPI“草稿已过期 → 404 draft_not_found”。
+- 页面打开时 404 属于空态（O-12），前端处理；后端不记错误日志之外的额外信息。
+
+### 遗留风险
+- `get_by_token_hash` 与 `touch_and_get` 是两条语句，在二者之间草稿被清理会返回 404（已处理为 DraftNotFoundError），无数据风险。
+
+---
+
+## Task-2.3：接口③：提交校对结果（部分更新）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/services/draft_service.py | 修改 | `DraftService.update`：先调用 `validate_update`（事务外，全部通过才写入）→ 令牌检查 → `BEGIN IMMEDIATE` 事务内读取、`merge_update` 合并（出现的键整体替换并置 `confirmed`，未出现的键值与状态不变）、写回并刷新 `updated_at`/`last_active_at`；标量去首尾空白，空白文本 = 确认留空（`None`）；`null`/`[]` 为确认留空；区块整体替换且只有一个整体状态（O-11）；过期或未知令牌 → `DraftNotFoundError` |
+| codes/hr-collection-agent-backend/src/app/services/field_validation.py | 修改 | 新增 `core_issues_from_raw`：请求体已因 Schema 错误失败时，仍从原始 body 里检查 name/phone/email 的语义问题，让一次响应列出全部问题 |
+| codes/hr-collection-agent-backend/src/app/api/error_handlers.py | 修改 | PATCH `/api/v1/resume-drafts/current` 的校验失败：合并 Pydantic 错误与 `core_issues_from_raw` 的结果（去重），仍只含字段路径与 reason，不含值 |
+| codes/hr-collection-agent-backend/src/app/api/routes/resume_drafts.py | 修改 | `PATCH /api/v1/resume-drafts/current`（operationId `updateCurrentResumeDraft`）：成功后续期 Cookie；404/422 不设置 Cookie |
+| codes/hr-collection-agent-backend/tests/services/test_draft_service_update.py | 新增 | 19 个用例：present→confirmed/absent 不变、null 与 [] 确认留空、区块整体替换、去空白与空白转空、时间戳、幂等、校验失败整体不写入（有效的键也不写）、空更新、Unicode 数字手机号被拒、令牌/过期 → not found、校验先于令牌、2 线程各 10 次更新不同字段全部保留（并发） |
+| codes/hr-collection-agent-backend/tests/api/test_resume_drafts_patch.py | 新增 | 71 个接口级用例：200 与数据层断言（库中 fields_json）、Cookie 续期、null/[]/区块替换、手机号 6 种合法写法（含带空格/连字符，规则针对去噪后的值）、幂等且与 GET 一致、OpenAPI 响应符合；404（无/未知 Cookie、过期且不被修改）；**422 参数化 38 种坏请求：坏手机号（含阿拉伯-印度数字、全角数字、`+`+Unicode 数字、去空格后过短、空、全空白、超长）、坏邮箱、空/超长姓名、超长标量/列表/条目/条数、未知键、错误类型、多问题同时报告**，全部断言 422 `validation_failed`、`details` 只含 field+reason、无 Set-Cookie、**库内 fields_json 与 updated_at 未变化**；哨兵值不回显（6 个字段 + 核心三项）；畸形 body 与非法 JSON；日志不含提交值与令牌 |
+
+### 必须落实项的位置
+- **路由必须调用 `validate_update`/`validate_core_fields`，且有接口级测试**：路由 → `DraftService.update` → `validate_update`（`validate_update` 内部使用与 `validate_core_fields` 相同的 `_check_core`）。接口级测试为 `tests/api/test_resume_drafts_patch.py::test_invalid_updates_return_422_with_field_and_reason_only`（38 个参数）。变异验证：把 service 中的 `validate_update` 调用临时改为空，该文件 23 个用例失败，恢复后 71 个全部通过。
+- 审查跟踪项“normalizer 拒绝 `confirmed`”已在 2.1 落实（见 Task-2.1 偏差说明）。
+
+### 偏差说明
+- 按设计实现。补充：设计 §5.2 写“收集全部问题”，Schema 层错误会让请求在进入 service 前失败，故增加 `core_issues_from_raw`，使一次响应同时列出 Pydantic 错误与 name/phone/email 的格式问题（去重）。
+- 请求体校验（422）先于令牌检查（404）：这是 FastAPI 先解析 body 的结果，与设计 5.2 中“校验在事务外”一致；无 Cookie 且 body 非法时返回 422。
+
+### 遗留风险
+- 确认保存（2.4）会再次调用 `validate_core_fields` 校验草稿中的 name/phone/email；更新接口存储的是用户提交的展示值（仅去首尾空白），幂等键规范化在 2.4 使用 `identity_key` 完成。
+- `merge_update` 对文本列表不做元素去空白（整体替换，保持用户提交原样）。
+
+---
+

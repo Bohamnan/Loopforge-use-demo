@@ -47,6 +47,22 @@ def validate_core_fields(
     return [issue for field, value in candidates if (issue := _check_core(field, value))]
 
 
+def core_issues_from_raw(fields: object) -> list[FieldIssue]:
+    """Semantic problems of name/phone/email in a raw (not yet parsed) ``fields`` object.
+
+    Used when the request body already failed schema validation, so that the response still
+    lists every problem at once. Non-string values are left to the schema errors.
+    """
+    if not isinstance(fields, Mapping):
+        return []
+    issues = []
+    for field in ("name", "phone", "email"):
+        value = fields.get(field)
+        if isinstance(value, str) and (issue := _check_core(field, value)):
+            issues.append(issue)
+    return issues
+
+
 def validate_update(update: ResumeFieldsUpdate) -> list[FieldIssue]:
     """Validate a parsed partial update: only core fields that are present are checked.
 

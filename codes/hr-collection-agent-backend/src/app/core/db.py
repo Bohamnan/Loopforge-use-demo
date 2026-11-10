@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 SCHEMA_VERSION = 1
+MIN_SQLITE_VERSION = (3, 35, 0)  # DELETE/UPDATE ... RETURNING is used by the repositories
 DEFAULT_BUSY_TIMEOUT_MS = 5000
 
 DRAFTS_DDL = """
@@ -135,7 +136,13 @@ def transaction(conn: sqlite3.Connection) -> Iterator[sqlite3.Connection]:
     conn.execute("COMMIT")
 
 
+def _check_sqlite_version() -> None:
+    if sqlite3.sqlite_version_info < MIN_SQLITE_VERSION:
+        raise RuntimeError("SQLite >= 3.35 is required (RETURNING support)")
+
+
 def _init(path: Path, ddl: str) -> None:
+    _check_sqlite_version()
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = connect(path)
     try:
