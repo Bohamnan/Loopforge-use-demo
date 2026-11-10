@@ -18,3 +18,28 @@ def make_jpeg_bytes(size: int = 64) -> bytes:
 def make_png_bytes(size: int = 64) -> bytes:
     """Return minimal bytes that carry a PNG magic prefix."""
     return PNG_HEADER + b"0" * max(0, size - len(PNG_HEADER))
+
+
+def make_noise_image_bytes(width: int, height: int, fmt: str = "PNG", seed: int = 1) -> bytes:
+    """Return an incompressible (random RGB) image; the worst case for size budgets."""
+    import io
+    import random
+
+    from PIL import Image
+
+    rng = random.Random(seed)
+    image = Image.frombytes("RGB", (width, height), rng.randbytes(width * height * 3))
+    out = io.BytesIO()
+    image.save(out, fmt, **({"quality": 95} if fmt == "JPEG" else {}))
+    return out.getvalue()
+
+
+def make_real_jpeg_bytes(width: int = 64, height: int = 48) -> bytes:
+    """Return a small decodable JPEG (flat colour)."""
+    import io
+
+    from PIL import Image
+
+    out = io.BytesIO()
+    Image.new("RGB", (width, height), (200, 200, 200)).save(out, "JPEG")
+    return out.getvalue()

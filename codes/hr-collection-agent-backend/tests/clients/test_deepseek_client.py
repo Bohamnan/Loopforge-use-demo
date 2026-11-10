@@ -7,7 +7,9 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
+from app.clients import deepseek_client, image_prep
 from app.clients.deepseek_client import DeepSeekClient
+from app.clients.pdf_renderer import ImagePart, RenderedPdf, TextPart
 from app.clients.prompts import SYSTEM_PROMPT
 from app.core.config import Settings
 from app.core.errors import (
@@ -17,7 +19,7 @@ from app.core.errors import (
 )
 from app.schemas.parse import RawParseResult
 from tests import synthetic as syn
-from tests.helpers import make_jpeg_bytes
+from tests.helpers import make_noise_image_bytes, make_real_jpeg_bytes
 
 KEY = "synthetic-key-ZZ9"
 SENTINEL = "ZZSENTINELRESUMETEXT"  # stands for resume content; must never be logged
@@ -88,13 +90,15 @@ def test_png_request_shape_and_result() -> None:
     assert body["messages"][0] == {"role": "system", "content": SYSTEM_PROMPT}
     blocks = user_blocks(rec)
     image = next(b for b in blocks if b["type"] == "image_url")
-    assert image["image_url"]["url"] == "data:image/png;base64," + base64.b64encode(png).decode()
+    url = image["image_url"]["url"]
+    assert url.startswith("data:image/jpeg;base64,")  # photos are always re-encoded as JPEG
+    assert base64.b64decode(url.split(",", 1)[1])[:3] == b"\xff\xd8\xff"
     assert blocks[-1]["type"] == "text"
 
 
 def test_jpeg_uses_jpeg_data_uri() -> None:
     client, rec = make_client()
-    client.parse(make_jpeg_bytes(), "image/jpeg")
+    client.parse(make_real_jpeg_bytes(), "image/jpeg")
     (image,) = [b for b in user_blocks(rec) if b["type"] == "image_url"]
     assert image["image_url"]["url"].startswith("data:image/jpeg;base64,")
 
@@ -108,13 +112,13 @@ def test_text_layer_pdf_is_sent_as_text_blocks_only() -> None:
     assert "ZHANG SAN" in joined and "Page 1" in joined
 
 
-def test_scanned_pdf_is_sent_as_rendered_png() -> None:
+def test_scanned_pdf_is_sent_as_rendered_jpeg() -> None:
     client, rec = make_client()
     client.parse(syn.build_scan_pdf(syn.RESUME_LINES), "application/pdf")
     (image,) = [b for b in user_blocks(rec) if b["type"] == "image_url"]
     url = image["image_url"]["url"]
-    assert url.startswith("data:image/png;base64,")
-    assert base64.b64decode(url.split(",", 1)[1])[:8] == b"\x89PNG\r\n\x1a\n"
+    assert url.startswith("data:image/jpeg;base64,")
+    assert base64.b64decode(url.split(",", 1)[1])[:3] == b"\xff\xd8\xff"
 
 
 def test_pdf_pages_are_limited_to_five() -> None:
@@ -325,7 +329,7 @@ def test_close_releases_the_http_client() -> None:
     ("content", "mime"),
     [
         (syn.build_png(syn.RESUME_LINES), "image/png"),
-        (make_jpeg_bytes(), "image/jpeg"),
+        (make_real_jpeg_bytes(), "image/jpeg"),
         (syn.build_text_pdf([syn.RESUME_LINES]), "application/pdf"),
         (syn.build_scan_pdf(syn.RESUME_LINES), "application/pdf"),
     ],
@@ -419,3 +423,78 @@ def test_environment_proxies_are_ignored(monkeypatch: pytest.MonkeyPatch) -> Non
         assert client._http.trust_env is False
     finally:
         client.close()
+
+
+# ---- Task 2.3a: request body <= 1 MB -------------------------------------------------------
+
+LIMIT = 1024 * 1024
+
+
+def _fake_render(parts: list[TextPart | ImagePart]):  # noqa: ANN202
+    return lambda _content: RenderedPdf(
+        parts=parts, total_pages=len(parts), processed_pages=len(parts)
+    )
+
+
+def test_photo_near_10mb_request_body_within_1mb() -> None:
+    photo = make_noise_image_bytes(1800, 1800, "PNG")
+    assert len(photo) > 9_000_000
+    client, rec = make_client()
+    client.parse(photo, "image/png")
+    assert len(rec.requests[-1].content) <= LIMIT
+
+
+def test_large_jpeg_photo_request_body_within_1mb() -> None:
+    photo = make_noise_image_bytes(2400, 1800, "JPEG")
+    client, rec = make_client()
+    client.parse(photo, "image/jpeg")
+    assert len(rec.requests[-1].content) <= LIMIT
+
+
+def test_five_page_scanned_pdf_request_body_within_1mb(monkeypatch: pytest.MonkeyPatch) -> None:
+    pages = [ImagePart(i + 1, make_noise_image_bytes(1600, 1130, "PNG", seed=i)) for i in range(5)]
+    monkeypatch.setattr(deepseek_client, "render_pdf", _fake_render(pages))
+    client, rec = make_client()
+    client.parse(b"%PDF-1.4", "application/pdf")
+    assert len(rec.requests[-1].content) <= LIMIT
+    assert len([b for b in user_blocks(rec) if b["type"] == "image_url"]) == 5
+
+
+def test_text_plus_image_pages_request_body_within_1mb(monkeypatch: pytest.MonkeyPatch) -> None:
+    parts: list[TextPart | ImagePart] = [
+        TextPart(1, "ZHANG SAN " * 500),
+        ImagePart(2, make_noise_image_bytes(1600, 1130, "PNG", seed=7)),
+        TextPart(3, "SKILLS PYTHON " * 400),
+        ImagePart(4, make_noise_image_bytes(1600, 1130, "PNG", seed=8)),
+    ]
+    monkeypatch.setattr(deepseek_client, "render_pdf", _fake_render(parts))
+    client, rec = make_client()
+    client.parse(b"%PDF-1.4", "application/pdf")
+    assert len(rec.requests[-1].content) <= LIMIT
+    joined = "\n".join(b["text"] for b in user_blocks(rec) if b["type"] == "text")
+    assert "Page 1 text layer" in joined and "Page 3 text layer" in joined
+
+
+def test_image_that_cannot_fit_fails_without_external_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(image_prep, "MAX_REQUEST_BYTES", 30_000)  # floor cannot satisfy this
+    client, rec = make_client()
+    with pytest.raises(ParseFailedError):
+        client.parse(make_noise_image_bytes(1200, 1200, "PNG"), "image/png")
+    assert rec.requests == []
+
+
+def test_undecodable_photo_fails_without_external_call() -> None:
+    client, rec = make_client()
+    with pytest.raises(ParseFailedError):
+        client.parse(b"\xff\xd8\xff\xe0 broken", "image/jpeg")
+    assert rec.requests == []
+
+
+def test_text_beyond_budget_fails_without_external_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(image_prep, "MAX_REQUEST_BYTES", 2_500)  # smaller than prompt + text
+    client, rec = make_client()
+    with pytest.raises(ParseFailedError):
+        client.parse(syn.build_text_pdf([syn.RESUME_LINES]), "application/pdf")
+    assert rec.requests == []
