@@ -2,8 +2,8 @@
 
 Each case asserts the databases (count(*), key columns) and the file system (``file/`` and
 the drafts directory) together. Crash cases use SimulatedCrash (BaseException): no compensation
-runs, as in a killed process. ReconcileService belongs to task 2.5, so the crash cases assert
-the exact state a reconciliation starts from.
+runs, as in a killed process. The crash cases assert the exact state a reconciliation starts
+from, then run ReconcileService (task 2.5) and assert the repaired databases and ``file/``.
 """
 
 import shutil
@@ -120,6 +120,7 @@ def test_two_threads_same_identity_one_created_one_duplicate(resume_env: ResumeE
 def test_plain_exception_after_commit_keeps_record_and_tmp(resume_env: ResumeEnv) -> None:
     """COMMIT succeeded, then an ordinary exception: the tmp must survive for reconciliation."""
     token = resume_env.new_draft()
+    draft_bytes = _draft_bytes(resume_env)
     resume_env.injector.arm("db_after_commit", RuntimeError("commit outcome unknown"))
 
     with pytest.raises(SaveFailedError):
@@ -134,8 +135,28 @@ def test_plain_exception_after_commit_keeps_record_and_tmp(resume_env: ResumeEnv
     assert (again.already_saved, again.resume_id) == (True, resume_id)
     assert _only_tmp(resume_env) == f".{resume_id}.pdf.tmp"
 
+    _assert_reconciled(resume_env, resume_id, draft_bytes)  # roll-forward (QUESTION-1)
+
 
 # ---- crash / rename failure -------------------------------------------------------------------
+
+
+def _draft_bytes(env: ResumeEnv) -> bytes:
+    (name,) = env.draft_file_names()
+    return (env.data_dir / "drafts" / name).read_bytes()
+
+
+def _assert_reconciled(env: ResumeEnv, resume_id: str, original: bytes) -> None:
+    """Run the start-up reconciliation: tmp rolled forward, content intact, record unchanged."""
+    before = env.query("SELECT * FROM resumes")
+    report = env.reconcile()
+    assert report.rolled_forward == 1 and report.failed == 0
+    assert env.archive_names() == [f"{resume_id}.pdf"]  # final only, tmp gone
+    assert (env.file_dir / f"{resume_id}.pdf").read_bytes() == original
+    assert env.query("SELECT * FROM resumes") == before  # record unchanged
+    assert env.count("resume_educations") == 1
+    assert env.reconcile().rolled_forward == 0  # second run changes nothing
+    assert env.archive_names() == [f"{resume_id}.pdf"]
 
 
 def _only_tmp(env: ResumeEnv) -> str:
@@ -149,6 +170,7 @@ def test_crash_after_commit_before_rename_then_confirm_again_is_duplicate(
     resume_env: ResumeEnv, point: str
 ) -> None:
     token = resume_env.new_draft()
+    draft_bytes = _draft_bytes(resume_env)
     resume_env.injector.arm(point, SimulatedCrash())
 
     with pytest.raises(SimulatedCrash):
@@ -167,6 +189,8 @@ def test_crash_after_commit_before_rename_then_confirm_again_is_duplicate(
     assert _only_tmp(resume_env) == f".{resume_id}.pdf.tmp"  # the record's tmp is not discarded
     assert resume_env.draft_rows() == [] and resume_env.draft_file_names() == []
 
+    _assert_reconciled(resume_env, resume_id, draft_bytes)
+
 
 def test_crash_before_commit_leaves_tmp_without_record(resume_env: ResumeEnv) -> None:
     token = resume_env.new_draft()
@@ -175,16 +199,21 @@ def test_crash_before_commit_leaves_tmp_without_record(resume_env: ResumeEnv) ->
     with pytest.raises(SimulatedCrash):
         resume_env.service.confirm(token, True)
 
-    # Reconciliation (2.5) deletes a tmp without a record; here we only pin the state.
     assert resume_env.count("resumes") == 0 and all(resume_env.count(t) == 0 for t in SUB_TABLES)
     _only_tmp(resume_env)
     assert len(resume_env.draft_rows()) == 1 and len(resume_env.draft_file_names()) == 1
+
+    report = resume_env.reconcile()  # a tmp without a record is a save that never committed
+
+    assert report.tmp_removed == 1
+    _assert_clean_failure(resume_env)  # nothing committed, no file, draft kept for a retry
 
 
 def test_rename_failing_twice_is_save_failed_and_keeps_record_and_tmp(
     resume_env: ResumeEnv,
 ) -> None:
     token = resume_env.new_draft()
+    draft_bytes = _draft_bytes(resume_env)
     resume_env.injector.arm("promote", OSError("rename failed"), times=2)
 
     with pytest.raises(SaveFailedError):
@@ -200,6 +229,8 @@ def test_rename_failing_twice_is_save_failed_and_keeps_record_and_tmp(
     assert (again.already_saved, again.resume_id) == (True, resume_id)
     assert resume_env.count("resumes") == 1
     assert resume_env.draft_rows() == []
+
+    _assert_reconciled(resume_env, resume_id, draft_bytes)  # "对账后一致"
 
 
 def test_rename_failing_once_is_retried_and_succeeds(resume_env: ResumeEnv) -> None:

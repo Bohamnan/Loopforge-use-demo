@@ -550,3 +550,28 @@ OpenAPI 0.1.1 未改动；无新增依赖；无数据库结构变更（无）。
 - SUGGEST-4（openapi 描述补充、Pillow 公告跟踪）、SUGGEST-5（存在性探测，POC 本机可接受）：登记为跟踪项，openapi 本次不改。
 - 未做真实 DeepSeek 调用；无新依赖。
 
+
+---
+
+## Task-2.5：启动对账 ReconcileService（HIGH_RISK：B-05）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/services/reconcile_service.py | 新增 | `ReconcileService.run()` 四情形；返回 `ReconcileReport`；只依赖 `ResumeRepository`、`ArchiveFileStore`、`Clock` |
+| codes/hr-collection-agent-backend/tests/services/test_reconcile_service.py | 新增 | 29 个用例：四情形、幂等、保守处理、单条失败、读取失败不删除、日志脱敏、与 2.4 故障联调 |
+| codes/hr-collection-agent-backend/tests/services/conftest.py | 修改 | `ResumeEnv.reconcile()` |
+| codes/hr-collection-agent-backend/tests/services/test_resume_service_faults.py | 修改 | 提交后崩溃（2 点）、提交后普通异常、重命名两次失败、提交前崩溃：补对账后断言（库、`file/` 内容、tmp 消失、记录不变、二次对账无变化） |
+
+### 设计要点（偏差说明）
+- 不改仓储接口：用现有 `list_refs()`、`scan()`、`promote()`、`remove()`。
+- 超出 Schema §4.2 四情形的保守处理：记录同时有 tmp 与终态文件、或 id 与记录相同但文件名（扩展名）不同，一律不动并计入 `conflicts` 告警，不覆盖、不删除（删除不可逆）。
+- 读取记录或目录失败：整体放弃（`aborted`），不删除任何文件（否则所有文件都会被误判为无记录）；`run()` 对普通异常不抛出，`BaseException` 不吞。
+- 日志只含数量、`resume_id`、异常类名与栈帧；`Clock` 仅用于 `duration_ms`。
+- 不访问草稿目录与草稿库；无新依赖、不改 OpenAPI。
+
+### 遗留风险
+对账只在启动时运行（AGENTS.md 已知限制，第七批 SUGGEST-3）；接入 `lifespan` 在 2.7。

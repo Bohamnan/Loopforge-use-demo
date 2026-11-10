@@ -49,6 +49,7 @@ def make_upload(name: str = "synthetic.pdf") -> ValidatedUpload:
 # ---- confirm-save environment (ResumeService) ------------------------------------------------
 
 from app.core.db import init_resumes_db  # noqa: E402
+from app.services.reconcile_service import ReconcileReport, ReconcileService  # noqa: E402
 from app.services.resume_service import ResumeService  # noqa: E402
 from tests.services.fault_injection import (  # noqa: E402
     FaultInjector,
@@ -109,6 +110,10 @@ class ResumeEnv:
 
     def count(self, table: str = "resumes", db: str = "resumes.db") -> int:
         return self.query(f"SELECT count(*) FROM {table}", db)[0][0]  # noqa: S608
+
+    def reconcile(self) -> ReconcileReport:
+        """Run the start-up reconciliation over the same stores (task 2.5)."""
+        return ReconcileService(self.resume_repo, self.archive, self.clock).run()
 
     def archive_names(self) -> list[str]:
         return sorted(p.name for p in self.file_dir.iterdir())
