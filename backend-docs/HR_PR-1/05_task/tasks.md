@@ -258,7 +258,7 @@
 
 ---
 
-### Task 2.3：接口③：提交校对结果（部分更新）
+### Task 2.3：接口③：提交校对结果（部分更新） ✅
 - **关联：** REQ-BE-03.2、03.3、03.4、03.5；D§3.6（`DraftService.update`）、D§5.2、D§6、D§1“草稿更新的并发”；A③；O-09、O-11
 - **内容：** `DraftService.update()`：`field_validation`（事务外、全部校验通过才写入）→ 事务内（`BEGIN IMMEDIATE`）读取 → 合并（出现的字段置 `confirmed`，未出现保持原值与状态；列表区块整体替换）→ 写回 `fields_json`、刷新 `updated_at`/`last_active_at`；空 `fields: {}` → `validation_failed`（`field=fields`、`reason=required`）；`routes/resume_drafts.py` 增加 PATCH，成功后续期 Cookie。
 - **测试：** 出现的字段 → `confirmed`、未出现字段不变；标量 `null`/列表 `[]` 表示确认留空（核心三项除外）；多条经历整体替换（新增/修改/删除）；校验失败不写入且 `details` 只含字段名与原因（不回显值）；手机号带空格/连字符被接受并按去除后的规则校验；超限 → `too_long`；未知字段 → `unknown_field`；令牌无效 → 404；**并发：两线程各改不同字段，两个修改均保留**；幂等：同一请求重复提交结果相同。**数据验证：** 直接读 `drafts.fields_json` 断言合并结果与状态。
@@ -267,8 +267,8 @@
 
 #### 子任务
 
-- [ ] `DraftService.update` 与测试（含并发）
-- [ ] 路由 PATCH 与接口测试
+- [x] `DraftService.update` 与测试（含并发）
+- [x] 路由 PATCH 与接口测试
 
 ---
 

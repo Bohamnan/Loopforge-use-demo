@@ -416,3 +416,32 @@ TestClient 来自 fastapi.testclient，运行时有 StarletteDeprecationWarning�
 
 ---
 
+## Task-2.3：接口③：提交校对结果（部分更新）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/services/draft_service.py | 修改 | `DraftService.update`：先调用 `validate_update`（事务外，全部通过才写入）→ 令牌检查 → `BEGIN IMMEDIATE` 事务内读取、`merge_update` 合并（出现的键整体替换并置 `confirmed`，未出现的键值与状态不变）、写回并刷新 `updated_at`/`last_active_at`；标量去首尾空白，空白文本 = 确认留空（`None`）；`null`/`[]` 为确认留空；区块整体替换且只有一个整体状态（O-11）；过期或未知令牌 → `DraftNotFoundError` |
+| codes/hr-collection-agent-backend/src/app/services/field_validation.py | 修改 | 新增 `core_issues_from_raw`：请求体已因 Schema 错误失败时，仍从原始 body 里检查 name/phone/email 的语义问题，让一次响应列出全部问题 |
+| codes/hr-collection-agent-backend/src/app/api/error_handlers.py | 修改 | PATCH `/api/v1/resume-drafts/current` 的校验失败：合并 Pydantic 错误与 `core_issues_from_raw` 的结果（去重），仍只含字段路径与 reason，不含值 |
+| codes/hr-collection-agent-backend/src/app/api/routes/resume_drafts.py | 修改 | `PATCH /api/v1/resume-drafts/current`（operationId `updateCurrentResumeDraft`）：成功后续期 Cookie；404/422 不设置 Cookie |
+| codes/hr-collection-agent-backend/tests/services/test_draft_service_update.py | 新增 | 19 个用例：present→confirmed/absent 不变、null 与 [] 确认留空、区块整体替换、去空白与空白转空、时间戳、幂等、校验失败整体不写入（有效的键也不写）、空更新、Unicode 数字手机号被拒、令牌/过期 → not found、校验先于令牌、2 线程各 10 次更新不同字段全部保留（并发） |
+| codes/hr-collection-agent-backend/tests/api/test_resume_drafts_patch.py | 新增 | 71 个接口级用例：200 与数据层断言（库中 fields_json）、Cookie 续期、null/[]/区块替换、手机号 6 种合法写法（含带空格/连字符，规则针对去噪后的值）、幂等且与 GET 一致、OpenAPI 响应符合；404（无/未知 Cookie、过期且不被修改）；**422 参数化 40 种坏请求：坏手机号（含阿拉伯-印度数字、全角数字、`+`+Unicode 数字、去空格后过短、空、全空白、超长）、坏邮箱、空/超长姓名、超长标量/列表/条目/条数、未知键、错误类型、多问题同时报告**，全部断言 422 `validation_failed`、`details` 只含 field+reason、无 Set-Cookie、**库内 fields_json 与 updated_at 未变化**；哨兵值不回显（6 个字段 + 核心三项）；畸形 body 与非法 JSON；日志不含提交值与令牌 |
+
+### 必须落实项的位置
+- **路由必须调用 `validate_update`/`validate_core_fields`，且有接口级测试**：路由 → `DraftService.update` → `validate_update`（`validate_update` 内部使用与 `validate_core_fields` 相同的 `_check_core`）。接口级测试为 `tests/api/test_resume_drafts_patch.py::test_invalid_updates_return_422_with_field_and_reason_only`（40 个参数）。变异验证：把 service 中的 `validate_update` 调用临时改为空，该文件 23 个用例失败，恢复后 71 个全部通过。
+- 审查跟踪项“normalizer 拒绝 `confirmed`”已在 2.1 落实（见 Task-2.1 偏差说明）。
+
+### 偏差说明
+- 按设计实现。补充：设计 §5.2 写“收集全部问题”，Schema 层错误会让请求在进入 service 前失败，故增加 `core_issues_from_raw`，使一次响应同时列出 Pydantic 错误与 name/phone/email 的格式问题（去重）。
+- 请求体校验（422）先于令牌检查（404）：这是 FastAPI 先解析 body 的结果，与设计 5.2 中“校验在事务外”一致；无 Cookie 且 body 非法时返回 422。
+
+### 遗留风险
+- 确认保存（2.4）会再次调用 `validate_core_fields` 校验草稿中的 name/phone/email；更新接口存储的是用户提交的展示值（仅去首尾空白），幂等键规范化在 2.4 使用 `identity_key` 完成。
+- `merge_update` 对文本列表不做元素去空白（整体替换，保持用户提交原样）。
+
+---
+

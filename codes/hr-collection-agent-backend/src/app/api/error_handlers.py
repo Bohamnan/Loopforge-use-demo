@@ -15,9 +15,10 @@ from app.core.errors import (
 )
 from app.core.logging import log_event, request_id_var
 from app.schemas.errors import ErrorDetail, ErrorResponse
-from app.services.field_validation import issues_from_pydantic
+from app.services.field_validation import core_issues_from_raw, issues_from_pydantic
 
 UPLOAD_PATH = "/api/v1/resume-drafts"
+UPDATE_PATH = "/api/v1/resume-drafts/current"
 CONFIRM_PATH = "/api/v1/resumes"
 
 
@@ -73,7 +74,12 @@ async def _handle_validation(request: Request, exc: Exception) -> JSONResponse:
     elif route == ("POST", CONFIRM_PATH) and _is_missing_confirmation(errors):
         error = ConfirmationRequiredError()
     else:
-        error = ValidationFailedError(issues_from_pydantic(errors))
+        issues = issues_from_pydantic(errors)
+        if route == ("PATCH", UPDATE_PATH) and isinstance(exc.body, dict):
+            # Also report core-field problems (phone/email format ...) found in the raw body,
+            # so one response lists everything the user has to fix.
+            issues = list(dict.fromkeys(issues + core_issues_from_raw(exc.body.get("fields"))))
+        error = ValidationFailedError(issues)
     _log(request, error)
     return _response(request, error)
 

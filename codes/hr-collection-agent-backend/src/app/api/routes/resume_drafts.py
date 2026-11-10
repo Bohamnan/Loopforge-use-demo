@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, File, Response, UploadFile
 from app.api import cookies
 from app.api.deps import get_draft_service, get_draft_token, get_settings
 from app.core.config import Settings
-from app.schemas.draft import DraftResponse
+from app.schemas.draft import DraftResponse, DraftUpdateRequest
 from app.services.draft_service import DraftService
 from app.services.upload_validation import validate_upload
 
@@ -39,5 +39,20 @@ def get_current_resume_draft(
     """Read the current draft (page start / restore) and slide the cookie window."""
     draft = service.get(token)
     if token is not None:  # always true here: service.get raises DraftNotFoundError otherwise
+        cookies.renew(response, token, settings)
+    return draft
+
+
+@router.patch("/current", response_model=DraftResponse, operation_id="updateCurrentResumeDraft")
+def update_current_resume_draft(
+    body: DraftUpdateRequest,
+    response: Response,
+    token: str | None = Depends(get_draft_token),
+    service: DraftService = Depends(get_draft_service),
+    settings: Settings = Depends(get_settings),
+) -> DraftResponse:
+    """Submit corrections: present fields become confirmed. Only the draft is written (B-04)."""
+    draft = service.update(token, body.fields)
+    if token is not None:  # always true here: service.update raises DraftNotFoundError otherwise
         cookies.renew(response, token, settings)
     return draft
