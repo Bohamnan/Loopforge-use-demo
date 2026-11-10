@@ -62,7 +62,7 @@
 ## 5. QUESTIONS（需要人类裁决）
 
 ### QUESTION-1：Pydantic 模型命名后缀（“以 Request、Response、Dto 结尾”）与按 OpenAPI 同名的领域模型冲突
-**位置**：`src/app/schemas/resume_fields.py`（`WorkExperience`、`ProjectExperience`、`Education`、`StringField`、`StringListField`、`WorkExperienceListField`、`ProjectExperienceListField`、`EducationListField`、`ResumeFields`、`ResumeFieldsUpdate`）、`schemas/draft.py:13`（`OriginalFileInfo`）、`schemas/errors.py:9`（`ErrorDetail`）
+**位置**：`src/app/schemas/resume_fields.py`（`WorkExperience`、`ProjectExperience`、`Education`、`StringField`、`StringListField`、`WorkExperienceListField`、`ProjectExperienceListField`、`EducationListField`、`ResumeFields`、`ResumeFieldsUpdate`）、`schemas/draft.py:12`（`OriginalFileInfo`）、`schemas/errors.py:8`（`ErrorDetail`）
 **问题**：AGENTS.md“命名与编码约定”和 `rules/backend/coding.md` §2 都要求 Pydantic 模型以 Request / Response / Dto 结尾。上述模型沿用 OpenAPI schema 名称（design §3.3 与前端 F-02“与 OpenAPI 同名”也这么写），因此与字面规则冲突。AGENTS.md 同时说 `schemas` 承载“请求、响应及领域模型”，规则本身对“领域模型”是否适用并不清楚。
 **需要谁裁决**：Dev Lead
 **不同答案的影响**：
