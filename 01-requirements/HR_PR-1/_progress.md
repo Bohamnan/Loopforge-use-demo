@@ -10,7 +10,7 @@
 |------|------|
 | **PRD** | `01-requirements/HR_PR-1/prd.md` |
 | **当前 Skill** | feature-developer |
-| **当前阶段** | backend 1.8 复审通过，待 DL 确认标 ✅；frontend 2.6（HIGH_RISK）审查中 |
+| **当前阶段** | backend 1.8、frontend 2.6 审查均建议标 ✅，待 DL 确认 |
 | **状态** | 🔄 feature-developer 进行中 |
 | **最后更新** | 2026-11-10 |
 
@@ -141,6 +141,7 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | code-reviewer | 合并第二批审查报告（de8176b、8e8ac29）：backend 1.8 BLOCKED（模型名未锁定，主 agent 已核实）、frontend 2.1–2.5 PASS_WITH_SUGGESTIONS；DL 裁决：锁定 deepseek_model 与 base_url（https + api.deepseek.com），PDF 超时与提示词分隔随修；frontend 通过，2.6 一并修复拖拽离开页面 |
 | 2026-11-10 | Yin Yang（Dev Lead） | code-reviewer | backend 1.8 修复（8e5f9f5）经主 agent 独立验证（模型名与地址锁定、361 passed）和审查 agent 复审（cf49419）：0 BLOCK / 0 QUESTION，建议标 ✅ |
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 frontend 2.6（2bdd002）：复跑 42 文件 453 例通过、lint 0、build 1435 modules；交审查 agent 做 HIGH_RISK 审查 |
+| 2026-11-10 | Yin Yang（Dev Lead） | code-reviewer | frontend 2.6 HIGH_RISK 审查（b3d4a9b）：PASS_WITH_SUGGESTIONS（0/0/5），F-03 唯一入口已核实；第④点证实 worker 理解有误、实现正确（重试得 draft_not_found → 可能已保存），建议标 ✅ |
 
 ---
 
