@@ -191,3 +191,63 @@ TestClient 来自 fastapi.testclient，运行时有 StarletteDeprecationWarning�
 
 ---
 
+## Task-1.8：clients：解析客户端抽象、DeepSeekClient、PDF 转换、提示词（HIGH_RISK：B-02 / B-06，待人类审查，tasks.md 暂不标 ✅）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/clients/resume_parser_client.py | 新增 | `ResumeParserClient` 协议 |
+| codes/hr-collection-agent-backend/src/app/clients/deepseek_client.py | 新增 | 同步 httpx 客户端；`Timeout(connect=5, write=30, read=60, pool=5)`，不重试；失败映射；`usage` 记录；日志只含状态码/耗时/token 数/业务码 |
+| codes/hr-collection-agent-backend/src/app/clients/pdf_renderer.py | 新增 | PDF 本地转换：`pypdfium2`，最多 5 页，每页非空白字符 ≥ 50 发文本，否则渲染 PNG（长边 1600px）；单页文本上限 6000 字符；PDFium 调用加锁 |
+| codes/hr-collection-agent-backend/src/app/clients/prompts.py | 新增 | 系统提示（不可信文档、禁止猜测、状态只允许 recognized/uncertain/missing、仅输出 JSON）；与 `ResumeFields` 键集合一致性断言 |
+| codes/hr-collection-agent-backend/src/app/schemas/parse.py | 修改 | `RawParseResult` 增加可选 `prompt_tokens`、`completion_tokens` |
+| codes/hr-collection-agent-backend/src/app/core/logging.py | 修改 | 白名单增加 `prompt_tokens`、`completion_tokens`；`configure_logging` 将 httpx/httpcore 日志级别压到 WARNING |
+| codes/hr-collection-agent-backend/pyproject.toml、uv.lock | 修改 | 新增唯一依赖 `pypdfium2==5.15.2`（Apache-2.0/BSD，uv 默认索引；`pip-audit` 报告 No known vulnerabilities） |
+| codes/hr-collection-agent-backend/scripts/spike_deepseek.py | 新增 | 手工精度/成本 spike（不在 tests 下，不被 pytest 收集；只调用 deepseek-flash；不打印响应与凭证） |
+| codes/hr-collection-agent-backend/tests/synthetic.py | 新增 | 合成文档（虚构人物）：文本层 PDF、扫描式 PDF、PNG，仅用标准库 |
+| codes/hr-collection-agent-backend/tests/clients/test_deepseek_client.py、test_pdf_renderer.py、test_prompts.py | 新增 | 见下 |
+| codes/hr-collection-agent-backend/tests/fakes.py、tests/core/test_logging.py、tests/schemas/test_dtos.py | 修改 | `FakeParserClient`；token 日志与 httpx 日志级别用例；`RawParseResult` 用量用例 |
+| codes/hr-collection-agent-backend/AGENTS.md | 修改 | 依赖清单加 `pypdfium2`、日志白名单加 token 数、模型说明补 PDF 转换，并追加变更履历（DL 指示） |
+| backend-docs/HR_PR-1/04_design/design.md | 修改 | §1 依赖/模型调用接口、§3.4、§6、§7.2 增量修订，文件头追加变更履历 v0.2（DL 指示） |
+| backend-docs/HR_PR-1/05_task/tasks.md | 修改 | 1.8 子任务/内容/测试/工时（6h→10h，合计 91h→95h）、覆盖核对表新增 `pdf_renderer`，文件头追加 v1.2（DL 指示）；**未标 ✅** |
+
+### 测试覆盖（均用 httpx MockTransport / 合成文档，禁网夹具生效，无真实外发）
+- 失败映射（design 7.2）：401/402/403/404/429/500/502/503/504 → `parse_unavailable`；400/413/422/409 → `parse_failed`；`ReadTimeout`/`ConnectTimeout`/`WriteTimeout`/`PoolTimeout` → `parse_timeout`；`ConnectError`/`ReadError`/`RemoteProtocolError` → `parse_unavailable`；无 API key → `parse_unavailable` 且不发请求；11 种 2xx 但不可解析的响应体（空、非 JSON、非对象、缺 choices/content、content 非 JSON/数组/数字/截断）→ `parse_failed`；markdown 代码围栏 JSON 可解析。所有失败路径断言只发 1 次请求（不重试），异常保留 `__cause__`。
+- 请求形态：URL/Bearer/模型名/`stream=false`/`response_format`；PNG、JPEG 为 `image_url` data URI；文本层 PDF 只含 `text` 块；扫描 PDF 含 PNG `image_url`；超过 5 页只处理 5 页；损坏 PDF → `parse_failed` 且不调用模型；不支持的 content type → `ValueError`；所有请求只发往配置的主机；超时配置（read 取自设置）。
+- 脱敏（B-03）：成功与失败（401/400/500）、超时路径的捕获日志不含哨兵“简历文本”、API key、`Bearer`、`base64`、`image_url`；日志含 `status_code`、`duration_ms`、`prompt_tokens`、`completion_tokens`。
+- `pdf_renderer`：49/50/51 字符边界、页序与混合页、5 页上限、长边 1600px（横/竖）、PNG 有效且含墨迹、单页文本上限、4 种损坏输入、6 线程并发一致。
+
+### 真实调用 spike 证据（只用合成文档与 deepseek-flash；不含响应原文与凭证）
+**阶段一：请求形态探测**（chat/completions）
+- PNG：`{"type":"image_url","image_url":{"url":"data:image/png;base64,..."}}` → HTTP 200，约 3.0s，可解析为 22 键 JSON。
+- PDF 直接提交均被拒：`{"type":"file","file":{"filename","file_data":"data:application/pdf;base64,..."}}` → 400（file must have a file_id or file_data）；顶层 `file_data` → 400（unsupported file，仅 webp/png/jpeg/gif）；`image_url` 装 PDF → 400（unsupported image）；`input_file` → 422（仅 text/image_url/file）；`POST /files` 上传 PDF → 400。结论：**deepseek-flash 不接受 PDF**。已 ask，DL 裁决见下。
+**阶段二：精度验证**（通过 `DeepSeekClient`，每份文件各调用 1 次；答案为 14 个字段检查项：姓名、职位、手机、邮箱、城市、技能集合、教育 5 项、工作 5 项中的教育学校/专业/起止、公司/职位/起止）
+
+| 文件 | 发送形态 | 耗时 | prompt_tokens | completion_tokens | 准确率（识别正确/有值项） | 编造（不在文档中的字段被填值） |
+|---|---|---|---|---|---|---|
+| PNG（照片路径） | 1 个 image_url + 1 个 text | 4.3s | 853 | 940 | 14/14 | 0 项 |
+| 合成 PDF（带文本层） | 仅 text 块（无图片，不渲染） | 3.4s | 612 | 707 | 14/14 | 0 项 |
+| 合成 PDF（扫描式，纯图片页） | 渲染为 PNG 的 image_url + text | 4.7s | 1091 | 944 | 14/14 | 0 项 |
+
+三份均返回 22 个键，状态中未出现 `confirmed`。文本层路径 token 最低（prompt 比图片路径少约 28%–44%）。注意：样本为单页、短文本、单次调用，仅说明可行性，不代表真实简历的精度和 token 用量；completion 约 700–950 tokens（模型输出的 JSON 偏长）。
+
+### 偏差说明
+- 按 DL 裁决偏离 design/ADR-001 的“直接理解 PDF”：PDF 本地转换后提交（文本层优先、PNG 兜底、最多 5 页，阈值 50 个非空白字符，已写入 design §6）；ADR-001 的修订由主 agent 处理。
+- 新增唯一依赖 `pypdfium2==5.15.2`（已获 DL 批准）。
+- 失败映射补充 HTTP 402（余额不足）→ `parse_unavailable`（design 7.2 原清单未列，已写入）。
+- 请求增加 `max_tokens=8192` 与 `response_format=json_object`（spike 验证服务端接受）。
+- 日志白名单增加 `prompt_tokens`、`completion_tokens`（DL 指示，已同步 AGENTS.md）；`configure_logging` 额外压低 httpx/httpcore 日志级别。
+- **探测期事故（如实记录）**：阶段一结束后，为判断 PDF 是否有其他可行模型，我曾向 `deepseek-v4-pro`（不在批准清单内）发送过 3 个请求，内容为合成 PDF 与“Reply OK”，未含任何真实数据。DL 已指出越过 B-02 边界；之后不再向批准清单外模型发送任何内容，`scripts/spike_deepseek.py` 中无 v4-pro 代码，并断言只允许 `deepseek-flash`。
+- ABSENT/准确率仅针对合成样本的 14 项检查，非正式验收指标。
+
+### 遗留风险
+- 精度/token 数据来自 3 个单页合成样本，真实简历（多页、多栏、含表格、低质量扫描）需在集成环境复测；5 页上限会丢弃后面的页面（对应字段按 missing 处理）。
+- PDF 渲染在请求线程内同步执行并串行化（PDFium 非线程安全），多人同时上传扫描件时存在排队；POC 并发约 5 人，可接受，未做压测。
+- 模型响应 JSON 与字段模型的严格校验/归一由任务 2.1 的 ParseNormalizer 完成，本任务仅保证返回“尚未信任的字典”。
+- `deepseek_base_url` 默认值 `https://api.deepseek.com` 经 spike 验证可用。
+
+---
+

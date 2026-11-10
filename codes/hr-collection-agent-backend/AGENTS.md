@@ -5,7 +5,14 @@
 | 状态 | 已确认 |
 | 版本 | v1（技术设计后补全） |
 | 来源 | [solution-design.md](../../01-requirements/HR_PR-1/solution-design.md)（HR_PR-1）；工作台 backend 规范与架构参考；v1 补全依据 [design.md](../../backend-docs/HR_PR-1/04_design/design.md)、[sql_ddl_resume.md](../../backend-docs/HR_PR-1/02_schema/sql_ddl_resume.md)、[openapi.yaml](../../backend-docs/HR_PR-1/03_api/openapi.yaml)（0.1.1）、[tasks.md](../../backend-docs/HR_PR-1/05_task/tasks.md) |
-| 最后更新 | 2026-11-10（第一批审查后修订：日志白名单补 `count`、`stack`；命名条款补与 OpenAPI 同名模型的例外） |
+| 最后更新 | 2026-11-10（任务 1.8：依赖清单增加 `pypdfium2`，日志白名单增加 token 用量；此前：第一批审查后修订） |
+
+### 变更履历
+
+| 日期 | 变更 | 驱动 |
+|------|------|------|
+| 2026-11-10 | 第一批审查后修订：日志白名单补 `count`、`stack`；命名条款补与 OpenAPI 同名模型的例外 | 审查 SUGGEST-5、QUESTION-1 |
+| 2026-11-10 | 任务 1.8：依赖清单增加 `pypdfium2`；日志白名单增加 `prompt_tokens`、`completion_tokens`；模型调用说明补充 PDF 本地转换 | DL 裁决（deepseek-flash 不接受 PDF，PDF 在 backend 本地转换后提交） |
 
 ## 项目定位
 
@@ -18,9 +25,9 @@ HR 人力信息收集后端服务：接收简历文件、调用获批模型解�
 | 语言与版本 | Python 3.11 | 工作台项目上下文与 backend 架构参考 |
 | 框架 | FastAPI、Pydantic v2 | 工作台项目上下文与 backend 架构参考 |
 | 数据存储 | SQLite；原始简历存放在项目 `file` 目录；未确认草稿存于正式数据库之外的本地临时存储 | HLD §2；backend `database.md`；ADR-003 |
-| 依赖管理 | uv + `pyproject.toml`；`uv lock` 锁定精确版本；运行依赖 `fastapi`、`uvicorn`、`pydantic`、`pydantic-settings`、`httpx`、`python-multipart`，开发依赖 `pytest`、`pytest-cov`、`ruff`、`jsonschema`、`pyyaml` | C-15；design §1“依赖清单”；DL 2026-11-10 采纳 `pyyaml`、`pytest-cov` |
+| 依赖管理 | uv + `pyproject.toml`；`uv lock` 锁定精确版本；运行依赖 `fastapi`、`uvicorn`、`pydantic`、`pydantic-settings`、`httpx`、`python-multipart`、`pypdfium2`（PDF 文本层提取与页面渲染，Apache-2.0/BSD；不使用 AGPL 的 PyMuPDF），开发依赖 `pytest`、`pytest-cov`、`ruff`、`jsonschema`、`pyyaml` | C-15；design §1“依赖清单”；DL 2026-11-10 采纳 `pyyaml`、`pytest-cov` |
 | 数据访问 | 标准库 `sqlite3`，不引入 ORM；写事务 `BEGIN IMMEDIATE` | design §1“持久化访问” |
-| 其他关键依赖 | 获批的 DeepSeek Flash（模型标识：`deepseek-flash`），仅由 `clients` 层调用；供应商不得用简历输入训练 | HLD §2；ADR-001 |
+| 其他关键依赖 | 获批的 DeepSeek Flash（模型标识：`deepseek-flash`），仅由 `clients` 层调用，且只允许该获批模型；该模型 API 只接受图片（webp/png/jpeg/gif），PDF 由 `clients` 层本地转换（文本层优先、PNG 渲染兜底、最多 5 页）后提交；供应商不得用简历输入训练 | HLD §2；ADR-001 |
 
 ## 目录结构
 
@@ -133,7 +140,7 @@ codes/hr-collection-agent-backend/
 - 未确认草稿与正式简历数据库分离，服务端本地暂存，7 天无活动后清理；不在浏览器持久化简历内容。
 - 正式记录和原始文件无自动到期清理；用户删除功能不属于 HR_PR-1。
 - 禁止裸 `except` 或吞异常；模型客户端技术异常须显式转换为应用错误并脱敏。
-- 日志只记白名单字段（`request_id`、`draft_id`、`resume_id`、状态码、耗时、业务码、异常类名、`count`、`stack`）；`count` 用于对账告警等数量统计；`stack` 只含栈帧（项目相对路径、行号、函数名），不含异常消息和绝对路径，最多 12 帧、2000 字符；文件名、字段值、模型响应、令牌一律不记（B-03；design §1“日志策略”）。
+- 日志只记白名单字段（`request_id`、`draft_id`、`resume_id`、状态码、耗时、业务码、异常类名、`count`、`stack`、`prompt_tokens`、`completion_tokens`）；`prompt_tokens`/`completion_tokens` 为模型响应 usage 中的数字，仅用于成本监控；`count` 用于对账告警等数量统计；`stack` 只含栈帧（项目相对路径、行号、函数名），不含异常消息和绝对路径，最多 12 帧、2000 字符；文件名、字段值、模型响应、令牌一律不记（B-03；design §1“日志策略”）。
 - 保存顺序：复制到 tmp → 单事务写库 → 原子重命名；启动时对账；幂等键为规范化的 姓名+手机号+邮箱（ADR-005、ADR-004）。
 
 ## 待确认清单

@@ -94,3 +94,9 @@ def test_error_response_with_details() -> None:
 def test_raw_parse_result_wraps_untrusted_dict() -> None:
     r = RawParseResult(data={"name": {"value": "x", "status": "recognized"}})
     assert r.data["name"]["value"] == "x"
+
+
+def test_raw_parse_result_token_usage_defaults_to_none() -> None:
+    r = RawParseResult(data={}, prompt_tokens=10, completion_tokens=2)
+    assert (r.prompt_tokens, r.completion_tokens) == (10, 2)
+    assert RawParseResult(data={}).prompt_tokens is None
