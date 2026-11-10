@@ -10,7 +10,7 @@
 |------|------|
 | **PRD** | `01-requirements/HR_PR-1/prd.md` |
 | **当前 Skill** | architecture-advisor |
-| **当前阶段** | backend Step 3 已完成（design.md、ADR-004/005 PROPOSED），待技术设计确认；frontend Step 3 进行中（Orca 受监督 worker ctx_6d9d1d647358） |
+| **当前阶段** | backend 技术设计确认通过（ADR-004/005 ACCEPTED，CR-01 采纳）→ OpenAPI 0.1.1 + Step 4 任务拆分；frontend Step 3 进行中 |
 | **状态** | 🔄 architecture-advisor 进行中 |
 | **最后更新** | 2026-11-10 |
 
@@ -50,7 +50,7 @@
 | 跨 Workbench 一致性 review（仅跨 Workbench 需求） | cross-workbench-reviewer | Dev Lead | ✅ 已裁决 | 2026-11-10 | `01-requirements/HR_PR-1/cross-workbench-review.md` |
 | 需求汇总（第二轮技术 Q&A + requirements.md） | requirements-analyst | Dev Lead/BA | ✅ 已确认 | 2026-11-10 | `backend-docs/HR_PR-1/01_requirements/requirements.md`；`frontend-docs/HR_PR-1/01_requirements/requirements.md` |
 | 架构设计（Schema+接口） | architecture-advisor | 各 Workbench 工程师 | ✅ backend（OpenAPI 0.1.0 冻结，0.1.1 待修订 G-01/G-02）/ frontend（Step 2.2 评审通过） | 2026-11-10 | `backend-docs/HR_PR-1/02_schema/`、`03_api/`；`frontend-docs/HR_PR-1/03_api/interface_spec_resume.md` |
-| 技术设计 | architecture-advisor | 各 Workbench 工程师 | ⏸ backend 待确认 / 🔄 frontend 进行中 | — | `backend-docs/HR_PR-1/04_design/design.md`；`frontend-docs/HR_PR-1/04_design/design.md` |
+| 技术设计 | architecture-advisor | 各 Workbench 工程师 | ✅ backend（2026-11-10）/ 🔄 frontend 进行中 | — | `backend-docs/HR_PR-1/04_design/design.md`；`frontend-docs/HR_PR-1/04_design/design.md` |
 | 任务拆分 | architecture-advisor | 各 Workbench 工程师 | — | — | — |
 | 仓库约定补全与复核（仅新项目 Workbench） | architecture-advisor（Step 5） | 各 Workbench 工程师/Dev Lead | — | — | backend、frontend 仓库 `AGENTS.md` |
 | 代码实现 | feature-developer | 各 Workbench 工程师 | — | — | — |
@@ -117,6 +117,7 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent | 原型 global-info/prototype 入库并完成对照评审 P-01..P-11（采纳建议，P-01 选 A） |
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 backend 技术设计与 ADR-004/005 草稿（cc3f99f），OpenAPI 未改动 |
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent | 关闭手动 kiro 会话，改为 Orca 受监督 worker：frontend ctx_6d9d1d647358（Step 3）、backend ctx_88edd28ffd62（就绪待命），Run run_2dde01eb480f |
+| 2026-11-10 | Yin Yang（Dev Lead） | architecture-advisor | backend 技术设计确认：ADR-004/005 ACCEPTED；双 SQLite 不另立 ADR（ADR-003 覆盖）；CR-01 采纳并入 OpenAPI 0.1.1；DeepSeek 失败映射、读超时近似、单进程采纳；新依赖须锁定精确版本并经私有 Nexus 安装；REQ-FE-03.1 按 P-04 澄清 |
 
 ---
 

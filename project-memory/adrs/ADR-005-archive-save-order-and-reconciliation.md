@@ -1,7 +1,7 @@
 ---
 id: ADR-005
 title: 简历归档的保存顺序、文件命名与启动对账
-status: PROPOSED
+status: ACCEPTED
 date: 2026-11-10
 ---
 
@@ -38,3 +38,7 @@ date: 2026-11-10
 - 需跟进：部署需保证 `file/` 与 tmp 在同一文件系统；若将来改为对象存储或多实例，需重新设计。
 - 验证：`design.md` §9.3 故障注入测试逐点覆盖。
 - 关联：B-05；REQ-BE-04.3/04.4；`02_schema/sql_ddl_resume.md` §4.1/§4.2；`design.md` §5.3/§5.4。
+
+## 状态记录
+
+- 2026-11-10：Dev Lead 在 backend 技术设计确认关卡接受（PROPOSED → ACCEPTED）。

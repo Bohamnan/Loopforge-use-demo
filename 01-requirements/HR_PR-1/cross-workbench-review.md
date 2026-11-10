@@ -14,6 +14,7 @@
 |---|---|---|
 | 2026-11-10 | 新增「契约审视：OpenAPI 草稿 v0.1.0-draft」节（O-01..O-13） | C-13：OpenAPI 冻结前须经本 Review 审视；同时审视 D-06 错误体变更 |
 | 2026-11-10 | 新增「契约审视（第二轮）：frontend 接口消费设计」节（G-01、F-01..F-05） | frontend Step 2.2 提出契约缺口与待确认点 |
+| 2026-11-10 | 新增「契约变更：OpenAPI 0.1.1」节（G-01、G-02、CR-01） | backend 技术设计提出 CR-01，与 G-01/G-02 合并为一次兼容修订 |
 
 ---
 
@@ -259,6 +260,20 @@
 
 > 状态：G-01、G-02、F-01..F-05 已裁决（2026-11-10）；frontend Step 2.2 评审通过（G-01/G-02 待 OpenAPI 0.1.1 落实）。
 > 处理方式：G-01、G-02 由 backend 修订 OpenAPI 到 0.1.1（只改描述和校验规则，不改结构，属于兼容修订）。backend 正在做 Step 3，等它这一轮结束后再下发，避免打断。frontend 的 Step 2.2 评审在 G/F 项裁决后通过；修订完成后，frontend 用 0.1.1 的 `pattern` 实现邮箱即时校验。
+
+---
+
+## 契约变更：OpenAPI 0.1.1（2026-11-10）
+
+> 合并三项兼容修订：只增加校验约束和澄清描述，不改接口结构、字段名和业务码。
+
+| # | 变更 | 来源 | 裁决 |
+|---|---|---|---|
+| G-01 | `email` 增加 `pattern: '^[^\s@]+@[^\s@]+\.[^\s@]+$'`、`maxLength: 254` | 第二轮契约审视 | ✅ 已裁决（采纳建议） |
+| G-02 | `phone` 的 `pattern` 针对提交值；客户端提交前必须去掉空格和连字符，backend 校验前同样去掉作为兜底 | 第二轮契约审视 | ✅ 已裁决（采纳建议） |
+| CR-01 | 补充 `maxLength` / `maxItems`：`name` ≤ 100、`phone` ≤ 32、`email` ≤ 254、其他标量 ≤ 500、`self_evaluation` ≤ 5000；文本列表 ≤ 50 项、每项 ≤ 1000；经历区块 ≤ 20 条；超限时 `details.reason = too_long` | backend `04_design/design.md` 附录 B | ✅ DL 采纳建议（2026-11-10） |
+
+> frontend 即时校验直接复用 0.1.1 中的 `pattern` / `maxLength` / `maxItems`；backend 修订后用 `openapi-spec-validator` 校验，由主 agent 复核。
 
 ---
 

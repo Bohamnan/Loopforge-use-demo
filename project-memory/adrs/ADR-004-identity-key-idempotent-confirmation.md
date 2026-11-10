@@ -1,7 +1,7 @@
 ---
 id: ADR-004
 title: 以规范化“姓名+手机号+邮箱”作为幂等键，确认保存幂等并返回 already_saved
-status: PROPOSED
+status: ACCEPTED
 date: 2026-11-10
 ---
 
@@ -37,3 +37,7 @@ date: 2026-11-10
 - 负面：规范化规则（D-02/O-04）成为长期数据契约；同一人的更新信息无法通过本接口覆盖；“首次成功但响应丢失”的重试体验退化（`draft_not_found`）。
 - 需跟进：后续若支持更新/删除已确认简历，需另立需求并重新评估本键；规范化规则变更必须附带迁移方案。
 - 关联：C-10、D-01、D-02、D-04、O-08；`02_schema/sql_ddl_resume.md` §2.2；`03_api/api_design_resume.md` §3.4。
+
+## 状态记录
+
+- 2026-11-10：Dev Lead 在 backend 技术设计确认关卡接受（PROPOSED → ACCEPTED）。
