@@ -16,6 +16,8 @@ interface ComposerBarProps {
   notice?: string;
   /** Quick-reply chips shown above the upload bar. */
   quickReplies?: ReactNode;
+  /** Upload failure shown inside the fixed bar, so it stays in view however long the review list is. */
+  error?: ReactNode;
 }
 
 /**
@@ -23,7 +25,7 @@ interface ComposerBarProps {
  * There is no text input and no free-text parsing (ADR-006, P-01).
  */
 const ComposerBar = forwardRef<ComposerBarHandle, ComposerBarProps>(function ComposerBar(
-  { onFiles, disabled = false, notice, quickReplies },
+  { onFiles, disabled = false, notice, quickReplies, error },
   ref,
 ) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -56,6 +58,7 @@ const ComposerBar = forwardRef<ComposerBarHandle, ComposerBarProps>(function Com
   return (
     <div className="composer-wrap">
       <div className="composer">
+        {error ? <div className="composer-error">{error}</div> : null}
         {quickReplies}
         {notice ? <div className="composer-notice" role="status">{notice}</div> : null}
         <div className="composer-bar">

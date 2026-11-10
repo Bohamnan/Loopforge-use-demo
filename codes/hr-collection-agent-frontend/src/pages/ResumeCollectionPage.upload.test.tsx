@@ -249,6 +249,34 @@ describe('re-upload over an existing draft (REQ-FE-01.5)', () => {
   });
 });
 
+describe('upload error placement (integration drill SUGGEST-1)', () => {
+  it('shows the error in the fixed composer area, not at the end of the long review list', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    backend({
+      current: () => jsonResponse(200, sampleDraft()),
+      upload: () => errorResponse(415, { code: 'unsupported_file_type', message: '仅支持 PDF、JPG、JPEG、PNG 格式。' }),
+    });
+    const { container } = renderPage();
+    await screen.findByText('已为你恢复未完成的简历');
+    await userEvent.upload(fileInput(container), pdf('新文件.pdf'));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '继续上传' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('仅支持 PDF、JPG、JPEG、PNG 格式。');
+    expect(container.querySelector('.composer-wrap')).toContainElement(alert);
+    expect(container.querySelector('.chat-thread')).not.toContainElement(alert);
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+  });
+
+  it('shows the error in the composer in the empty state too', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    backend({ current: noDraft, upload: () => errorResponse(502, { code: 'parse_failed', message: '简历解析失败，请更换文件后重新上传。' }) });
+    const { container } = renderPage();
+    await screen.findByText(/上传简历文件/);
+    await userEvent.upload(fileInput(container), pdf());
+    expect(container.querySelector('.composer-wrap')).toContainElement(await screen.findByRole('alert'));
+  });
+});
+
 describe('upload answered 2xx with a wrong shape (review batch 5 S3)', () => {
   it('tells the user to reload and check, and does not present the old draft as current without a hint', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
