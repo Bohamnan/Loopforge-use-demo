@@ -278,7 +278,7 @@
 - **测试：** 大照片（接近 10 MB）、5 页扫描 PDF、文本+图片混合、压到下限仍超限四种情况，断言最终请求体字节数 ≤ 1 MB；超限时不发起外部调用（mock `httpx`）；SUGGEST-1/2 红灯→绿灯；用合成简历核对缩小后仍可读（不调真实 DeepSeek，除非另行批准）。
 - **前置依赖：** 2.3
 
-### Task 2.4：接口④：确认保存（幂等 ADR-004 + B-05 补偿 ADR-005）　**【HIGH_RISK：B-04 / B-05】**
+### Task 2.4：接口④：确认保存（幂等 ADR-004 + B-05 补偿 ADR-005） ✅　**【HIGH_RISK：B-04 / B-05】**
 - **关联：** REQ-BE-04.1–04.9；D§3.6（`ResumeService`）、D§3.7（简历路由）、D§5.3、D§6（`ResumeService`、`ResumeRepository`、`ArchiveFileStore`）、D§9.3；A④；ADR-004、ADR-005；O-08、D-01..D-04
 - **内容：** `services/resume_service.py` 的 `confirm()`：`confirmed === true` 前置（否则 `confirmation_required`）→ 按 `token_hash` 取草稿（无则 `draft_not_found`）→ 核心三项齐全合法（否则 `validation_failed`）→ `identity_key` 规范化 → `find_by_identity_key`（命中走重复分支）→ `stage()` 复制草稿文件到 tmp → `create_aggregate()` 单事务 → `promote()` 原子重命名 → 收尾（删草稿行与草稿文件、清 Cookie；失败仅记日志）；补偿逻辑全部集中在此：唯一冲突 → `discard_tmp` 后回查 → 重复分支；源文件缺失 → **先再查一次键**，命中走重复分支，未命中且草稿已不存在 → `draft_not_found`，否则 `save_failed`；提交前失败只清 tmp；提交后重命名失败重试一次，仍失败则保留 tmp、记告警、返回 `save_failed`（记录已提交，下次启动 roll-forward）；重复分支与成功分支共用 `_finish()`；`routes/resumes.py`：201（`already_saved=false`）/200（`already_saved=true`，返回已有 `resume_id` 与 `saved_at`，不回显已有内容）并 `cookies.clear()`。仅此处触达正式库（B-04）；D-03：未逐项确认的字段按草稿当前值保存。
 - **测试：** 业务：无确认（缺失/`false`）不写库；核心三项缺失/非法 → `validation_failed`；新增 201；同键 200 且 `count(*)` 不变、新临时文件被丢弃、草稿被删；`draft_not_found`；成功后草稿行与草稿文件均不存在、令牌作废（`Max-Age=0`）。**B-05 故障注入**（可注入 `FaultInjector`，仅测试装配，生产代码零分支；`SimulatedCrash` 不执行后续补偿，然后直接运行 `ReconcileService`——对账用例的细节在 2.5，此处需先有最小可用的对账调用，或以直接构造对账前置状态的方式断言）：
