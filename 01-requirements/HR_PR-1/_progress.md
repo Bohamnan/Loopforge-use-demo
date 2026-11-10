@@ -10,7 +10,7 @@
 |------|------|
 | **PRD** | `01-requirements/HR_PR-1/prd.md` |
 | **当前 Skill** | feature-developer |
-| **当前阶段** | 第一批审查全部通过；backend 进入 1.8（HIGH_RISK，完成后停下审查）；frontend 2.1–2.5 进行中 |
+| **当前阶段** | backend 1.8 按 PDF 转换方案继续（HIGH_RISK，完成后审查）；frontend 2.1–2.5 进行中 |
 | **状态** | 🔄 feature-developer 进行中 |
 | **最后更新** | 2026-11-10 |
 
@@ -136,6 +136,7 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | code-reviewer | 按 DL 要求启用独立 kiro 审查 agent（ctx_da4723a4f74e，worktree review-batch1，role dev-lead 只读）审查第一批代码 |
 | 2026-11-10 | Yin Yang（Dev Lead） | code-reviewer | 合并第一批审查报告（98c84ec、cec6bbb）：backend BLOCKED（BLOCK-1 手机号 Unicode \d，主 agent 已复现）、frontend NEEDS_DECISION；DL 裁决见两份 code_review.md 末尾“Dev Lead 裁决”；frontend 第一批通过 |
 | 2026-11-10 | Yin Yang（Dev Lead） | code-reviewer | backend BLOCK-1 修复（d5afabf、538a131）经主 agent 复验（223 passed）与审查 agent 复审（5797229）关闭，结论 PASS_WITH_SUGGESTIONS；第一批通过 |
+| 2026-11-10 | Yin Yang（Dev Lead） | feature-developer | 1.8 spike：deepseek-flash 实测不接受 PDF（PNG 可用，200/约 3s）。DL 裁决：只用 deepseek-flash，PDF 本地转换（pypdfium2：文本层优先、渲染 PNG 兜底、最多 5 页，记录 token 用量）；ADR-001 追加修订 1，C-01 补充；提醒 worker 不得再向 v4-pro 等未获批模型发送内容 |
 
 ---
 
