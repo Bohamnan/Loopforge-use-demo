@@ -4,7 +4,7 @@ from fastapi import FastAPI
 
 from app.api.error_handlers import register_error_handlers
 from app.api.middleware import RequestIdMiddleware
-from app.api.routes import resume_drafts
+from app.api.routes import resume_drafts, resumes
 from app.clients.resume_parser_client import ResumeParserClient
 from app.core.clock import Clock, SystemClock
 from app.core.config import Settings
@@ -33,4 +33,5 @@ def create_app(
     app.add_middleware(RequestIdMiddleware)
     register_error_handlers(app)
     app.include_router(resume_drafts.router)
+    app.include_router(resumes.router)
     return app

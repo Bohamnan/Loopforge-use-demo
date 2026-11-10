@@ -474,3 +474,49 @@ TestClient 来自 fastapi.testclient，运行时有 StarletteDeprecationWarning�
 
 ### 验证
 `uv sync --frozen` 通过；`compileall` 清缓存后 40 行 `Compiling`；`pytest` 751 passed（基线 721，净增 30）；`ruff check`、`ruff format --check` 通过。
+
+---
+
+## Task-2.4：接口④ 确认保存（幂等 ADR-004 + B-05 补偿 ADR-005）【HIGH_RISK：B-04 / B-05】
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+**状态**：待审查与 DL 确认（tasks.md 暂不标 ✅）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/services/resume_service.py | 新增 | `ResumeService.confirm()`：`confirmed` 前置 → 取草稿（含 7 天过期视同不存在）→ `validate_core_fields` → `build_identity` → 查键 → `stage` → `create_aggregate` → `promote`（失败重试一次）→ `_finish`；补偿全部集中于此，只补偿 `Exception`（崩溃不执行任何代码） |
+| codes/hr-collection-agent-backend/src/app/api/routes/resumes.py | 新增 | `POST /api/v1/resumes`：201 / 200（`already_saved`）并 `cookies.clear()`；无业务判断 |
+| codes/hr-collection-agent-backend/src/app/api/deps.py、main.py | 修改 | `get_resume_service` 装配（唯一装配正式库的位置）；注册 resumes 路由 |
+| codes/hr-collection-agent-backend/src/app/services/draft_service.py | 修改 | 抽出模块函数 `is_draft_expired`，`DraftService._is_expired` 委托它（行为不变），供 `ResumeService` 复用同一过期规则 |
+| codes/hr-collection-agent-backend/tests/** | 新增/修改 | `services/test_resume_service.py`、`services/test_resume_service_faults.py`、`services/fault_injection.py`（FaultInjector，仅测试）、`api/test_resumes_confirm.py`；`services/conftest.py` 增 `resume_env`；`fakes.py` 的 `SequentialIdGenerator` 加锁（并发用例） |
+
+OpenAPI 0.1.1 未改动；无新增依赖；无数据库结构变更（无）。
+
+### 约定落实（第六批审查，DL 已接受）
+- 校验用 `validate_core_fields`（去噪后匹配）；存储用 `build_identity` 的展示值（手机号保留用户写法，仅去首尾空白）；幂等键用 `identity_key` 的三个 key。三处规范化各自单点，`test_stored_display_value_and_keys_use_their_own_normalisation` 固定其一致性。
+- B-04：`ResumeRepository` 仅被 `resume_service.py`、`deps.py`（装配）引用，`test_only_the_save_path_touches_the_resume_repository` 守卫（允许清单已预留 2.5 的 `reconcile_service.py`）；`confirmed` 非 true / 核心三项不合法 / 草稿不存在时 `resumes` 各表 count=0 且 `file/` 为空。D-03：未确认字段按草稿当前值（含 `uncertain`）保存。
+
+### 偏差说明
+1. `confirmed` 前置检查放在 service（`confirm(token, confirmed)`），路由只传 `body.confirmed`；缺失由既有 error handler 转 `confirmation_required`。设计 §6 写在路由，任务正文写在 service，取后者以便 service 层直接测试。
+2. 草稿过期（>7 天未活动、尚未被清理）在确认时按 `draft_not_found` 处理，与 GET/PATCH 一致；设计未明说。
+3. 收尾顺序：先删草稿行，行删除失败则不删草稿文件（避免行指向缺失文件）；文件删除失败留孤儿文件由清理任务兜底。
+4. FaultInjector 通过**子类化真实协作者**注入（`FaultyArchiveStore` / `FaultyResumeRepository` 等），生产代码零分支；事务内故障点覆盖 `_insert_main` 之后、`_insert_sub_rows` 之后；另有用真实 `ArchiveFileStore.stage`（monkeypatch `shutil.copyfileobj`）的半写失败用例。
+5. 2.5 尚未实现：崩溃类用例只断言“对账起点状态”（记录+仅 tmp / 无记录仅 tmp），并断言再次确认命中 `already_saved=true` 且**不删除既有记录的 tmp**；“对账后终态文件出现”的断言留待 2.5 补全。
+
+### HIGH_RISK 自审（B-04 / B-05）
+- 提交前失败（stage 失败、事务内失败、唯一冲突、其他写库失败）只清本次自己的 tmp；草稿保留，可同令牌重试成功（用例逐点断言 count、子表、`file/` 列表、草稿行与草稿文件）。
+- 重复分支不触碰既有记录的 tmp/终态文件（避免破坏待 roll-forward 的记录）；唯一冲突后丢弃自己的 tmp 再回查。
+- 提交后重命名失败重试一次，仍失败保留 tmp、告警、`save_failed`；用户重试命中幂等键得 `already_saved=true`。
+- 并发两线程同键（Barrier 保证均通过预检）：一个 201、一个 200，`count(*)=1`，`file/` 仅 1 个终态文件、无 tmp，两份草稿均清除。
+- 变异验证：去掉重命名重试、去掉写库失败时的 `discard_tmp`，对应用例均转红。
+- 日志：新增事件只用白名单字段；服务层与接口层各一例断言日志不含姓名/手机号/邮箱/文件名/令牌/哈希。
+
+### 遗留风险
+- 同一令牌被并发确认时，后到者可能得到 `draft_not_found`（草稿已被先到者删除且键尚未可查的极短窗口之外基本会走重复分支）；未做专门并发用例。
+- 完整对账行为与启动装配（resumes.db 初始化由 lifespan 负责）属 2.5 / 2.7；本任务 API 测试自行初始化 `resumes.db`。
+- 覆盖率与 CRAP 未实测。
+
+### 验证
+`uv sync --frozen` 通过；清缓存后 `compileall` 输出 42 行 `Compiling`；`pytest` 795 passed（基线 751，净增 44）；`ruff check`、`ruff format --check` 通过。
