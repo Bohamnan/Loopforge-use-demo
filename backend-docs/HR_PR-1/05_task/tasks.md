@@ -58,7 +58,7 @@
 
 > 多个切片共用的工程骨架、core、schemas、校验逻辑、api 基础、clients 与存储层。基础任务之间的依赖较松，1.2/1.3 完成后其余可并行。
 
-### Task 1.1：工程初始化（uv、pytest、ruff、.gitignore、测试基座）
+### Task 1.1：工程初始化（uv、pytest、ruff、.gitignore、测试基座） ✅
 - **关联：** REQ-BE-06.1、06.6；D§1“依赖清单”、D§3.1、D§3.8、D§9.1
 - **内容：** 在 `codes/hr-collection-agent-backend/` 建立 Python 3.11 + uv 工程；搭建 `src/app/{api,services,repositories,clients,schemas,core}` 包骨架与 `tests/` 同构目录；建立 pytest 测试基座与禁网夹具。
 - **测试：** 空工程下 `uv run pytest` 能收集并通过一个冒烟用例；禁网夹具用例：任何 `socket.connect` 调用立即失败；`tmp_path` 派生的 `DATA_DIR`/`FILE_DIR` 夹具可用。
@@ -67,17 +67,17 @@
 
 #### 子任务
 
-- [ ] `pyproject.toml`：`requires-python = ">=3.11,<3.12"`；运行依赖 `fastapi`、`uvicorn`、`pydantic`、`pydantic-settings`、`httpx`、`python-multipart`；开发依赖 `pytest`、`ruff`、`jsonschema`、`pyyaml`（读取 `openapi.yaml` 用，评估后确认）；pytest/ruff 配置（`pythonpath = src`）
-- [ ] **依赖锁定精确版本**：`uv lock` 生成 `uv.lock`；`pyproject.toml` 中依赖写精确版本（`==`），不使用开放区间
-- [ ] **本地直接安装**：使用 uv 默认索引（公共 PyPI），`uv sync` 按 `uv.lock` 安装；不配置私有索引或索引凭证（DL 决定的项目例外，2026-11-10）；`uv.lock` 提交前检查不含任何带凭证的 URL（B-01）
-- [ ] 新增依赖（`pydantic-settings`、`httpx`、`python-multipart`、`jsonschema`）逐个评估安全性（维护状态、已知漏洞），结论记入任务完成说明
-- [ ] `.gitignore`：追加 `data/`、`file/`、`.env`、`.venv/`、`__pycache__/`、`.pytest_cache/`（O-06）
-- [ ] `.env.example`：仅占位符，键清单见 D§3.1（`DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL=deepseek-flash`、`DATA_DIR`、`FILE_DIR`、`MODEL_TIMEOUT_SECONDS=60`、`DRAFT_TTL_DAYS=7`、`CLEANUP_INTERVAL_SECONDS=3600`、`COOKIE_SECURE=false`），不含任何真实凭证
-- [ ] `tests/conftest.py`：禁网 autouse 夹具、临时目录夹具、合成简历字节生成函数（PDF/JPEG/PNG 最小合法头部）；`FakeClock`、`FakeParserClient` 在 1.2、1.8 补入
+- [x] `pyproject.toml`：`requires-python = ">=3.11,<3.12"`；运行依赖 `fastapi`、`uvicorn`、`pydantic`、`pydantic-settings`、`httpx`、`python-multipart`；开发依赖 `pytest`、`ruff`、`jsonschema`、`pyyaml`（读取 `openapi.yaml` 用，评估后确认）；pytest/ruff 配置（`pythonpath = src`）
+- [x] **依赖锁定精确版本**：`uv lock` 生成 `uv.lock`；`pyproject.toml` 中依赖写精确版本（`==`），不使用开放区间
+- [x] **本地直接安装**：使用 uv 默认索引（公共 PyPI），`uv sync` 按 `uv.lock` 安装；不配置私有索引或索引凭证（DL 决定的项目例外，2026-11-10）；`uv.lock` 提交前检查不含任何带凭证的 URL（B-01）
+- [x] 新增依赖（`pydantic-settings`、`httpx`、`python-multipart`、`jsonschema`）逐个评估安全性（维护状态、已知漏洞），结论记入任务完成说明
+- [x] `.gitignore`：追加 `data/`、`file/`、`.env`、`.venv/`、`__pycache__/`、`.pytest_cache/`（O-06）
+- [x] `.env.example`：仅占位符，键清单见 D§3.1（`DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL=deepseek-flash`、`DATA_DIR`、`FILE_DIR`、`MODEL_TIMEOUT_SECONDS=60`、`DRAFT_TTL_DAYS=7`、`CLEANUP_INTERVAL_SECONDS=3600`、`COOKIE_SECURE=false`），不含任何真实凭证
+- [x] `tests/conftest.py`：禁网 autouse 夹具、临时目录夹具、合成简历字节生成函数（PDF/JPEG/PNG 最小合法头部）；`FakeClock`、`FakeParserClient` 在 1.2、1.8 补入
 
 ---
 
-### Task 1.2：core：配置、时钟、ID 与令牌工具
+### Task 1.2：core：配置、时钟、ID 与令牌工具 ✅
 - **关联：** REQ-BE-06.1、05.2；D§3.2（`Settings`、`Clock`/`IdGenerator`/令牌）、D§1“配置来源”“依赖注入与可测试性”
 - **内容：** `core/config.py`（`pydantic-settings`，`DATA_DIR` 默认仓库内 `data/`，`FILE_DIR` 默认 `file/`，密钥只来自环境）、`core/clock.py`（可注入 UTC 时钟 + 测试用 `FakeClock`）、`core/ids.py`（UUID v4、`token_urlsafe(32)`、SHA-256 哈希）。
 - **测试：** 环境变量覆盖与默认值；缺少 `DEEPSEEK_API_KEY` 时 Settings 仍可加载（启动不阻止，首次调用才阻断，见 D§7.2）；`repr(Settings)`/日志不泄露密钥；UTC ISO 8601 格式；`FakeClock` 推进；令牌长度/不可预测性（不重复）、同一令牌哈希稳定；`fake` 的 ID 生成器可注入。
@@ -86,14 +86,14 @@
 
 #### 子任务
 
-- [ ] `Settings`（密钥字段用 `SecretStr`，`repr` 不泄露）
-- [ ] `Clock` 协议 + `SystemClock` + `FakeClock`（放入 `tests/`，与 src 解耦）
-- [ ] `IdGenerator`、令牌生成与哈希函数
-- [ ] 对应单元测试
+- [x] `Settings`（密钥字段用 `SecretStr`，`repr` 不泄露）
+- [x] `Clock` 协议 + `SystemClock` + `FakeClock`（放入 `tests/`，与 src 解耦）
+- [x] `IdGenerator`、令牌生成与哈希函数
+- [x] 对应单元测试
 
 ---
 
-### Task 1.3：core：错误模型与安全日志
+### Task 1.3：core：错误模型与安全日志 ✅
 - **关联：** REQ-BE-06.3、06.4；D§3.2（`ErrorCode`/`AppError`、安全日志）、D§7.1、D§7.3、D§1“错误模型”“日志策略”
 - **内容：** `core/errors.py`：13 个业务码、HTTP 状态、集中固定的用户文案、`AppError` 子类（与 D§7.1 一一对应）、`DuplicateIdentityError` 等内部异常；`core/logging.py`：JSON 日志、白名单字段接口 `log_event(event, **safe)`、`request_id` ContextVar。
 - **测试：** 每个 `AppError` 的 code/HTTP/文案与 `api_design_resume.md` §五、`openapi.yaml` 的 `ErrorCode` 枚举一致（比对 13 个码）；`details` 仅 `ValidationFailedError` 可带；异常文案不拼接用户数据；日志白名单：非白名单字段抛错；日志输出为合法 JSON 且含 `request_id`；`exc_info` 只记类型与栈、不记 `str(exc)`。
@@ -102,14 +102,14 @@
 
 #### 子任务
 
-- [ ] `ErrorCode` 枚举（与 OpenAPI 同序）与 `AppError` 层级
-- [ ] 文案集中定义（与 OpenAPI examples 的 message 一致）
-- [ ] `log_event` 白名单（`request_id`、`draft_id`、`resume_id`、状态码、耗时、业务码、异常类名）
-- [ ] 对应单元测试（含“业务码清单与 OpenAPI 一致”的断言）
+- [x] `ErrorCode` 枚举（与 OpenAPI 同序）与 `AppError` 层级
+- [x] 文案集中定义（与 OpenAPI examples 的 message 一致）
+- [x] `log_event` 白名单（`request_id`、`draft_id`、`resume_id`、状态码、耗时、业务码、异常类名）
+- [x] 对应单元测试（含“业务码清单与 OpenAPI 一致”的断言）
 
 ---
 
-### Task 1.4：schemas：字段模型与 DTO
+### Task 1.4：schemas：字段模型与 DTO ✅
 - **关联：** REQ-BE-02.2、03、04、06.4；D§3.3；`openapi.yaml` 0.1.1 的 `components.schemas`
 - **内容：** `schemas/resume_fields.py`（`FieldStatus`、`ResumeFields` 22 节点、`WorkExperience`/`ProjectExperience`/`Education`）、`schemas/draft.py`、`schemas/resume.py`、`schemas/errors.py`、`schemas/parse.py`（`RawParseResult`）。字段名、可空性与 OpenAPI 同构；`ResumeFieldsUpdate` 带 0.1.1 的 `maxLength`/`maxItems`/`pattern`（CR-01、G-01、G-02）。
 - **测试：** 22 键完整、`additionalProperties=false` 对应的“未知字段被拒”；`name/phone/email` 的 `minLength`；各字段长度上限边界（刚好等于上限通过、+1 超限）；经历区块条数 ≤ 20、文本列表 ≤ 50 项/每项 ≤ 1000、条内字符串 ≤ 2000、条内列表 ≤ 30 项；`email` pattern 合法/非法样例；序列化后字段名为 snake_case；`DraftResponse` 序列化结果能通过 OpenAPI 的 `DraftResponse` schema（先用 `jsonschema` 做局部校验，完整契约测试见 3.1）。
@@ -118,14 +118,14 @@
 
 #### 子任务
 
-- [ ] 字段状态与 22 节点模型；区块级单一状态
-- [ ] 请求/响应 DTO（每个字段有英文 docstring/注释，说明含义、必填、枚举，满足 DTO 注释规则）
-- [ ] 上限常量集中定义一处，供 schemas 与 `field_validation`（1.6）共用，避免口径漂移
-- [ ] 对应单元测试
+- [x] 字段状态与 22 节点模型；区块级单一状态
+- [x] 请求/响应 DTO（每个字段有英文 docstring/注释，说明含义、必填、枚举，满足 DTO 注释规则）
+- [x] 上限常量集中定义一处，供 schemas 与 `field_validation`（1.6）共用，避免口径漂移
+- [x] 对应单元测试
 
 ---
 
-### Task 1.5：core：SQLite 辅助与两库初始化
+### Task 1.5：core：SQLite 辅助与两库初始化 ✅
 - **关联：** REQ-BE-05.1、04.5；D§3.2（SQLite 辅助）、D§1“持久化访问”“启动顺序”；S§2（DDL）、S§4
 - **内容：** `core/db.py`：连接工厂（`PRAGMA foreign_keys=ON`、`busy_timeout=5000`）、`init_drafts_db()`、`init_resumes_db()`（DDL 照 `sql_ddl_resume.md`，`user_version=1`，`IF NOT EXISTS`），写事务 `BEGIN IMMEDIATE` 的辅助。
 - **测试：** 初始化幂等（重复执行不报错、不改数据）；`user_version=1`；全部表/索引/唯一约束/CHECK 存在（含 `uq_drafts_token_hash`、`idx_drafts_last_active`、`uq_resumes_identity`、`uq_resumes_file_path`、`json_valid` CHECK）；两库为独立文件；`foreign_keys` 生效（子表引用不存在的 `resume_id` 失败）。**数据验证：** 用 `sqlite_master` 查询断言结构。
@@ -134,13 +134,13 @@
 
 #### 子任务
 
-- [ ] DDL 逐表对照 `02_schema/sql_ddl_resume.md`，不凭记忆
-- [ ] 连接工厂与事务辅助
-- [ ] 对应单元测试
+- [x] DDL 逐表对照 `02_schema/sql_ddl_resume.md`，不凭记忆
+- [x] 连接工厂与事务辅助
+- [x] 对应单元测试
 
 ---
 
-### Task 1.6：services：field_validation 与 identity_key
+### Task 1.6：services：field_validation 与 identity_key ✅
 - **关联：** REQ-BE-03.4、04.2、04.5；D§3.6（`field_validation`、`identity_key`）、D§6、D§1“业务校验单点”；ADR-004
 - **内容：** `services/field_validation.py`：手机号（先去空格/连字符，再匹配 `^1\d{10}$` 或 `^\+\d{6,15}$`）、邮箱（`^[^\s@]+@[^\s@]+\.[^\s@]+$`，≤254）、核心三项去首尾空白后非空、字段与区块长度/条数上限（与 1.4 常量一致）、未知字段，**收集全部问题**产出 `details`（只含字段路径与 reason，不含值）；`services/identity_key.py`：`name_key`/`phone_key`/`email_key` 规范化与展示值。确认与更新共用这两处实现。
 - **测试：** 手机号：`13800138000`、`138 0013 8000`、`138-0013-8000`、`+85212345678`、`+123`、`12345`、全空白；邮箱合法/非法/超 254；全空白核心字段 → `required`；超限 → `too_long`；未知字段 → `unknown_field`；`details` 路径形如 `work_experiences[0].start_date` 且不含值；`identity_key`：去首尾/合并内部空白/邮箱小写/`+8613800138000` 与 `13800138000` 同键/`+85212345678` 保留前缀/`+86` 后非 11 位不去前缀（O-04）；规范化幂等（再次规范化不变）；与 OpenAPI `ResumeFieldsUpdate` 的 `pattern`、`maxLength` 一致（读取 `openapi.yaml` 比对常量）。
@@ -149,13 +149,13 @@
 
 #### 子任务
 
-- [ ] `field_validation`（pattern 与上限取自 1.4 常量/OpenAPI）
-- [ ] `identity_key`（唯一实现点，确认与对账复用）
-- [ ] 对应单元测试
+- [x] `field_validation`（pattern 与上限取自 1.4 常量/OpenAPI）
+- [x] `identity_key`（唯一实现点，确认与对账复用）
+- [x] 对应单元测试
 
 ---
 
-### Task 1.7：api 基础：应用工厂、中间件、异常处理、Cookie、依赖装配
+### Task 1.7：api 基础：应用工厂、中间件、异常处理、Cookie、依赖装配 ✅
 - **关联：** REQ-BE-05.2、06.3、06.4；D§3.7（`main.py`、`deps.py`、`cookies.py`、`error_handlers.py`、`middleware.py`）、D§7.3、D§1“Cookie 构造”
 - **内容：** `app/main.py` 的 `create_app()`（路由/中间件/异常处理装配，lifespan 钩子留待 2.7）；`api/middleware.py`（`request_id` 生成并写入日志上下文与响应）；`api/error_handlers.py`（`AppError`、请求校验异常、未捕获异常 → `{code, message, request_id[, details]}`，丢弃校验异常的 `input`）；`api/cookies.py`（设置/续期/清除 `draft_token`，属性固定 `HttpOnly; SameSite=Lax; Path=/`，`Secure` 由配置控制）；`api/deps.py`（Settings、Cookie 令牌解析，缺失传 `None`；各 Repository/Service 的装配函数随后续切片补入）。
 - **测试：** 使用 `TestClient` 与临时测试路由：`AppError` → 对应 HTTP 与错误体；错误体含 `request_id` 且不含请求输入值；Pydantic 校验异常 → `validation_failed`，`details` 的 `field`/`reason` 映射正确且无 `input`；未捕获异常 → `internal_error` 固定文案，日志不含异常消息；`Set-Cookie` 属性（`HttpOnly`、`SameSite=Lax`、`Path=/`、`Max-Age=604800`、默认无 `Secure`）；清除为 `Max-Age=0`；Cookie 缺失 → `None`。
@@ -164,11 +164,11 @@
 
 #### 子任务
 
-- [ ] `create_app()` 与 request_id 中间件
-- [ ] 统一异常处理器（含 multipart 解析失败 → `file_missing` 的挂点）
-- [ ] `cookies.py` 单点定义属性
-- [ ] `deps.py` 令牌解析与装配骨架
-- [ ] 对应单元/接口测试
+- [x] `create_app()` 与 request_id 中间件
+- [x] 统一异常处理器（含 multipart 解析失败 → `file_missing` 的挂点）
+- [x] `cookies.py` 单点定义属性
+- [x] `deps.py` 令牌解析与装配骨架
+- [x] 对应单元/接口测试
 
 ---
 
