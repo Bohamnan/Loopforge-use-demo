@@ -84,6 +84,12 @@ class ResumeRepository:
             ).fetchone()
         return None if row is None else ResumeRef(**dict(row))
 
+    def exists(self, resume_id: str) -> bool:
+        """Whether a record with this id is committed (read-only)."""
+        with closing(connect(self._db_path)) as conn:
+            row = conn.execute("SELECT 1 FROM resumes WHERE id = ?", (resume_id,)).fetchone()
+        return row is not None
+
     def list_refs(self) -> list[ResumeRef]:
         """All stored resumes (used by start-up reconciliation)."""
         with closing(connect(self._db_path)) as conn:
