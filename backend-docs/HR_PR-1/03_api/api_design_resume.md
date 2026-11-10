@@ -274,7 +274,7 @@ sequenceDiagram
 |--------|------|------|-----|
 | 草稿定位方式 | Cookie 令牌定位，路径用 `current` 别名，不暴露草稿 id | HLD §4：不要求账号，令牌仅 HttpOnly Cookie；前端不触碰令牌（F-02） | ADR-003 已覆盖 |
 | 确认保存的资源建模 | `POST /resumes` 新建简历记录，请求体仅 `confirmed` | REST：确认的产物是资源；内容取自草稿，避免前后端内容双写漂移 | — |
-| 状态码区分新增/已保存过 | 201 新增，200 已保存过；同时带布尔 `already_saved` | HTTP 语义 + 前端无需依赖状态码也可判断（单一事实：`already_saved`） | 契约，随 OpenAPI 冻结评审 |
+| 状态码区分新增/已保存过 | 201 新增，200 已保存过；同时带布尔 `already_saved` | HTTP 语义 + 前端无需依赖状态码也可判断（单一事实：`already_saved`） | ADR-004 |
 | 部分更新语义 | `PATCH` 出现即 `confirmed`；列表整体替换 | C-03 结构化字段编辑；整体替换让多条子项增删改无需子项 id，契约最小 | — |
 | 不回显值 | `details` 只含 `field`+`reason` | D-06、B-03 | — |
 | 失败不落草稿 | 上传失败不创建草稿、不动旧 Cookie | 避免一次失败的重传把用户已校对的旧草稿弄丢；也避免孤儿草稿 | — |
@@ -283,10 +283,10 @@ sequenceDiagram
 | 解析失败拆 3 个码 | `parse_failed`(502)/`parse_unavailable`(503)/`parse_timeout`(504) | 前端可分别提示“换文件”“稍后再试”“重新上传”；对应 REQ-BE-02.4/02.5 | — |
 | 不自动重试模型 | 单次 60 秒预算，无服务端重试 | 重试会超过前端 75 秒超时；失败由用户重传（C-08） | — |
 | 无速率限制 | 本期不设；**记为已知风险（O-13）** | POC、localhost、约 5 人并发；全局规范要求重要接口限流，上线前须另立需求处理 | — |
-| 字段键集合 | 固定 22 个 snake_case 键；每个键 `{value, status}` | 前端类型生成简单；与 `02_schema` §2.1.1 一一对应 | 契约，随 OpenAPI 冻结评审 |
+| 字段键集合 | 固定 22 个 snake_case 键；每个键 `{value, status}` | 前端类型生成简单；与 `02_schema` §2.1.1 一一对应 | —（已随 OpenAPI 0.1.0 冻结） |
 | 契约变更纪律 | v1 仅向后兼容扩展；破坏性变更走新版本与 cross-workbench-reviewer | `architectural_constraints.md` 跨 Workbench 约束 | — |
 
-> ADR 判定留待 Step 3 统一扫描（`sql_ddl_resume.md` 的幂等键、本文 201/200 与 `already_saved` 契约属候选）。
+> ADR 判定已在 Step 3 统一扫描：201/200 与 `already_saved` 契约并入 ADR-004（见 `04_design/design.md` 附录 D）。
 
 ---
 
