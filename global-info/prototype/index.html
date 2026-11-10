@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>简历录入助手 | HR 人力信息收集系统（静态原型）</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="header"><div class="inner">
+  <div class="logo"><i></i>HR 信息收集 <small>简历录入助手</small></div>
+  <nav class="nav"><a class="active" href="#">提交简历</a><a href="#">填写指南</a><a href="#">隐私说明</a></nav>
+  <div class="user"><span class="avatar">张</span>张伟</div>
+</div></header>
+
+<div class="app">
+  <aside class="sidebar">
+    <button class="btn new" id="newChat">＋ 新对话</button>
+    <div class="hist-title">今天</div>
+    <div class="hist active" id="curHist">新的简历提交</div>
+    <div class="hist-title">更早</div>
+    <div class="hist">简历提交 · 李娜</div>
+    <div class="hist">简历提交 · 王强</div>
+    <div class="side-foot">原型：数据均为模拟，无后端调用</div>
+  </aside>
+
+  <section class="chat">
+    <div class="stream" id="stream">
+      <div class="welcome" id="welcome">
+        <div class="bot-logo"><i></i></div>
+        <h1>你好，我是简历录入助手</h1>
+        <p>上传简历文件，我来识别内容，再和你逐项核对，确认后一并归档。</p>
+        <div class="suggest">
+          <button class="chip" id="sgUpload">📎 上传简历文件</button>
+          <button class="chip" id="sgSample">使用示例文件体验</button>
+        </div>
+      </div>
+      <div class="thread" id="thread"></div>
+    </div>
+
+    <div class="composer-wrap">
+      <div class="composer" id="composer">
+        <div class="attach hidden" id="attach"></div>
+        <textarea id="input" rows="1" placeholder="给简历录入助手发送消息，或点击 📎 上传简历"></textarea>
+        <div class="comp-bar">
+          <button class="icon" id="clip" title="上传简历（PDF / JPG / PNG）">📎</button>
+          <span class="hint">PDF、JPG、PNG · 单个文件 ≤ 20 MB</span>
+          <button class="send" id="send" title="发送" disabled>↑</button>
+        </div>
+        <input type="file" id="file" accept=".pdf,.jpg,.jpeg,.png" hidden>
+      </div>
+      <div class="foot-note">内容由 AI 识别，可能有误，请逐项核对后再提交。</div>
+    </div>
+  </section>
+</div>
+
+<div class="proto-bar">
+  原型评审快捷操作
+  <button id="pSample">示例文件 → 开始识别</button>
+  <button id="pFinal">跳到「确认提交」</button>
+  <button id="pReset">重置</button>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
