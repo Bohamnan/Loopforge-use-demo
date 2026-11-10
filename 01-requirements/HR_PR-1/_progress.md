@@ -9,9 +9,9 @@
 | 字段 | 内容 |
 |------|------|
 | **PRD** | `01-requirements/HR_PR-1/prd.md` |
-| **当前 Skill** | solution-designer |
-| **当前阶段** | HLD 与仓库约定已确认；待各 Workbench 执行影响分析 |
-| **状态** | ✅ solution-designer 完成；仓库约定未推送（代码目录未初始化 Git） |
+| **当前 Skill** | cross-workbench-reviewer |
+| **当前阶段** | 跨 Workbench 一致性 review 已裁决；待各 Workbench 按裁决修订影响分析，随后进入 requirements-analyst 汇总 |
+| **状态** | ✅ cross-workbench-reviewer 完成（15 项裁决，见 review 文档「复核」节） |
 | **最后更新** | 2026-11-10 |
 
 **状态图例**：`🔄 进行中` / `⏸️ 等待人类确认` / `✅ 已完成` / `❌ 阻断`
@@ -47,8 +47,8 @@
 | 解决方案设计 HLD（大型新需求） | solution-designer | Dev Lead | ✅ 已批准 | 2026-11-10 | `01-requirements/HR_PR-1/solution-design.md` |
 | 仓库约定初稿与确认（仅新项目 Workbench） | solution-designer（Step 7） | Dev Lead | ✅ 已确认；未推送（代码目录尚未初始化 Git） | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
 | Workbench 影响分析（各 Workbench 并行） | impact-analyzer | 各 Workbench 工程师 | ✅ backend ✅ / frontend ✅ | 2026-11-10 | `backend-docs/HR_PR-1/00_impact_analysis.md`；`frontend-docs/HR_PR-1/00_impact_analysis.md` |
-| 跨 Workbench 一致性 review（仅跨 Workbench 需求） | cross-workbench-reviewer | Dev Lead | ⏸️ 待影响分析 | — | `01-requirements/HR_PR-1/cross-workbench-review.md` |
-| 需求汇总（第二轮技术 Q&A + requirements.md） | requirements-analyst | Dev Lead/BA | ⏸️ 待影响分析与 review | — | — |
+| 跨 Workbench 一致性 review（仅跨 Workbench 需求） | cross-workbench-reviewer | Dev Lead | ✅ 已裁决 | 2026-11-10 | `01-requirements/HR_PR-1/cross-workbench-review.md` |
+| 需求汇总（第二轮技术 Q&A + requirements.md） | requirements-analyst | Dev Lead/BA | ⏸ 待各 Workbench 按裁决修订影响分析 | — | — |
 | 架构设计（Schema+接口） | architecture-advisor | 各 Workbench 工程师 | — | — | — |
 | 技术设计 | architecture-advisor | 各 Workbench 工程师 | — | — | — |
 | 任务拆分 | architecture-advisor | 各 Workbench 工程师 | — | — | — |
@@ -71,7 +71,7 @@
 | 整体 HLD 审批 | solution-designer | ✅ | HLD 与 ADR-001..003 已批准/接受 | 2026-11-10 |
 | 仓库约定确认（仅新项目） | solution-designer | ✅ | backend/frontend `AGENTS.md` 已批准；未推送，代码目录未初始化 Git | 2026-11-10 |
 | 所有 Workbench 影响分析完成 | impact-analyzer | ✅ | backend、frontend 均已 ✅ | 2026-11-10 |
-| 跨 Workbench 一致性确认 | cross-workbench-reviewer | ⏸️ | Dev Lead 完成跨 Workbench Review | — |
+| 跨 Workbench 一致性确认 | cross-workbench-reviewer | ✅ | Dev Lead 已完成全部裁决 | 2026-11-10 |
 | 第二轮技术 Q&A 裁决 | requirements-analyst | — | 等待 impact-analyzer 及跨 Workbench review | — |
 
 ---
@@ -87,6 +87,7 @@
 | 2026-11-10 | Yin Yang（backend） | impact-analyzer | 完成 backend 影响分析（新项目，全部为新增），登记待澄清问题 10 条；Dev Lead 答复 Q01/Q05，项目定位 local POC，剩余 8 条 |
 | 2026-11-10 | Yin Yang（frontend） | impact-analyzer | 完成 frontend 影响分析（新项目，全部为新增）；登记 9 条待澄清问题 |
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 feature-backend、feature-frontend 到 feature，解决 `_progress.md` 冲突，两 Workbench 影响分析均 ✅ |
+| 2026-11-10 | Yin Yang（Dev Lead） | cross-workbench-reviewer | 完成五维比对与待核实问题合并（C-01..C-15）；DL 裁决：PDF 已实测支持维持 ADR-001；幂等键=姓名+手机号+邮箱；其余采纳建议 |
 
 ---
 
