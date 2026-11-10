@@ -3,7 +3,7 @@
 | 项 | 内容 |
 |---|---|
 | 当前级别 | L3（新项目、跨前后端、外部模型对接） |
-| 状态 | ▶ 进行中：backend 真实进程演练与真实模型 spike 通过（500039b，9 个合成样本全对、请求体最大 786,865 字节）；已启动 frontend worker ctx_dcc4b8b240bb（Task task_ba2703baa992）做前后端联调 + 窄屏实机；完成后交 DL 最终 Review。backend worker ctx_8d10c20f5e9f、审查 worker ctx_aee0c65208fa 保留空闲 |
+| 状态 | ▶ 进行中：合成样本联调通过（0fbf085，无 BLOCK、3 SUGGEST）；DL 提供真实样品 `global-info/简历样品.png`（未入库，中文幻灯片式，含个人信息），已拷到 /tmp/hr_sample（联调结束后删除），send frontend worker ctx_dcc4b8b240bb 做自动化样品联调 + 修复 3 条 SUGGEST；之后复验并交 DL 最终 Review。样品文件不得提交 |
 | 最后更新 | 2026-11-10，feature `505d02d` |
 | 权威进度 | `01-requirements/HR_PR-1/_progress.md`（流程表、贡献记录、末尾「暂停恢复清单」） |
 
