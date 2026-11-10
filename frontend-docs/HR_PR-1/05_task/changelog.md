@@ -311,3 +311,28 @@ React 在开发模式下自身会向 console 输出异常信息（含 message）
 - HIGH_RISK：请人类审查 F-03 路径——`SavedResultCard` 的唯一入口（`reducer CONFIRM_SUCCEEDED`）、`draft_not_found` 与各类失败不会进入成功态。
 - 超时 / 网络失败后“结果未知”的文案依赖 backend 确认接口幂等（ADR-004）；已保存但响应丢失的情形，重试会得到 `already_saved=true`，界面显示“该简历已保存过”。
 - “＋ 新对话”仍待 2.7；`saved` 与 `empty` 阶段点击该按钮暂无反应，使用“上传下一份”即可。
+
+## Fix-2.6a：保存响应形状校验，防误报“已保存”（第三批审查 SUGGEST-2，F-03 加固）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/api/ResponseShapes.ts | 新增 | `isCreateResumeResponse`：`resume_id` 非空字符串、`already_saved` 为布尔值、`saved_at` 为可解析的日期字符串；`isDraftResponse`：`draft_id` / `expires_at` 非空字符串、`original_file.filename` 非空、22 个字段齐全且每个为 `{value, status}`（`status` 属 4 种状态之一；列表字段 `value` 为数组，标量 `value` 为 `string \| null`） |
+| codes/hr-collection-agent-frontend/src/api/ApiClient.ts | 修改 | `RequestOptions.validate`：2xx 响应体不满足形状时按 `unknown_error` 处理（保留 HTTP 状态、走同一日志规则，不暴露响应体） |
+| codes/hr-collection-agent-frontend/src/api/ResumeApi.ts | 修改 | `createResume` 使用 `isCreateResumeResponse` |
+| codes/hr-collection-agent-frontend/src/api/ResumeDraftApi.ts | 修改 | 三个草稿接口（上传、读取、更新）使用 `isDraftResponse` |
+| 测试 | 新增 / 修改 | `ResponseShapes.test.ts`（保存响应 15 种非法形状、草稿 22 个缺字段等）、`ResumeApi.test`（8 种 2xx 非法形状 → `unknown_error`）、`ResumeDraftApi.test`（三个接口 × 3 种非法草稿）、`ApiClient.test`（`validate` 选项）、`ResumeCollectionPage.final.test`（200 `{}`、201 `{}`、缺 `already_saved`、`already_saved` 非布尔 → 停在最终确认页、有错误提示、可重试，无“已保存”） |
+
+### 其他接口的同类风险
+- 草稿接口的 2xx 响应也会被页面直接读取 22 个字段，形状不对会使界面崩溃或把不完整的数据当作草稿，因此一并加了 `isDraftResponse`。
+- **读取草稿（GET current）** 返回形状不对时是**错误**（进入“读取失败，可重试”），不是“没有草稿”——避免用户误以为没有草稿而上传覆盖。
+- 错误响应（非 2xx）的形状校验在第一批已有（非契约错误体 → `unknown_error`）。
+
+### 偏差说明
+`saved_at` 额外要求可被 `Date.parse` 解析（审查只要求字符串），这样“已保存 + 乱码时间”的组合不会出现（对应 SUGGEST-4 的前置条件）。
+
+### 遗留风险
+形状校验是最小校验，不核对各字段内容的业务含义（例如列表项内部字段）；这些仍由 TypeScript 类型与后端契约保证。

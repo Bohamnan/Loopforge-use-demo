@@ -15,6 +15,8 @@ export interface RequestOptions {
   timeoutMs?: number;
   /** Backend codes that are an expected outcome and must not be logged (e.g. O-12). */
   quietCodes?: readonly ErrorCode[];
+  /** Shape check for a 2xx body; a body that fails it is an unknown_error, never a success. */
+  validate?: (payload: unknown) => boolean;
 }
 
 function logFailure(error: ApiError): void {
@@ -26,7 +28,7 @@ function logFailure(error: ApiError): void {
  * The only place that calls fetch. All failures are converted to ApiError; there is no automatic retry (DD-06).
  */
 export async function request<T>(path: string, options: RequestOptions): Promise<T> {
-  const { method, body, timeoutMs = DEFAULT_TIMEOUT_MS, quietCodes = [] } = options;
+  const { method, body, timeoutMs = DEFAULT_TIMEOUT_MS, quietCodes = [], validate } = options;
   const controller = new AbortController();
   let timedOut = false;
   const timer = setTimeout(() => {
@@ -64,7 +66,7 @@ export async function request<T>(path: string, options: RequestOptions): Promise
     if (!response.ok) {
       throw payloadOk ? ApiError.fromBody(response.status, payload) : ApiError.unknown(response.status);
     }
-    if (!payloadOk) {
+    if (!payloadOk || (validate && !validate(payload))) {
       throw ApiError.unknown(response.status);
     }
     return payload as T;

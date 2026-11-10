@@ -394,3 +394,21 @@ describe('a stray file drop must never leave the page (review SUGGEST: drag-and-
     expect(dropFile()).toBe(false);
   });
 });
+
+
+describe('a 2xx answer that is not a valid save response is never shown as success (review SUGGEST-2, F-03)', () => {
+  it.each([
+    ['200 with {}', 200, {}],
+    ['201 with {}', 201, {}],
+    ['missing already_saved', 201, { resume_id: 'r1', saved_at: '2026-11-10T09:00:00Z' }],
+    ['already_saved is not a boolean', 201, { resume_id: 'r1', already_saved: 'yes', saved_at: '2026-11-10T09:00:00Z' }],
+  ])('%s keeps the final review with an error and a retry', async (_name, status, payload) => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await openFinal(allConfirmed(), () => jsonResponse(status, payload));
+    await userEvent.click(submit());
+    await screen.findByRole('alert');
+    noSuccessShown();
+    expect(screen.getByRole('heading', { name: /最终确认/ })).toBeInTheDocument();
+    expect(submit()).toBeEnabled();
+  });
+});
