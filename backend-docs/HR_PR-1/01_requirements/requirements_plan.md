@@ -156,4 +156,4 @@
 
 ## 六、状态
 
-第二轮技术 Q&A 已汇总，全部有明确答案（引用 2026-11-10 DL 裁决 C-01..C-15、D-01..D-06），未发现 `⚠ 范围变更` 项；待 Dev Lead 确认质量关卡 1 后生成 `requirements.md`。
+第二轮技术 Q&A 已裁决，质量关卡 1 通过；`requirements.md` 已经 Dev Lead 确认（2026-11-10），新术语已写入 Memory。下一步：architecture-advisor（backend 先产出 OpenAPI 草稿）。

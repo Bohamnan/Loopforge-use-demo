@@ -24,11 +24,11 @@
 | 简历模型 | 以 `global-info/简历模板.md` 为准的结构化字段集合，"语言能力"为独立分类（C-14） |
 | 原始文件 | 用户上传的简历文件（PDF、JPG/JPEG、PNG） |
 | 校对 | 用户在对话中逐项确认、修正、补充字段的过程；确认后才保存 |
-| 未确认草稿 ⬜ | 用户确认前由 backend 暂存的简历数据；前端只凭 Cookie 恢复，不在浏览器本地保存 |
-| 字段状态 ⬜ | `recognized`（已识别，待确认）/ `uncertain`（不确定）/ `missing`（缺失）/ `confirmed`（已确认）（C-04） |
-| 已保存过 ⬜ | backend 判定同一个人（姓名 + 手机号 + 邮箱）已有简历记录时返回的结果，带 `already_saved` 标识（C-10、D-04） |
+| 未确认草稿 | 用户确认前由 backend 暂存的简历数据；前端只凭 Cookie 恢复，不在浏览器本地保存 |
+| 字段状态 | `recognized`（已识别，待确认）/ `uncertain`（不确定）/ `missing`（缺失）/ `confirmed`（已确认）（C-04） |
+| 已保存过 | backend 判定同一个人（姓名 + 手机号 + 邮箱）已有简历记录时返回的结果，带 `already_saved` 标识（C-10、D-04） |
 
-> ⬜ = 新技术术语候选，待 Step 3 由 Dev Lead 逐条确认后写入 `project-memory/project_glossary.md`。
+> 新技术术语已于 2026-11-10 经 Dev Lead 确认写入 `project-memory/project_glossary.md`（"已保存过"并入"幂等键"条目）。
 
 ---
 

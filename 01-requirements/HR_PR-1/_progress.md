@@ -10,8 +10,8 @@
 |------|------|
 | **PRD** | `01-requirements/HR_PR-1/prd.md` |
 | **当前 Skill** | requirements-analyst |
-| **当前阶段** | 质量关卡 1 已通过；requirements.md（backend REQ-BE-01..06、frontend REQ-FE-01..06）已生成，待开发确认 |
-| **状态** | ⏸ 等待确认 requirements.md 及新术语写入 |
+| **当前阶段** | 需求汇总完成；待各 Workbench 执行 architecture-advisor（backend 先产出 OpenAPI 草稿，C-13） |
+| **状态** | ✅ requirements-analyst 完成 |
 | **最后更新** | 2026-11-10 |
 
 **状态图例**：`🔄 进行中` / `⏸️ 等待人类确认` / `✅ 已完成` / `❌ 阻断`
@@ -48,7 +48,7 @@
 | 仓库约定初稿与确认（仅新项目 Workbench） | solution-designer（Step 7） | Dev Lead | ✅ 已确认；未推送（代码目录尚未初始化 Git） | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
 | Workbench 影响分析（各 Workbench 并行） | impact-analyzer | 各 Workbench 工程师 | ✅ backend ✅ / frontend ✅ | 2026-11-10 | `backend-docs/HR_PR-1/00_impact_analysis.md`；`frontend-docs/HR_PR-1/00_impact_analysis.md` |
 | 跨 Workbench 一致性 review（仅跨 Workbench 需求） | cross-workbench-reviewer | Dev Lead | ✅ 已裁决 | 2026-11-10 | `01-requirements/HR_PR-1/cross-workbench-review.md` |
-| 需求汇总（第二轮技术 Q&A + requirements.md） | requirements-analyst | Dev Lead/BA | ⏸ requirements.md 待确认 | — | `backend-docs/HR_PR-1/01_requirements/requirements.md`；`frontend-docs/HR_PR-1/01_requirements/requirements.md` |
+| 需求汇总（第二轮技术 Q&A + requirements.md） | requirements-analyst | Dev Lead/BA | ✅ 已确认 | 2026-11-10 | `backend-docs/HR_PR-1/01_requirements/requirements.md`；`frontend-docs/HR_PR-1/01_requirements/requirements.md` |
 | 架构设计（Schema+接口） | architecture-advisor | 各 Workbench 工程师 | — | — | — |
 | 技术设计 | architecture-advisor | 各 Workbench 工程师 | — | — | — |
 | 任务拆分 | architecture-advisor | 各 Workbench 工程师 | — | — | — |
@@ -107,6 +107,7 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 backend/frontend 按裁决修订的影响分析；第二轮新增 D-01..D-06 已裁决（采纳建议） |
 | 2026-11-10 | Yin Yang（Dev Lead） | requirements-analyst | Step 1：汇总第二轮技术 Q&A 到两份 requirements_plan.md，等待质量关卡 1 |
 | 2026-11-10 | Yin Yang（Dev Lead） | requirements-analyst | 质量关卡 1 通过；Step 2 生成两侧 requirements.md 及可追溯性矩阵，PRD 覆盖 4/4 |
+| 2026-11-10 | Yin Yang（Dev Lead） | requirements-analyst | 确认 requirements.md；写入新术语 5 条并按 C-14 修订"简历模型"定义 |
 
 ---
 
