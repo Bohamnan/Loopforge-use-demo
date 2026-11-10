@@ -273,6 +273,12 @@
 | G-02 | `phone` 的 `pattern` 针对提交值；客户端提交前必须去掉空格和连字符，backend 校验前同样去掉作为兜底 | 第二轮契约审视 | ✅ 已裁决（采纳建议） |
 | CR-01 | 补充 `maxLength` / `maxItems`：`name` ≤ 100、`phone` ≤ 32、`email` ≤ 254、其他标量 ≤ 500、`self_evaluation` ≤ 5000；文本列表 ≤ 50 项、每项 ≤ 1000；经历区块 ≤ 20 条；超限时 `details.reason = too_long` | backend `04_design/design.md` 附录 B | ✅ DL 采纳建议（2026-11-10） |
 
+> 落地复核（2026-11-10，主 agent）：OpenAPI 0.1.1 校验通过；G-01、G-02 和 CR-01 的顶层字段值与上表一致。**差异**：经历区块（WorkExperience / ProjectExperience / Education）内部字符串取 `maxLength: 2000`，`responsibilities` / `achievements` 取 `maxItems: 30`，来自 backend design 附录 B 的原始申请，上表未单列。见 CR-01a，待裁决。
+>
+> | # | 问题 | 建议 | 裁决 |
+> |---|---|---|---|
+> | CR-01a | 经历区块内部字段上限沿用 2000 / 30（比顶层"其他标量 ≤ 500"宽） | 采纳 OpenAPI 现值：项目背景、成果等长文本需要更大空间；OpenAPI 是唯一来源，本表据此补录 | 👉 _待填写_ |
+
 > frontend 即时校验直接复用 0.1.1 中的 `pattern` / `maxLength` / `maxItems`；backend 修订后用 `openapi-spec-validator` 校验，由主 agent 复核。
 
 ---
