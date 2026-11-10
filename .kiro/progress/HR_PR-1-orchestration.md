@@ -3,7 +3,7 @@
 | 项 | 内容 |
 |---|---|
 | 当前级别 | L3（新项目、跨前后端、外部模型对接） |
-| 状态 | ▶ **已恢复**（2026-11-10，DL 唤醒）：审查 worker `ctx_e5631b244e6b`（Task task_b6e2f0fb7ed7，第六批审查）与 frontend worker `ctx_35baa4f3c420`（Task task_adf5f4bbc6f4，续 3.1）运行中；审查与 frontend 3.1 已完成并合并（195ba1d）；2.3a 已合并复验（pytest 751 passed、ruff 通过）；2.4 已合并复验（pytest 795 passed、ruff 通过，未标 ✅），第七批审查（2.3a+2.4）进行中；通过且 DL 确认后做 2.5 |
+| 状态 | ▶ **已恢复**（2026-11-10，DL 唤醒）：审查 worker `ctx_e5631b244e6b`（Task task_b6e2f0fb7ed7，第六批审查）与 frontend worker `ctx_35baa4f3c420`（Task task_adf5f4bbc6f4，续 3.1）运行中；审查与 frontend 3.1 已完成并合并（195ba1d）；2.3a 已合并复验（pytest 751 passed、ruff 通过）；2.4 已合并复验（pytest 795 passed、ruff 通过，未标 ✅），第七批审查 BLOCKED（8fbc3a4：BLOCK-1 StrictBool、QUESTION-1），DL 2026-11-10 批准按建议处理（含 1 MB 口径取 10^6 并留 4KB 余量、像素上限 2500 万）；修复已下发 backend worker；修完 → 复审 → 标 2.4 ✅ → 2.5 |
 | 最后更新 | 2026-11-10，feature `505d02d` |
 | 权威进度 | `01-requirements/HR_PR-1/_progress.md`（流程表、贡献记录、末尾「暂停恢复清单」） |
 
