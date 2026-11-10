@@ -396,3 +396,78 @@ React 在开发模式下自身会向 console 输出异常信息（含 message）
 ### 遗留风险
 - 字段级错误文本通过 `aria-describedby` 关联到输入框，没有单独 `role="alert"`（避免多个错误同时连续播报）；未经真实读屏验证。
 - 浏览器兼容只在 jsdom 中验证，未在 Chrome / Edge / Safari / Firefox 实机验证（任务 3.1 之后的人工验收项）。
+
+## Cleanup-A：草稿形状校验补全 + 上传响应异常提示（第五批 S1、S3）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/api/ResponseShapes.ts | 修改 | **S1**：`isDraftResponse` 增加：文本列表每个元素必须是字符串；经历列表每个元素必须是对象，已知成员为 string / null（`responsibilities`、`achievements` 为字符串数组）；`original_file.size_bytes` 为非负有限数；`content_type` 属 3 个允许值 |
+| codes/hr-collection-agent-frontend/src/components/ObjectListEditor.tsx | 修改 | 纵深防御：即使有非对象元素漏进来也不崩溃（标题 / 渲染都按空对象处理） |
+| codes/hr-collection-agent-frontend/src/components/ErrorAlert.tsx、pages/ResumeCollectionPage.tsx | 修改 | **S3**：上传返回 2xx 但形状不对（`unknown_error` 且状态码 2xx）时显示“上传结果异常，请刷新页面后核对。”；其他 `unknown_error`（如 502）仍用通用文案 |
+| 测试 | 新增 / 修改 | `ResponseShapes.test`（列表元素 / 成员类型 / 文件信息）、`ObjectListEditor.test`（null 元素）、`ErrorAlert.test`、`ResumeCollectionPage.upload.test` |
+
+### S3 的选择
+选“提示用户刷新核对”，不自动重新读取当前草稿：自动 GET 会引入新的请求与状态分支（读取失败时又要处理），而这是极端情形（代理改写了 201 响应）；提示文案明确，刷新页面即触发启动时的草稿读取。
+
+### 偏差说明
+`content_type` 也加入校验（审查建议里提及）；它不被界面使用，但属于契约枚举，不合法时视为异常响应。
+
+### 遗留风险
+形状校验仍只覆盖界面实际读取的部分；未知额外成员被忽略。
+
+## Cleanup-B：长度按码点、空白行不再失焦删除、确认规则去重复（第一批 S2、第二批 S2 / S4）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/hooks/model/FieldRules.ts | 修改 | **第一批 S2**：新增 `charLength`（`Array.from(value).length`，按 Unicode 码点计数，与 OpenAPI `maxLength` 一致），标量、邮箱、手机号、文本列表项、经历子项及子列表项的长度检查全部改用它。空白行不计入条数上限，过长项的下标仍是用户所见的行位置 |
+| codes/hr-collection-agent-frontend/src/components/StringListEditor.tsx | 修改 | **第二批 S4**：去掉失焦时删除空白行（行高变化可能让同一次点击落到相邻的“删除”按钮上）。空白行留在屏幕上，仅在提交时丢弃（`buildSectionUpdate` 早已如此） |
+| codes/hr-collection-agent-frontend/src/hooks/model/SectionView.ts | 修改 | `buildSectionUpdate`：校验在“保留空白行”的版本上进行，所以错误下标与屏幕行一致，提交内容仍不含空白行；新增 `sectionConfirmState`（按钮文案 / 阻断原因 / 是否有未提交编辑）与 `canConfirmSection`（**第二批 S2**） |
+| codes/hr-collection-agent-frontend/src/components/SectionCard.tsx、pages/ResumeCollectionPage.tsx | 修改 | 卡片按钮与“确认无误”快捷指令共用 `canConfirmSection`，删除页面里重复的规则 |
+| 测试 | 新增 / 修改 | `FieldRules.test`（emoji 边界：100/101、500/501、5000/5001、1000/1001、2000/2001、邮箱 254；空白行不计数且下标保持）、`SectionView.test`（`canConfirmSection`、空白行下标）、`StringListEditor.test` / `ObjectListEditor.test` / `ResumeCollectionPage.edit.test`（失焦不删行，空白行不提交） |
+
+### 偏差说明
+第一批 changelog 与实现备注曾约定“文本列表在失焦时丢弃空白行”，现按 DL 要求改为“只在提交时丢弃”；`ObjectListEditor` 中嵌套列表同样。
+
+### 遗留风险
+空白行会一直留在界面直到用户删除或提交；提交后（PATCH 成功）新草稿不含空白行，界面随之刷新。
+
+## Cleanup-C：尊重“减少动态效果”（第五批 S2）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/components/ChatThread.tsx、ChatThread.test.tsx | 修改 | 滚动到目标区块时，用户系统设置为 `prefers-reduced-motion: reduce` 则 `behavior: 'auto'`，否则 `'smooth'`；各有测试 |
+
+偏差：无。遗留风险：Ant Design 自身的组件动画（弹窗等）不在本项范围内，沿用库的默认处理。
+
+## Cleanup-D：契约漂移检测、ESLint 网络防线收紧、audit 跟踪（第一批 S3 / S4 / S5）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/types/ContractDrift.test.ts | 新增 | **S3**：读取同仓库的 `backend-docs/HR_PR-1/03_api/openapi.yaml`（`import.meta.glob ?raw`，无新增依赖；文件不存在则跳过），逐项对比：契约版本、`FieldStatus` / `ErrorCode` / `reason` 枚举、`ResumeFields` 22 键及顺序、`ResumeFieldsUpdate` 每个字段的 `maxLength` / `maxItems` / 列表项 `maxLength`、手机号与邮箱 `pattern`、三类经历子 schema 的子字段与统一上限。已用“把 name 的上限临时改成 101”验证该测试会失败（随后还原）。契约一变，测试就会失败，不再依赖人工记得更新 |
+| codes/hr-collection-agent-frontend/vite.config.ts | 修改 | `server.fs.allow` 仅放开项目目录与 `backend-docs/HR_PR-1/03_api`，让上面的测试能读取契约文件 |
+| codes/hr-collection-agent-frontend/eslint.config.js、src/test/EslintRules.test.ts | 修改 | **S4**：`fetch` 的禁用范围由 pages / components / hooks 扩大到 `src` 下除 `src/api`、测试与 `src/test` 外的全部文件（含 `App.tsx`、`main.tsx`、`types`、`hooks/model`）；新增禁用 `XMLHttpRequest`、`WebSocket`、`EventSource`、`navigator.sendBeacon`（含 `window.xxx` 写法）；浏览器存储仍在所有文件（含 api 与测试）禁用。新增 14 个规则用例 |
+
+### S5（npm audit）
+`npm audit --omit=dev --registry=https://registry.npmjs.org`：**0 个漏洞**（运行时依赖）。dev 工具链仍有 10 项 moderate（minimatch 拒绝服务，经 eslint / typescript-eslint 传递，不进入产物），修复需降级 ESLint 为 9（破坏性），登记为已知风险：待 eslint / typescript-eslint 升级后复查，发布前重新跑一次 audit。审查机器默认源为镜像，镜像不支持 audit 接口，须显式指定官方 registry。
+
+### 偏差说明
+- `AGENTS.md` 红线仍写“pages / components / hooks 禁用 fetch”，现行 lint 比它更严（覆盖整个 `src` 除 api）。我没有改动该已确认文件，请 DL 决定是否把红线文字同步为新范围。
+- 契约漂移检测放在 `src/types/` 下，作为 Vitest 用例运行，没有单独的脚本。
+
+### 遗留风险
+契约文件解析是针对当前 YAML 书写风格（流式映射 + 8 空格缩进）的轻量文本解析，不是完整 YAML 解析；契约改变书写风格时，该测试可能误报失败，需同步调整提取逻辑（失败是安全方向）。

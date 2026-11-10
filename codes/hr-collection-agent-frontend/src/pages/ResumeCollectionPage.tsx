@@ -17,12 +17,14 @@ import SectionCard from '../components/SectionCard';
 import UploadProgressNotice from '../components/UploadProgressNotice';
 import WelcomePanel from '../components/WelcomePanel';
 import { getSection, SECTIONS } from '../hooks/model/SectionConfig';
-import { coreReady, sectionConfirmBlock, sectionStatus, unconfirmedCount } from '../hooks/model/SectionView';
+import { canConfirmSection, coreReady, unconfirmedCount } from '../hooks/model/SectionView';
 import { useChatScroll } from '../hooks/useChatScroll';
 import { usePreventFileDropNavigation } from '../hooks/usePreventFileDropNavigation';
 import { useResumeSession } from '../hooks/useResumeSession';
 
 const UPLOAD_TIMEOUT_TEXT = '识别时间过长，请重新上传。';
+// A 2xx answer of the wrong shape: the server may already have replaced the draft, so the screen cannot be trusted.
+const UPLOAD_BAD_RESPONSE_TEXT = '上传结果异常，请刷新页面后核对。';
 
 /** Page orchestration only: picks what to render from the session state; never calls the API itself. */
 export default function ResumeCollectionPage() {
@@ -152,9 +154,7 @@ export default function ResumeCollectionPage() {
   let quickReplies = null;
   if (inSections && state.draft) {
     const section = getSection(state.activeSection);
-    const dirty = section.fields.some((f) => f.key in state.editBuffer);
-    const alreadyConfirmed = sectionStatus(section, state.draft.fields) === 'confirmed' && !dirty;
-    const blocked = busy || alreadyConfirmed || sectionConfirmBlock(section, state.draft.fields, state.editBuffer) !== null;
+    const blocked = !canConfirmSection(section, state.draft.fields, state.editBuffer, busy);
     quickReplies = (
       <QuickReplyChips
         chips={[
@@ -183,7 +183,7 @@ export default function ResumeCollectionPage() {
     >
       <ChatThread focusKey={focusKey}>
         {content}
-        {uploadError ? <ErrorAlert error={uploadError} timeoutMessage={UPLOAD_TIMEOUT_TEXT} /> : null}
+        {uploadError ? <ErrorAlert error={uploadError} timeoutMessage={UPLOAD_TIMEOUT_TEXT} badResponseMessage={UPLOAD_BAD_RESPONSE_TEXT} /> : null}
       </ChatThread>
       <ConfirmDialog
         open={state.dialog === 'overwrite'}

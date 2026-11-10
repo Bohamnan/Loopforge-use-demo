@@ -73,3 +73,42 @@ describe('isDraftResponse (the UI reads every field, so an incomplete draft must
     expect(isDraftResponse(b)).toBe(false);
   });
 });
+
+describe('isDraftResponse: list elements and file info (review batch 5 S1)', () => {
+  const withField = (key: string, value: unknown) => {
+    const d = sampleDraft() as unknown as { fields: Record<string, { value: unknown; status: string }> };
+    d.fields[key] = { value, status: 'recognized' };
+    return d;
+  };
+
+  it.each(['strengths', 'skills', 'certificates_honors', 'languages'])('rejects non-string elements in the text list %s', (key) => {
+    expect(isDraftResponse(withField(key, ['ok', null]))).toBe(false);
+    expect(isDraftResponse(withField(key, [1]))).toBe(false);
+    expect(isDraftResponse(withField(key, ['ok', 'fine']))).toBe(true);
+    expect(isDraftResponse(withField(key, []))).toBe(true);
+  });
+
+  it.each(['work_experiences', 'project_experiences', 'educations'])('rejects non-object elements in the experience list %s', (key) => {
+    expect(isDraftResponse(withField(key, [null]))).toBe(false);
+    expect(isDraftResponse(withField(key, ['text']))).toBe(false);
+    expect(isDraftResponse(withField(key, [[]]))).toBe(false);
+    expect(isDraftResponse(withField(key, [{}]))).toBe(true);
+  });
+
+  it('checks the typed members of an experience item (null / string for text, string arrays for responsibilities and achievements)', () => {
+    expect(isDraftResponse(withField('work_experiences', [{ company: null, position: '主管', responsibilities: ['a'], achievements: [] }]))).toBe(true);
+    expect(isDraftResponse(withField('work_experiences', [{ company: 5 }]))).toBe(false);
+    expect(isDraftResponse(withField('work_experiences', [{ responsibilities: 'a' }]))).toBe(false);
+    expect(isDraftResponse(withField('work_experiences', [{ responsibilities: [null] }]))).toBe(false);
+    expect(isDraftResponse(withField('educations', [{ school: { x: 1 } }]))).toBe(false);
+  });
+
+  it('checks original_file.size_bytes and content_type', () => {
+    const base = sampleDraft();
+    expect(isDraftResponse({ ...base, original_file: { ...base.original_file, size_bytes: '1024' } })).toBe(false);
+    expect(isDraftResponse({ ...base, original_file: { ...base.original_file, size_bytes: undefined } })).toBe(false);
+    expect(isDraftResponse({ ...base, original_file: { ...base.original_file, size_bytes: -1 } })).toBe(false);
+    expect(isDraftResponse({ ...base, original_file: { ...base.original_file, content_type: 'text/plain' } })).toBe(false);
+    expect(isDraftResponse({ ...base, original_file: { ...base.original_file, content_type: 'image/png' } })).toBe(true);
+  });
+});

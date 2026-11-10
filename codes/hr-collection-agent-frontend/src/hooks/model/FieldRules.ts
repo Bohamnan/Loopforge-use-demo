@@ -62,6 +62,11 @@ export const EXPERIENCE_ITEM_LIMIT = {
 const CORE_KEYS = ['name', 'phone', 'email'] as const;
 export type CoreKey = (typeof CORE_KEYS)[number];
 
+/** Length in Unicode characters (code points), like JSON Schema / Python `maxLength`; `.length` would count UTF-16 units. */
+export function charLength(value: string): number {
+  return Array.from(value).length;
+}
+
 /** Removes spaces and hyphens; the submitted phone value must be normalised first (G-02). */
 export function normalizePhone(value: string): string {
   return value.replace(/[\s-]/g, '');
@@ -69,12 +74,12 @@ export function normalizePhone(value: string): string {
 
 export function isValidPhone(value: string): boolean {
   const normalized = normalizePhone(value);
-  return normalized.length <= (FIELD_MAX_LENGTH.phone.maxLength ?? Infinity) && PHONE_PATTERN.test(normalized);
+  return charLength(normalized) <= (FIELD_MAX_LENGTH.phone.maxLength ?? Infinity) && PHONE_PATTERN.test(normalized);
 }
 
 export function isValidEmail(value: string): boolean {
   const trimmed = value.trim();
-  return trimmed.length <= EMAIL_MAX_LENGTH && EMAIL_PATTERN.test(trimmed);
+  return charLength(trimmed) <= EMAIL_MAX_LENGTH && EMAIL_PATTERN.test(trimmed);
 }
 
 /**
@@ -100,7 +105,7 @@ export function validateScalar(key: ResumeFieldKey, value: string | null): Error
     return isCore ? 'required' : null;
   }
   const max = FIELD_MAX_LENGTH[key].maxLength;
-  if (max !== undefined && submitted.length > max) {
+  if (max !== undefined && charLength(submitted) > max) {
     return 'too_long';
   }
   if (key === 'phone' && !PHONE_PATTERN.test(submitted)) {
@@ -124,17 +129,21 @@ export function validateCore(values: Record<CoreKey, string | null>): Partial<Re
   return result;
 }
 
-/** Validates a text list (strengths / skills / certificates_honors / languages). */
+/**
+ * Validates a text list. Blank rows are ignored (they are not submitted): they do not count against the item limit,
+ * but the index of a too-long item is its position among the rows the user sees.
+ */
 export function validateStringList(
   key: ResumeFieldKey,
   items: readonly string[],
 ): { reason: ErrorReason; index?: number } | null {
   const limit = FIELD_MAX_LENGTH[key];
-  if (limit.maxItems !== undefined && items.length > limit.maxItems) {
+  const filled = items.filter((item) => item.trim() !== '');
+  if (limit.maxItems !== undefined && filled.length > limit.maxItems) {
     return { reason: 'too_long' };
   }
   if (limit.itemMaxLength !== undefined) {
-    const index = items.findIndex((item) => item.length > (limit.itemMaxLength as number));
+    const index = items.findIndex((item) => charLength(item) > (limit.itemMaxLength as number));
     if (index >= 0) {
       return { reason: 'too_long', index };
     }
@@ -156,16 +165,17 @@ export function validateObjectList(
     for (const [sub, value] of Object.entries(item)) {
       const path = `${key}[${index}].${sub}`;
       if (typeof value === 'string') {
-        if (value.length > EXPERIENCE_ITEM_LIMIT.maxLength) {
+        if (charLength(value) > EXPERIENCE_ITEM_LIMIT.maxLength) {
           errors.push({ field: path, reason: 'too_long' });
         }
       } else if (Array.isArray(value)) {
-        if (value.length > EXPERIENCE_ITEM_LIMIT.listMaxItems) {
+        const filled = value.filter((entry) => typeof entry !== 'string' || entry.trim() !== '');
+        if (filled.length > EXPERIENCE_ITEM_LIMIT.listMaxItems) {
           errors.push({ field: path, reason: 'too_long' });
           continue;
         }
         value.forEach((entry, entryIndex) => {
-          if (typeof entry === 'string' && entry.length > EXPERIENCE_ITEM_LIMIT.listItemMaxLength) {
+          if (typeof entry === 'string' && charLength(entry) > EXPERIENCE_ITEM_LIMIT.listItemMaxLength) {
             errors.push({ field: `${path}[${entryIndex}]`, reason: 'too_long' });
           }
         });

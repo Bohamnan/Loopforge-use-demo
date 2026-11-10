@@ -7,6 +7,7 @@ import {
   isValidEmail,
   isValidPhone,
   normalizePhone,
+  charLength,
   parseFieldPath,
   reasonText,
   toSubmitScalar,
@@ -223,5 +224,72 @@ describe('parseFieldPath', () => {
     expect(parseFieldPath('nope')).toBeNull();
     expect(parseFieldPath('work_experiences[x]')).toBeNull();
     expect(parseFieldPath('')).toBeNull();
+  });
+});
+
+describe('lengths count Unicode characters, as OpenAPI maxLength does (review batch 1 S2)', () => {
+  const emoji = '😀'; // one character, two UTF-16 code units
+
+  it('charLength counts code points', () => {
+    expect(charLength('abc')).toBe(3);
+    expect(charLength(emoji)).toBe(1);
+    expect(charLength(`a${emoji}b`)).toBe(3);
+    expect(charLength('')).toBe(0);
+  });
+
+  it('a name of exactly 100 emoji is valid, 101 is too long', () => {
+    expect(validateScalar('name', emoji.repeat(100))).toBeNull();
+    expect(validateScalar('name', emoji.repeat(101))).toBe('too_long');
+  });
+
+  it('long scalar fields use characters too (500 / 5000)', () => {
+    expect(validateScalar('job_title', emoji.repeat(500))).toBeNull();
+    expect(validateScalar('job_title', emoji.repeat(501))).toBe('too_long');
+    expect(validateScalar('self_evaluation', emoji.repeat(5000))).toBeNull();
+    expect(validateScalar('self_evaluation', emoji.repeat(5001))).toBe('too_long');
+  });
+
+  it('text list items: 1000 emoji pass, 1001 fail', () => {
+    expect(validateStringList('skills', [emoji.repeat(1000)])).toBeNull();
+    expect(validateStringList('skills', [emoji.repeat(1001)])).toEqual({ reason: 'too_long', index: 0 });
+  });
+
+  it('experience sub-fields: 2000 emoji pass, 2001 fail; sub list entries too', () => {
+    expect(validateObjectList('work_experiences', [{ company: emoji.repeat(2000) }])).toEqual([]);
+    expect(validateObjectList('work_experiences', [{ company: emoji.repeat(2001) }])).toEqual([
+      { field: 'work_experiences[0].company', reason: 'too_long' },
+    ]);
+    expect(validateObjectList('work_experiences', [{ achievements: [emoji.repeat(2001)] }])).toEqual([
+      { field: 'work_experiences[0].achievements[0]', reason: 'too_long' },
+    ]);
+  });
+
+  it('email: 254 characters pass even when some are non-BMP', () => {
+    const local = emoji.repeat(254 - '@b.co'.length);
+    expect(isValidEmail(`${local}@b.co`)).toBe(true);
+    expect(isValidEmail(`${emoji}${local}@b.co`)).toBe(false);
+  });
+});
+
+describe('blank rows in text lists are ignored by the checks and keep their position in error paths', () => {
+  it('does not count blank rows against the 50 item limit', () => {
+    const items = [...Array.from({ length: 50 }, (_, i) => `技能${i}`), '', '   '];
+    expect(validateStringList('skills', items)).toBeNull();
+    expect(validateStringList('skills', [...items, '一项太多'])).toEqual({ reason: 'too_long' });
+  });
+
+  it('reports a too-long item at its position among the rows the user sees', () => {
+    expect(validateStringList('skills', ['', 'x'.repeat(1001)])).toEqual({ reason: 'too_long', index: 1 });
+  });
+
+  it('sub lists inside an item behave the same', () => {
+    const entries = [...Array.from({ length: 30 }, () => 'x'), ''];
+    expect(validateObjectList('work_experiences', [{ responsibilities: entries }])).toEqual([]);
+    expect(validateObjectList('work_experiences', [{ responsibilities: [...entries, 'y'] }])).toEqual([
+      { field: 'work_experiences[0].responsibilities', reason: 'too_long' },
+    ]);
+    expect(validateObjectList('work_experiences', [{ responsibilities: ['', 'z'.repeat(2001)] }])).toEqual([
+      { field: 'work_experiences[0].responsibilities[1]', reason: 'too_long' },
+    ]);
   });
 });

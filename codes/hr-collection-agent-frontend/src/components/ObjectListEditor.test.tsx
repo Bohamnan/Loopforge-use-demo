@@ -67,11 +67,11 @@ describe('ObjectListEditor', () => {
     expect(onChange).toHaveBeenLastCalledWith([{ company: '甲', responsibilities: ['负责采购!'] }]);
   });
 
-  it('adds to a sub list and drops its blank rows on blur', async () => {
+  it('keeps blank rows of a sub list on blur; they are simply not submitted', () => {
     const onChange = vi.fn();
     render(<ObjectListEditor {...base} field={fieldOf('work')} value={[{ company: '甲', achievements: ['成果A', ' '] }]} onChange={onChange} />);
     fireEvent.blur(within(card(0)).getAllByRole('textbox').find((el) => (el as HTMLInputElement).value === ' ')!);
-    expect(onChange).toHaveBeenLastCalledWith([{ company: '甲', achievements: ['成果A'] }]);
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it('shows an empty list as a placeholder with an add button', () => {
@@ -120,5 +120,13 @@ describe('ObjectListEditor', () => {
     for (const box of screen.getAllByRole('textbox')) expect(box).toBeDisabled();
     expect(screen.getByRole('button', { name: /添加一条/ })).toBeDisabled();
     expect(within(card(0)).getByRole('button', { name: /删除这一条/ })).toBeDisabled();
+  });
+});
+
+describe('ObjectListEditor robustness', () => {
+  it('does not throw for a null element (a title is only a convenience)', () => {
+    expect(() =>
+      render(<ObjectListEditor {...base} field={fieldOf('work')} value={[null as unknown as Record<string, unknown>]} onChange={() => undefined} />),
+    ).not.toThrow();
   });
 });

@@ -11,6 +11,8 @@ export const PROXY_TIMEOUT_MS = 120_000;
 export default defineConfig({
   plugins: [react()],
   server: {
+    // The contract drift test reads the backend OpenAPI file of this repository; allow just that folder besides the project.
+    fs: { allow: ['.', '../../backend-docs/HR_PR-1/03_api'] },
     proxy: {
       // Set-Cookie is forwarded untouched: no cookieDomainRewrite / cookiePathRewrite (C-06, O-01).
       '/api': {

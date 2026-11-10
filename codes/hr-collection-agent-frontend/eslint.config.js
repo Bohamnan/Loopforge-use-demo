@@ -20,12 +20,14 @@ const storageProperties = GLOBAL_OBJECTS.flatMap((object) =>
   })),
 );
 
-const FETCH_MESSAGE = 'Direct fetch is forbidden here: all backend calls go through src/api.';
-const fetchProperties = GLOBAL_OBJECTS.map((object) => ({
-  object,
-  property: 'fetch',
-  message: FETCH_MESSAGE,
-}));
+const EXIT_MESSAGE = 'Direct network access is forbidden here: all backend calls go through src/api (F-01).';
+// Anything that can talk to the network must live in src/api.
+const NETWORK_GLOBALS = ['fetch', 'XMLHttpRequest', 'WebSocket', 'EventSource'];
+const networkGlobals = NETWORK_GLOBALS.map((name) => ({ name, message: EXIT_MESSAGE }));
+const networkProperties = [
+  ...GLOBAL_OBJECTS.flatMap((object) => NETWORK_GLOBALS.map((property) => ({ object, property, message: EXIT_MESSAGE }))),
+  { object: 'navigator', property: 'sendBeacon', message: EXIT_MESSAGE },
+];
 
 export default tseslint.config(
   { ignores: ['dist', 'coverage', 'node_modules'] },
@@ -42,15 +44,12 @@ export default tseslint.config(
     },
   },
   {
-    // Pages, components and hooks must not call fetch; src/api is the only exit (F-01 layering).
-    files: ['src/pages/**', 'src/components/**', 'src/hooks/**'],
+    // Everything except src/api (and tests) must stay off the network: fetch, XHR, WebSocket, EventSource, sendBeacon.
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/api/**', 'src/**/*.test.{ts,tsx}', 'src/test/**'],
     rules: {
-      'no-restricted-globals': [
-        'error',
-        ...storageGlobals,
-        { name: 'fetch', message: FETCH_MESSAGE },
-      ],
-      'no-restricted-properties': ['error', ...storageProperties, ...fetchProperties],
+      'no-restricted-globals': ['error', ...storageGlobals, ...networkGlobals],
+      'no-restricted-properties': ['error', ...storageProperties, ...networkProperties],
     },
   },
   {

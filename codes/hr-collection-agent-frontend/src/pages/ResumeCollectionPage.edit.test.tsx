@@ -207,14 +207,17 @@ describe('text list editing (REQ-FE-03.3)', () => {
     expect(patchBody(mock).fields).toEqual({ skills: ['Excel2', 'SAP'] });
   });
 
-  it('drops a blank row when its input loses focus', async () => {
-    await open();
+  it('keeps a blank row on blur and leaves it out of the submitted list', async () => {
+    const mock = await open();
     const card = () => screen.getByRole('heading', { name: /专业技能/ }).closest('section') as HTMLElement;
     await userEvent.click(within(card()).getByRole('button', { name: /修\s?改/ }));
     await userEvent.click(within(card()).getByRole('button', { name: /添加一项/ }));
     expect(within(card()).getAllByRole('textbox')).toHaveLength(2);
     fireEvent.blur(within(card()).getAllByRole('textbox')[1]!);
-    expect(within(card()).getAllByRole('textbox')).toHaveLength(1);
+    expect(within(card()).getAllByRole('textbox')).toHaveLength(2);
+    await userEvent.click(confirmButton());
+    await waitFor(() => expect(patches(mock)).toHaveLength(1));
+    expect(patchBody(mock).fields).toEqual({ skills: ['Excel'] });
   });
 });
 

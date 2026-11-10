@@ -1,5 +1,5 @@
 import { Button } from 'antd';
-import { currentValue, orderedFieldKeys, sectionConfirmBlock, sectionStatus } from '../hooks/model/SectionView';
+import { canConfirmSection, currentValue, orderedFieldKeys, sectionConfirmState, sectionStatus } from '../hooks/model/SectionView';
 import type { FieldConfig, SectionConfig } from '../hooks/model/SectionConfig';
 import type { ApiError } from '../api/ApiError';
 import type { LocalError } from '../hooks/model/SessionReducer';
@@ -56,13 +56,10 @@ export default function SectionCard({
 }: SectionCardProps) {
   const editing = active && onEdit !== undefined && onConfirm !== undefined;
   const status = sectionStatus(section, fields);
-  const dirty = section.fields.some((f) => f.key in buffer);
-  const block = editing ? sectionConfirmBlock(section, fields, buffer) : null;
+  const { block, label: confirmLabel } = sectionConfirmState(section, fields, buffer);
   const hasEmptyOptional = section.fields.some((f) => !f.core && fields[f.key].status === 'missing');
   const singleSameLabel = section.fields.length === 1 && section.fields[0]?.label === section.title;
-
-  const confirmLabel = status === 'confirmed' ? (dirty ? '确认修改' : '已确认') : '确认本区';
-  const confirmDisabled = busy || block !== null || (status === 'confirmed' && !dirty);
+  const confirmDisabled = !canConfirmSection(section, fields, buffer, busy);
 
   const byKey = new Map(section.fields.map((f) => [f.key, f]));
 

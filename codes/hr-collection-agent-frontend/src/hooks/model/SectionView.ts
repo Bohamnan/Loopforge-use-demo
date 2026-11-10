@@ -93,14 +93,22 @@ function cleanStringList(items: readonly string[]): string[] {
   return items.map((item) => item.trim()).filter((item) => item !== '');
 }
 
-/** Trims item strings (blank -> null) and cleans nested text lists; other values are kept as they are. */
-function cleanItem(item: Record<string, unknown>): Record<string, unknown> {
+function trimRows(items: readonly string[]): string[] {
+  return items.map((item) => item.trim());
+}
+
+/**
+ * Trims item strings (blank -> null). Nested text lists keep their blank rows when `keepBlankRows` is set
+ * (used for validation, so error indexes match the rows on screen) and drop them otherwise (what is submitted).
+ */
+function cleanItem(item: Record<string, unknown>, keepBlankRows: boolean): Record<string, unknown> {
   const cleaned: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(item)) {
     if (typeof value === 'string') {
       cleaned[key] = value.trim() === '' ? null : value.trim();
     } else if (Array.isArray(value)) {
-      cleaned[key] = cleanStringList(value.filter((entry): entry is string => typeof entry === 'string'));
+      const strings = value.filter((entry): entry is string => typeof entry === 'string');
+      cleaned[key] = keepBlankRows ? trimRows(strings) : cleanStringList(strings);
     } else {
       cleaned[key] = value;
     }
@@ -116,7 +124,7 @@ function isEmptyItem(item: Record<string, unknown>): boolean {
  * Builds the PATCH body for confirming one section (design §4.4): every field of the section is sent,
  * taking the unsubmitted edit if present, else the current draft value (a missing scalar becomes null,
  * a missing list becomes []). Also returns local validation errors keyed by backend-style field path.
- * Blank text-list rows are dropped before the count / length checks, so indexes refer to the cleaned list.
+ * Blank text-list rows are not submitted and do not count against limits, but error indexes keep their on-screen position.
  */
 export function buildSectionUpdate(
   section: SectionConfig,
@@ -137,15 +145,15 @@ export function buildSectionUpdate(
       const reason = validateScalar(key, raw);
       if (reason) errors[key] = reason;
     } else if (field.kind === 'stringList') {
-      const cleaned = cleanStringList((current ?? []) as string[]);
-      update[key] = cleaned;
-      const problem = validateStringList(key, cleaned);
+      const rows = trimRows((current ?? []) as string[]);
+      update[key] = cleanStringList(rows);
+      const problem = validateStringList(key, rows);
       if (problem) errors[problem.index === undefined ? key : `${key}[${problem.index}]`] = problem.reason;
     } else {
-      const items = ((current ?? []) as Record<string, unknown>[]).map(cleanItem);
-      // Errors use the indexes the user sees; items left completely empty are not submitted.
-      for (const detail of validateObjectList(key, items)) errors[detail.field] = detail.reason;
-      update[key] = items.filter((item) => !isEmptyItem(item));
+      const raw = (current ?? []) as Record<string, unknown>[];
+      // Errors use the rows and indexes the user sees; items left completely empty are not submitted.
+      for (const detail of validateObjectList(key, raw.map((item) => cleanItem(item, true)))) errors[detail.field] = detail.reason;
+      update[key] = raw.map((item) => cleanItem(item, false)).filter((item) => !isEmptyItem(item));
     }
   }
   return { update: update as ResumeFieldsUpdate, errors };
@@ -168,4 +176,28 @@ export function sectionConfirmBlock(section: SectionConfig, fields: ResumeFields
     email: currentValue(fields, buffer, 'email') as string | null,
   });
   return Object.keys(errors).length > 0 ? '请先补充并修正姓名、手机号、邮箱' : null;
+}
+
+export interface SectionConfirmState {
+  /** Reason the section cannot be confirmed (invalid core values), or null. */
+  block: string | null;
+  /** The section has unsubmitted edits. */
+  dirty: boolean;
+  status: FieldStatus;
+  label: '确认本区' | '确认修改' | '已确认';
+}
+
+/** What the confirm button of a section shows and whether the section has anything left to confirm. */
+export function sectionConfirmState(section: SectionConfig, fields: ResumeFields, buffer: ResumeFieldsUpdate): SectionConfirmState {
+  const status = sectionStatus(section, fields);
+  const dirty = section.fields.some((f) => f.key in buffer);
+  const label = status === 'confirmed' ? (dirty ? '确认修改' : '已确认') : '确认本区';
+  return { block: sectionConfirmBlock(section, fields, buffer), dirty, status, label };
+}
+
+/** The single rule behind both the "confirm section" button and the "确认无误" quick reply. */
+export function canConfirmSection(section: SectionConfig, fields: ResumeFields, buffer: ResumeFieldsUpdate, busy = false): boolean {
+  if (busy) return false;
+  const state = sectionConfirmState(section, fields, buffer);
+  return state.block === null && !(state.status === 'confirmed' && !state.dirty);
 }

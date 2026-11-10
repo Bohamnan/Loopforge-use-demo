@@ -22,13 +22,16 @@ interface ObjectListEditorProps {
   onChange: (items: Item[]) => void;
 }
 
-function itemTitle(item: Item): string {
+function itemTitle(item: Item | null): string {
+  if (!item) return '';
   const name = [item.company, item.name, item.school].find((v) => typeof v === 'string' && v.trim() !== '');
   return typeof name === 'string' ? ` · ${name.trim()}` : '';
 }
 
 /** Add / edit / delete for the items of an experience list. No reordering. */
-export default function ObjectListEditor({ field, status, value, dirty, disabled, errors, onChange }: ObjectListEditorProps) {
+export default function ObjectListEditor({ field, status, value: rawValue, dirty, disabled, errors, onChange }: ObjectListEditorProps) {
+  // The api layer already rejects non-object elements; this keeps the editor from crashing if one ever slips through.
+  const value = rawValue.map((item) => (item && typeof item === 'object' ? item : {}));
   const config = field.item;
   const rows = useStableKeys(value.length);
   if (!config) return null;

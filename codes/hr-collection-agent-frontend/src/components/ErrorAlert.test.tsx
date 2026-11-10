@@ -35,4 +35,14 @@ describe('ErrorAlert', () => {
     render(<ErrorAlert error={error} timeoutMessage="识别时间过长，请重新上传。" />);
     expect(screen.getByRole('alert')).toHaveTextContent('解析超时，请重新上传。');
   });
+
+  it('shows the bad-response text only for a 2xx answer of the wrong shape, not for other unknown errors', () => {
+    const text = '上传结果异常，请刷新页面后核对。';
+    const { unmount } = render(<ErrorAlert error={ApiError.unknown(201)} badResponseMessage={text} />);
+    expect(screen.getByRole('alert')).toHaveTextContent(text);
+    unmount();
+    const other = render(<ErrorAlert error={ApiError.unknown(502)} badResponseMessage={text} />);
+    expect(other.container).not.toHaveTextContent(text);
+    expect(other.container).toHaveTextContent('服务暂时不可用');
+  });
 });

@@ -34,11 +34,12 @@ describe('StringListEditor', () => {
     expect(onChange).toHaveBeenCalledWith([]);
   });
 
-  it('drops blank rows when an input loses focus', () => {
+  it('never removes a row behind the user\'s back when an input loses focus (a click on the neighbouring button must not hit another row)', () => {
     const onChange = vi.fn();
     render(<StringListEditor {...base} value={['Excel', '  ', 'SAP']} onChange={onChange} />);
     fireEvent.blur(screen.getAllByRole('textbox')[1]!);
-    expect(onChange).toHaveBeenCalledWith(['Excel', 'SAP']);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getAllByRole('textbox')).toHaveLength(3);
   });
 
   it('keeps non-blank rows on blur (no needless change)', () => {

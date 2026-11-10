@@ -32,12 +32,35 @@ export function isCreateResumeResponse(value: unknown): boolean {
   );
 }
 
+const SUB_LISTS: readonly string[] = ['responsibilities', 'achievements'];
+const CONTENT_TYPES: readonly string[] = ['application/pdf', 'image/jpeg', 'image/png'];
+
+function isStringArray(value: unknown): boolean {
+  return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
+}
+
+/** One experience item: an object whose known members are string / null, or string arrays for the two sub lists. */
+function isExperienceItem(item: unknown): boolean {
+  if (!isRecord(item)) return false;
+  return Object.entries(item).every(([name, member]) => {
+    if (SUB_LISTS.includes(name)) return isStringArray(member);
+    return member === null || member === undefined || typeof member === 'string';
+  });
+}
+
+function isListValue(key: string, value: unknown): boolean {
+  if (!Array.isArray(value)) return false;
+  return key === 'work_experiences' || key === 'project_experiences' || key === 'educations'
+    ? value.every(isExperienceItem)
+    : isStringArray(value);
+}
+
 function isFieldEntry(key: string, entry: unknown): boolean {
   if (!isRecord(entry) || !(FIELD_STATUSES as readonly string[]).includes(entry.status as string) || !('value' in entry)) {
     return false;
   }
   if (LIST_FIELDS.includes(key)) {
-    return Array.isArray(entry.value);
+    return isListValue(key, entry.value);
   }
   return entry.value === null || typeof entry.value === 'string';
 }
@@ -47,7 +70,14 @@ export function isDraftResponse(value: unknown): boolean {
   if (!isRecord(value) || !isNonEmptyString(value.draft_id) || !isNonEmptyString(value.expires_at)) {
     return false;
   }
-  if (!isRecord(value.original_file) || !isNonEmptyString(value.original_file.filename)) {
+  const file = value.original_file;
+  if (!isRecord(file) || !isNonEmptyString(file.filename)) {
+    return false;
+  }
+  if (typeof file.size_bytes !== 'number' || !Number.isFinite(file.size_bytes) || file.size_bytes < 0) {
+    return false;
+  }
+  if (typeof file.content_type !== 'string' || !CONTENT_TYPES.includes(file.content_type)) {
     return false;
   }
   const fields = value.fields;

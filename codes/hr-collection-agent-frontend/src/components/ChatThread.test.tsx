@@ -63,3 +63,39 @@ describe('ChatThread', () => {
     expect(screen.getByRole('heading', { name: 'A' })).toHaveFocus();
   });
 });
+
+describe('ChatThread motion preference (review batch 5 S2)', () => {
+  function prefersReducedMotion(reduce: boolean) {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: (query: string) => ({
+        matches: reduce && query.includes('prefers-reduced-motion'),
+        media: query,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+        addListener: () => undefined,
+        removeListener: () => undefined,
+        dispatchEvent: () => false,
+        onchange: null,
+      }),
+    });
+  }
+  const tree = (
+    <ChatThread focusKey="a">
+      <h3 data-focus-key="a" tabIndex={-1}>A</h3>
+    </ChatThread>
+  );
+
+  it('scrolls smoothly by default', () => {
+    prefersReducedMotion(false);
+    render(tree);
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start', behavior: 'smooth' });
+  });
+
+  it('scrolls without animation when the user asked for reduced motion', () => {
+    prefersReducedMotion(true);
+    render(tree);
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start', behavior: 'auto' });
+  });
+});
