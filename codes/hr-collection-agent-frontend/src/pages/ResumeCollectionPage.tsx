@@ -38,6 +38,8 @@ export default function ResumeCollectionPage() {
     confirmResume,
     proceedUnconfirmed,
     uploadNext,
+    requestNewChat,
+    confirmNewChat,
     dismissDialog,
     requestUpload,
     confirmOverwrite,
@@ -47,6 +49,8 @@ export default function ResumeCollectionPage() {
   usePreventFileDropNavigation(); // also covers phases without a composer
   const composerRef = useRef<ComposerBarHandle>(null);
   const busy = state.busy !== null;
+  const bannerKind = state.notice && state.notice !== 'already_saved' ? state.notice : null;
+  const hasUnsubmittedEdits = Object.keys(state.editBuffer).length > 0;
   const uploading = state.busy === 'upload';
   const uploadError = state.error?.scope === 'upload' ? state.error.cause : null;
   const sectionError = state.error?.scope === 'section' ? state.error.cause : null;
@@ -80,14 +84,14 @@ export default function ResumeCollectionPage() {
         pending
       ) : (
         <WelcomePanel onUploadClick={() => composerRef.current?.openPicker()}>
-          {state.notice ? <NoticeBanner kind={state.notice} /> : null}
+          {bannerKind ? <NoticeBanner kind={bannerKind} /> : null}
         </WelcomePanel>
       );
       break;
     case 'reviewing':
       content = (
         <>
-          {state.notice ? <NoticeBanner kind={state.notice} onClose={dismissNotice} /> : null}
+          {bannerKind ? <NoticeBanner kind={bannerKind} onClose={dismissNotice} /> : null}
           {state.draft ? (
             <FileCard name={state.draft.original_file.filename} sizeBytes={state.draft.original_file.size_bytes} />
           ) : null}
@@ -161,6 +165,7 @@ export default function ResumeCollectionPage() {
 
   return (
     <AppShell
+      onNewChat={requestNewChat}
       newChatDisabled={busy || state.phase === 'bootstrapping' || state.phase === 'bootstrap_failed'}
       footer={
         showComposer ? (
@@ -185,6 +190,19 @@ export default function ResumeCollectionPage() {
         okText="继续上传"
         onOk={confirmOverwrite}
         onCancel={cancelOverwrite}
+      />
+      <ConfirmDialog
+        open={state.dialog === 'new_chat'}
+        title="开始新对话"
+        content={
+          <>
+            <p>界面将清空。未确认的简历草稿仍会保留，刷新页面会恢复它；再次上传新简历会覆盖它。</p>
+            {hasUnsubmittedEdits ? <p>未提交的修改将丢失。</p> : null}
+          </>
+        }
+        okText="清空并开始"
+        onOk={confirmNewChat}
+        onCancel={dismissDialog}
       />
       <ConfirmDialog
         open={state.dialog === 'unconfirmed'}

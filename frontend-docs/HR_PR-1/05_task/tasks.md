@@ -214,7 +214,7 @@
 - [x] `confirmResume` 及全部错误分支
 - [x] HIGH_RISK 用例集（单独成组）
 
-### Task 2.7：新对话与覆盖确认（P-08、TD-12）
+### Task 2.7：新对话与覆盖确认（P-08、TD-12） ✅
 - **关联：** REQ-FE-01.5；design.md §3.4（NewChatButton）、§5.3（新对话相关行）、TD-12；P-08、C-07、Q-DL-04
 - **内容：** `NewChatButton` 启用与禁用逻辑（忙碌态禁用）；`useResumeSession` 增加 `requestNewChat`、`confirmNewChat`；有未确认草稿或未提交编辑时先弹确认，文案明示“刷新页面会恢复该草稿，再次上传会覆盖它”；确认后清空界面、`epoch++`、`overwriteAcknowledged=true`（后续首次上传不再重复覆盖确认）；`empty` / `saved` 下无需确认；“上传下一份”复位。
 - **测试：** 无草稿时直接清空；有草稿时弹确认，取消不变，确认后清空且不调用任何接口（无丢弃草稿接口）；确认后再次上传不再弹覆盖确认；刷新（重新 bootstrap）后旧草稿仍被恢复；忙碌期间按钮禁用；过期响应在新对话后被丢弃。
@@ -223,8 +223,8 @@
 
 #### 子任务
 
-- [ ] `NewChatButton` 与对话框接线
-- [ ] `requestNewChat` / `confirmNewChat` 与 epoch 处理
+- [x] `NewChatButton` 与对话框接线
+- [x] `requestNewChat` / `confirmNewChat` 与 epoch 处理
 
 ### Task 2.8：无障碍与响应式（TD-13）
 - **关联：** design.md §3.3（useChatScroll）、§3.4（ChatThread）、§6（ChatThread、AppShell）、TD-13、TD-14；Q-DL-05

@@ -336,3 +336,25 @@ React 在开发模式下自身会向 console 输出异常信息（含 message）
 
 ### 遗留风险
 形状校验是最小校验，不核对各字段内容的业务含义（例如列表项内部字段）；这些仍由 TypeScript 类型与后端契约保证。
+
+## Task-2.7：新对话与覆盖确认（P-08、TD-12）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（frontend）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-frontend/src/hooks/useResumeSession.ts | 修改 | 新增 `requestNewChat`、`confirmNewChat`（reducer 的 `NEW_CHAT_*` 动作早已就绪，本任务补入口） |
+| codes/hr-collection-agent-frontend/src/pages/ResumeCollectionPage.tsx | 修改 | “＋ 新对话”接线；`new_chat` 确认框（偏差 ② 的剩余部分）：说明界面将清空、服务端未确认草稿仍保留、刷新会恢复、再次上传会覆盖；有未提交编辑时追加“未提交的修改将丢失”；无草稿 / 结果页直接清空，不弹框 |
+| codes/hr-collection-agent-frontend/src/components/NoticeBanner.tsx、NoticeBanner.test.tsx | 修改 | **SUGGEST-5**：去掉与结果卡重复的 `already_saved` 提示（`BannerKind` 排除该项；该句只由 `SavedResultCard` 显示）；页面不再把该通知交给横幅 |
+| codes/hr-collection-agent-frontend/src/pages/ResumeCollectionPage.newchat.test.tsx | 新增 | 9 例，见验证 |
+
+### 验证要点
+空态直接清空且不调接口；有草稿先确认并写明后果；取消保留草稿与未提交编辑；确认后清空界面且不调任何接口（无丢弃接口）；确认后的下一次上传不再二次确认覆盖（`overwriteAcknowledged`）；重新加载页面仍会恢复旧草稿（已知行为 Q-DL-04）；最终确认页同样先询问；结果页直接清空；请求进行中按钮禁用。
+
+### 偏差说明
+按设计实现，无偏差。reducer 的 `notice: 'already_saved'` 仍保留，作为“结果页应显示已保存过”的标记，仅不再由横幅渲染。
+
+### 遗留风险
+“新对话”后刷新页面会恢复旧草稿（TD-12，已知行为，对话框已明示）。
