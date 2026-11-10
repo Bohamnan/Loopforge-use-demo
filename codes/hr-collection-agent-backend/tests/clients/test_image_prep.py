@@ -80,6 +80,28 @@ def test_pixel_bomb_is_rejected_before_decoding(monkeypatch: pytest.MonkeyPatch)
         fit_images([syn.build_png(syn.RESUME_LINES)], overhead_bytes=1000)
 
 
+def test_source_pixel_limit_is_25_million() -> None:
+    assert image_prep.MAX_SOURCE_PIXELS == 25_000_000
+    buf = io.BytesIO()
+    Image.new("L", (5100, 5100), 255).save(buf, "PNG")  # 26.01 MP, tiny file
+    with pytest.raises(ParseFailedError):
+        fit_images([buf.getvalue()], overhead_bytes=1000)
+
+
+@pytest.mark.parametrize("fmt", ["GIF", "BMP", "WEBP", "TIFF"])
+def test_only_png_and_jpeg_are_decoded(fmt: str) -> None:
+    buf = io.BytesIO()
+    Image.new("RGB", (64, 64), (255, 255, 255)).save(buf, fmt)
+    with pytest.raises(ParseFailedError):
+        fit_images([buf.getvalue()], overhead_bytes=1000)
+
+
+def test_jpeg_source_is_accepted() -> None:
+    buf = io.BytesIO()
+    Image.new("RGB", (64, 64), (255, 255, 255)).save(buf, "JPEG")
+    assert len(fit_images([buf.getvalue()], overhead_bytes=1000)) == 1
+
+
 def test_no_images_returns_empty() -> None:
     assert fit_images([], overhead_bytes=10) == []
 
