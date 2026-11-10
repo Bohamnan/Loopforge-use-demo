@@ -5,7 +5,7 @@
 | 状态 | 已确认 |
 | 版本 | v1（技术设计后补全） |
 | 来源 | [solution-design.md](../../01-requirements/HR_PR-1/solution-design.md)（HR_PR-1）；工作台 backend 规范与架构参考；v1 补全依据 [design.md](../../backend-docs/HR_PR-1/04_design/design.md)、[sql_ddl_resume.md](../../backend-docs/HR_PR-1/02_schema/sql_ddl_resume.md)、[openapi.yaml](../../backend-docs/HR_PR-1/03_api/openapi.yaml)（0.1.1）、[tasks.md](../../backend-docs/HR_PR-1/05_task/tasks.md) |
-| 最后更新 | 2026-11-10（v1 补全，Dev Lead 已复核确认） |
+| 最后更新 | 2026-11-10（第一批审查后修订：日志白名单补 `count`、`stack`；命名条款补与 OpenAPI 同名模型的例外） |
 
 ## 项目定位
 
@@ -68,6 +68,7 @@ codes/hr-collection-agent-backend/
 
 - 遵循 PEP 8：模块/函数使用 `snake_case`，类使用 `PascalCase`，常量使用 `UPPER_SNAKE_CASE`。
 - Pydantic 模型以 `Request`、`Response` 或 `Dto` 结尾。
+  - 例外：与 OpenAPI components 同名的模型（如 `ResumeFields`、`WorkExperience`、`ErrorDetail`、`OriginalFileInfo`）不受 `Request`/`Response`/`Dto` 后缀限制，以与冻结契约的名称一致为准。
 - 注释与 docstring 使用英文。
 - 详细规范见工作台 [coding.md](../../rules/backend/coding.md)。
 
@@ -132,7 +133,7 @@ codes/hr-collection-agent-backend/
 - 未确认草稿与正式简历数据库分离，服务端本地暂存，7 天无活动后清理；不在浏览器持久化简历内容。
 - 正式记录和原始文件无自动到期清理；用户删除功能不属于 HR_PR-1。
 - 禁止裸 `except` 或吞异常；模型客户端技术异常须显式转换为应用错误并脱敏。
-- 日志只记白名单字段（`request_id`、`draft_id`、`resume_id`、状态码、耗时、业务码、异常类名）；文件名、字段值、模型响应、令牌一律不记（B-03；design §1“日志策略”）。
+- 日志只记白名单字段（`request_id`、`draft_id`、`resume_id`、状态码、耗时、业务码、异常类名、`count`、`stack`）；`count` 用于对账告警等数量统计；`stack` 只含栈帧（项目相对路径、行号、函数名），不含异常消息和绝对路径，最多 12 帧、2000 字符；文件名、字段值、模型响应、令牌一律不记（B-03；design §1“日志策略”）。
 - 保存顺序：复制到 tmp → 单事务写库 → 原子重命名；启动时对账；幂等键为规范化的 姓名+手机号+邮箱（ADR-005、ADR-004）。
 
 ## 待确认清单
