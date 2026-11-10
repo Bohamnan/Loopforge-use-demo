@@ -150,6 +150,7 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | feature-developer | DL 确认 frontend 2.7、2.8 标 ✅，两个确认点接受；下发 frontend 3.1 及跟踪项清理 |
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 backend 存储加固（6295fe5）与 2.1–2.3（fb1210f、bac0405、71785cc）：复跑 pytest 721 passed、ruff 通过、无密钥；交审查 agent 做第六批审查 |
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent | DL 要求暂停：worker-stop 停止 frontend（ctx_1e6c6f4f8173）与审查 agent（ctx_7a4bf2974859），进程已关闭，已提交工作不受影响；backend worker 空闲未动。恢复清单见下方「暂停恢复清单」 |
+| 2026-11-10 | Yin Yang（Dev Lead） | 主 agent | 按 DL 指出补关 backend worker（worker-release ctx_215fa78784b1）；核对三个 worktree 均无运行中的 agent、无终端，worker-list 无 live |
 
 ---
 
@@ -178,6 +179,6 @@
 |---|---|---|---|
 | 1 | 审查 agent（worktree `review-batch1`） | 第六批审查（backend 存储加固 + 2.1–2.3，合并 `cfb87b3`）被中断，没有产出 | 重新启动审查 worker（Task `task_2e0f759e789f`），重新下发第六批审查 |
 | 2 | frontend（worktree `feature-frontend`） | 跟踪项清理已提交 4 个（c47bc02、18363a6、0f07f40、d306368，尚未合并到 feature）；任务 3.1 未完成；有未提交文件 `codes/hr-collection-agent-frontend/src/test/FakeBackend.ts`（3.1 进行中的产物，已保留） | 重新启动 frontend worker（Task `task_83570e762162`），从"任务 3.1"继续，先检查 FakeBackend.ts |
-| 3 | backend（worktree `feature-backend`） | 2.1–2.3 已完成并合并，等待第六批审查；worker 空闲（ctx_215fa78784b1） | 第六批审查通过后，下发 2.4（HIGH_RISK：确认保存、幂等、B-05 补偿） |
+| 3 | backend（worktree `feature-backend`） | 2.1–2.3 已完成并合并，等待第六批审查；worker 已用 worker-release 关闭（ctx_215fa78784b1），工作区干净 | 第六批审查通过后，重新启动 backend worker，下发 2.4（HIGH_RISK：确认保存、幂等、B-05 补偿）；本地 `.env`（DeepSeek 凭证）仍保留在 feature-backend worktree |
 | 4 | 待 DL 确认 | backend 2.1–2.3 的偏差 (1)(3)(4)；上传请求体缺少前置大小限制（POC 是否接受） | 随第六批审查结论一起提交给 DL |
 
