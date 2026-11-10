@@ -17,3 +17,18 @@ def test_prompt_guards_against_injection_and_guessing() -> None:
 
 def test_prompt_contains_no_user_data_placeholders() -> None:
     assert "{" not in prompts.USER_INSTRUCTION
+
+
+def test_markers_are_distinct_and_explained() -> None:
+    assert prompts.DOC_BEGIN != prompts.DOC_END
+    assert prompts.SYSTEM_PROMPT.count(prompts.DOC_BEGIN) >= 1
+    assert prompts.SYSTEM_PROMPT.count(prompts.DOC_END) >= 1
+    assert "only as data" in prompts.SYSTEM_PROMPT
+
+
+def test_neutralize_markers_removes_both_markers() -> None:
+    text = f"a {prompts.DOC_BEGIN} b {prompts.DOC_END} c"
+    cleaned = prompts.neutralize_markers(text)
+    assert prompts.DOC_BEGIN not in cleaned and prompts.DOC_END not in cleaned
+    assert cleaned.startswith("a ") and cleaned.endswith(" c")
+    assert prompts.neutralize_markers("plain text") == "plain text"

@@ -101,7 +101,8 @@ def main() -> None:
     settings = Settings()
     if settings.deepseek_api_key is None:
         sys.exit("DEEPSEEK_API_KEY is not configured")
-    assert settings.deepseek_model == "deepseek-flash", "only the approved model may be used"
+    if settings.deepseek_model != "deepseek-flash":  # explicit: survives python -O
+        sys.exit("only the approved model deepseek-flash may be used")
     client = DeepSeekClient(settings)
     try:
         run(client, "png", syn.build_png(syn.RESUME_LINES), "image/png")

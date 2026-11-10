@@ -4,11 +4,13 @@ import zlib
 
 import pytest
 
+from app.clients import pdf_renderer
 from app.clients.pdf_renderer import (
     LONG_EDGE_PX,
     MAX_PAGES,
     MAX_TEXT_CHARS_PER_PAGE,
     MIN_TEXT_CHARS,
+    PDF_TIMEOUT_SECONDS,
     ImagePart,
     TextPart,
     render_pdf,
@@ -127,3 +129,45 @@ def test_concurrent_rendering_is_serialised_and_consistent() -> None:
     for t in threads:
         t.join()
     assert not errors and len(results) == 6 and len(set(results)) == 1
+
+
+def test_timeout_constant() -> None:
+    assert PDF_TIMEOUT_SECONDS == 20
+
+
+def test_zero_budget_fails_before_any_work() -> None:
+    with pytest.raises(ParseFailedError):
+        render_pdf(syn.build_text_pdf([syn.RESUME_LINES]), timeout_seconds=0)
+
+
+def test_deadline_is_checked_between_pages(monkeypatch: pytest.MonkeyPatch) -> None:
+    ticks = iter(range(0, 1000))
+    monkeypatch.setattr(pdf_renderer, "_now", lambda: next(ticks) * 10.0)  # 10 "seconds" per call
+    with pytest.raises(ParseFailedError):
+        render_pdf(syn.build_text_pdf([syn.RESUME_LINES] * 5), timeout_seconds=25)
+
+
+def test_generous_budget_succeeds() -> None:
+    assert (
+        render_pdf(syn.build_text_pdf([syn.RESUME_LINES]), timeout_seconds=20).processed_pages == 1
+    )
+
+
+def test_waiting_for_the_pdfium_lock_counts_against_the_budget() -> None:
+    started, release = threading.Event(), threading.Event()
+
+    def hold() -> None:
+        with pdf_renderer._PDFIUM_LOCK:
+            started.set()
+            release.wait(5)
+
+    t = threading.Thread(target=hold)
+    t.start()
+    assert started.wait(5)
+    try:
+        with pytest.raises(ParseFailedError):
+            render_pdf(syn.build_text_pdf([syn.RESUME_LINES]), timeout_seconds=0.2)
+    finally:
+        release.set()
+        t.join()
+    assert render_pdf(syn.build_text_pdf([syn.RESUME_LINES])).processed_pages == 1  # lock released

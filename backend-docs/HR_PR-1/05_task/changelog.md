@@ -251,3 +251,36 @@ TestClient 来自 fastapi.testclient，运行时有 StarletteDeprecationWarning�
 
 ---
 
+## 任务1.8 审查修复（第二批审查 BLOCK-1、QUESTION-1 及两条 SUGGEST）
+
+**完成时间**：2026-11-10
+**实现者**：Yin Yang（backend）
+**依据**：`backend-docs/HR_PR-1/10_review/code_review.md` 及 Dev Lead 裁决（第二批）；tasks.md 中 1.8 仍未标 ✅（待复审与 DL 确认）
+
+### 变更文件
+| 文件路径 | 操作 | 说明 |
+|---------|------|------|
+| codes/hr-collection-agent-backend/src/app/core/config.py | 修改 | BLOCK-1：`deepseek_model` 类型改为 `Literal["deepseek-flash"]`；QUESTION-1：`deepseek_base_url` 校验为 `https://api.deepseek.com`（可带简单路径前缀，禁 http/其他主机/端口/userinfo/query/fragment/`..`）；`hide_input_in_errors=True`，错误信息不回显配置值；新增 `APPROVED_MODEL`、`APPROVED_BASE_URL`、`is_approved_base_url` |
+| codes/hr-collection-agent-backend/src/app/clients/deepseek_client.py | 修改 | 请求体 `model` 固定取常量 `APPROVED_MODEL`；构造时再校验 model/地址（防 `model_copy`/`model_construct` 绕过），不满足抛 `ValueError`；用起止标记包裹文档块，文本层中的标记被清除 |
+| codes/hr-collection-agent-backend/src/app/clients/pdf_renderer.py | 修改 | SUGGEST：总耗时上限 `PDF_TIMEOUT_SECONDS = 20`（含等待 PDFium 锁、文本提取、渲染），页间检查，超时 `parse_failed`；重构为 `_open`/`_process_pages`/`render_pdf` |
+| codes/hr-collection-agent-backend/src/app/clients/prompts.py | 修改 | SUGGEST：`DOC_BEGIN`/`DOC_END` 起止标记、`neutralize_markers`，系统提示说明标记内内容只作数据 |
+| codes/hr-collection-agent-backend/scripts/spike_deepseek.py | 修改 | `assert` 改为显式判断并 `sys.exit`（`python -O` 下仍生效） |
+| codes/hr-collection-agent-backend/tests/core/test_config.py | 修改 | 删除“other-model 被接受”的断言；新增反例：12 种模型名（deepseek-v4-pro、空串、空白、大小写变体、前后空白、后缀等）、30 种地址（http、其他主机、`api.deepseek.com.evil.com`、userinfo、`@` 混淆、端口、IP、IPv6、整数 IP、query/fragment、`..`、空白/换行、空串）均被拒绝且不回显值；4 种合法地址被接受 |
+| codes/hr-collection-agent-backend/tests/clients/test_deepseek_client.py | 修改 | 改用默认（获批）地址配合 MockTransport；新增：四种输入的每个请求 `model` 均为 `deepseek-flash`、scheme/host/port 固定；绕过校验的模型/地址在构造时被拒；PDF 超时 → `parse_failed` 且不调用模型；起止标记位置；图片块在标记内；文档文本中的标记不能提前结束数据区 |
+| codes/hr-collection-agent-backend/tests/clients/test_pdf_renderer.py | 修改 | 新增：超时常量 20；零预算立即失败；页间检查（伪时钟）；充足预算成功；等待 PDFium 锁计入预算且锁释放后恢复 |
+| codes/hr-collection-agent-backend/tests/clients/test_prompts.py | 修改 | 新增标记断言与 `neutralize_markers` 用例 |
+| codes/hr-collection-agent-backend/AGENTS.md | 修改 | 环境变量说明写明 `DEEPSEEK_MODEL` 只能为 `deepseek-flash`、`DEEPSEEK_BASE_URL` 只允许 `https://api.deepseek.com`；追加变更履历 |
+| backend-docs/HR_PR-1/04_design/design.md | 修改 | §6、§7.2 增量修订；文件头变更履历 v0.3 |
+
+### 偏差说明
+- PDF 总耗时上限取 **20 秒**；实现为协作式（等待 PDFium 锁时带超时、页与页之间检查），**已在执行的单页文本提取/渲染无法中断**（PDFium 是阻塞的 C 调用）；有页数上限 5，最坏情形受单页耗时约束。
+- 默认地址 `https://api.deepseek.com` 保持不变；原先测试用的 `model.example.test` 已改为默认地址，MockTransport 不发生真实网络访问。
+- 起止标记为静态字符串（非随机），并在文本层中清除出现的标记；图片内容无法清除，依赖系统提示的数据约定。
+- 未做真实模型调用（本次修复不需要）。
+
+### 遗留风险
+- 提示词起止标记只能降低提示注入风险，不能完全消除；“normalizer 拒绝模型返回的 confirmed”仍须在任务 2.1 落实（DL 裁决）。
+- 单页 PDF 操作无法被超时中断（见上）。
+
+---
+

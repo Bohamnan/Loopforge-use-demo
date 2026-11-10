@@ -13,8 +13,14 @@ from typing import Any
 import httpx
 
 from app.clients.pdf_renderer import ImagePart, render_pdf
-from app.clients.prompts import SYSTEM_PROMPT, USER_INSTRUCTION
-from app.core.config import Settings
+from app.clients.prompts import (
+    DOC_BEGIN,
+    DOC_END,
+    SYSTEM_PROMPT,
+    USER_INSTRUCTION,
+    neutralize_markers,
+)
+from app.core.config import APPROVED_MODEL, Settings, is_approved_base_url
 from app.core.errors import (
     AppError,
     ParseFailedError,
@@ -41,7 +47,7 @@ def _image_block(content: bytes, mime: str) -> dict[str, Any]:
 
 def build_user_blocks(content: bytes, content_type: str) -> list[dict[str, Any]]:
     """Content blocks for the user message. PDFs are converted locally first."""
-    blocks: list[dict[str, Any]] = []
+    blocks: list[dict[str, Any]] = [{"type": "text", "text": DOC_BEGIN}]
     if content_type in IMAGE_TYPES:
         blocks.append(_image_block(content, content_type))
     elif content_type == "application/pdf":
@@ -51,10 +57,14 @@ def build_user_blocks(content: bytes, content_type: str) -> list[dict[str, Any]]
                 blocks.append(_image_block(part.png, "image/png"))
             else:
                 blocks.append(
-                    {"type": "text", "text": f"[Page {part.page} text layer]\n{part.text}"}
+                    {
+                        "type": "text",
+                        "text": f"[Page {part.page} text layer]\n{neutralize_markers(part.text)}",
+                    }
                 )
     else:
         raise ValueError(f"unsupported content type: {content_type}")
+    blocks.append({"type": "text", "text": DOC_END})
     blocks.append({"type": "text", "text": USER_INSTRUCTION})
     return blocks
 
@@ -87,6 +97,12 @@ class DeepSeekClient:
     """Synchronous client for the approved ``deepseek-flash`` model; never retries."""
 
     def __init__(self, settings: Settings, transport: httpx.BaseTransport | None = None) -> None:
+        # Settings validate these, but model_copy()/model_construct() bypass validation, so the
+        # only code path that sends resume data re-checks them (B-02, ADR-001).
+        if settings.deepseek_model != APPROVED_MODEL or not is_approved_base_url(
+            settings.deepseek_base_url
+        ):
+            raise ValueError("model or address is not the approved one")
         self._settings = settings
         self.timeout = httpx.Timeout(
             connect=5, write=30, read=settings.model_timeout_seconds, pool=5
@@ -107,7 +123,7 @@ class DeepSeekClient:
             log_event("model_call", level="error", code=ParseUnavailableError.code.value)
             raise ParseUnavailableError()
         payload = {
-            "model": self._settings.deepseek_model,
+            "model": APPROVED_MODEL,
             "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": build_user_blocks(content, content_type)},
