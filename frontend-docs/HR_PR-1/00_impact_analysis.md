@@ -7,6 +7,7 @@
 | v1.0 | 2026-11-10 | 初版 | frontend 影响分析，9 条待澄清问题（新项目，无存量代码） |
 | v1.1 | 2026-11-10 | 跨 Workbench review 裁决 C-01..C-15 回流 | 增量修订 |
 | v2 | 2026-11-11 | HR_PR-1-CRv2：PRD v2（#3 补充、#4 补 1 条、新增 #5 #6 #7）与 HLD v2、ADR-007/008/009 推翻 v1 的"无文本框、单草稿、无历史、无归档查看" | **整篇覆盖**为"从当前 v1 代码出发，v2 要改什么"；v1.x 内容靠 git 追溯，不再保留 |
+| v2.1 | 2026-11-11 | HR_PR-1-CRv2.1：X-06 选 B + DL 追加"已保存过时可按本次内容更新"（PRD #4/#6/#7、ADR-004 修订、HLD v2.1） | 末尾追加「v2.1 增量」一节，已有各节不改；被 v2.1 修订的结论在新节中以"修订第 X 节第 Y 条"标出 |
 
 **分析人**：Yin Yang（frontend）
 **分析日期**：2026-11-11
@@ -229,3 +230,92 @@
 | 6 | 共享逻辑完整性（同一逻辑所有出现位置） | 有缺口 | 已搜索：`overwriteAcknowledged`/`needs_overwrite` 共 7 处（`SessionReducer.ts:64,110,122,142,175,184,223`）及 `useResumeSession.ts:98`、页面对话框 `ResumeCollectionPage.tsx:192`，已在 2.4 列全；`draft_expired`/`restored`/`maybe_saved` 触发点在 `SessionReducer.ts:139,293,369-370` 已列。缺口：① 对 `*.test.*` 中引用这些符号的位置只按文件级列出（2.8），未逐行；② `state.draft` 在 `ResumeCollectionPage.tsx` 内引用点较多（`:99,102,105,112,125,155` 等），本文只说"随会话改"，未逐一核对每处是否需要改；③ 未搜索 `scripts/drill_resume.py`、`scripts/selftest_resume.py` 是否依赖单草稿端点（仓库内有这两个脚本，可能需随契约更新）。以上三项留技术设计阶段补。 |
 
 **汇总**：通过 3 项；不适用/部分 1 项；有缺口 2 项（第 4、6 项）。
+
+---
+
+## 11. v2.1 增量（HR_PR-1-CRv2.1）
+
+**依据**：PRD v2.1（#4 补 3 条、#6 补 1 条、#7 补注）、HLD v2.1（§3 第 5 步"已保存过时的更新"、§4"已保存过时确认更新"契约行、§5 Backend v2.1 条）、ADR-004 v2.1 修订、`cross-workbench-review.md` X-06（DL 选 B）与 X-07（已保存内容共用"只有值"的结构，只读组件加"不显示状态"开关）。代码基线仍是 v1（本节行号同第 2 节，相对 `codes/hr-collection-agent-frontend/src/`）。接口仍未定稿，只写需要什么数据/动作。
+**范围**：只含"已保存过"时展示已有记录、新旧差异与"确认更新"、更新成功/失败提示、F-03 约束、受影响测试。归档页仍只读，无删除、无版本历史（PRD #7、`_progress.md` 深度约束）。
+
+### 11.1 对已有结论的修订
+
+| 修订位置 | 原结论 | v2.1 后 |
+|---|---|---|
+| 修订第 2.6 节第 5 行（`CONFIRM_SUCCEEDED`/`already_saved`） | `already_saved` 沿用"只显示该简历已保存过、不展示已有记录内容（P-09/D-04）"，与 Q-frontend-v2-10 待决 | **作废**：X-06 选 B，D-04 被替代，`already_saved` 会话展示已有记录内容（Q-frontend-v2-10 已由 X-06 关闭）。P-09"不展示记录编号/`resume_id`"仍有效，已有记录内容里不得出现记录编号 |
+| 修订第 2.4 节"已保存会话只读"行 | 已保存会话一律禁用文本输入、不可再对话 | 例外：`already_saved` 后仍存在"待更新的本次内容"的会话，文本输入保持可用，**仅用于**要求更新（见 11.3）；其余已保存会话仍只读 |
+| 修订第 2.3 节末条（F-03） | 只有 `createResume()` 通过形状校验后才显示"已保存" | 追加：只有"确认更新"请求 2xx 且通过形状校验后才显示"已更新"；`already_saved` 响应既不显示"已保存"也不显示"已更新" |
+| 修订第 9 节（AGENTS.md 待修订位置） | 红线"`already_saved=true` 时只显示……"视 Q-10 | 确定需改：该红线按 X-06/D-04 被替代重写，并补"更新只能经会话内再次确认" |
+| 第 8 节 Q-frontend-v2-10 | 待 BA 答 | 已关闭（X-06 选 B）；不再计入待澄清 |
+
+### 11.2 已保存过会话展示已有记录内容（PRD #6 补 1 条，X-06/X-07）
+
+| 项 | 涉及 | 改法方向 |
+|---|---|---|
+| 状态不再丢内容 | `hooks/model/SessionReducer.ts:353-354`（`already_saved` 分支置 `notice:'already_saved', savedSummary:null`）；`:337-352` 的 `base` 将 `draft:null` | 保留"已保存过"提示，同时进入 2.4 节规划的已保存只读视图，内容为**已有记录**（来自正式库、只有值，X-07）。`state.draft` 仍清空：本次内容是否继续留在前端见 11.3（由后端经会话提供，前端不自行保留，避免把简历内容滞留内存超出需要） |
+| 结果卡 | `components/SavedResultCard.tsx:13-15`（props）、`:27-31`（`alreadySaved \|\| !summary` 分支，只渲染"该简历已保存过"） | 保留该句作为提示，其下增加已有记录的分区只读展示（9 个分区，按 `SectionConfig`）；`:52-54` "上传下一份"保留 |
+| 页面分支 | `pages/ResumeCollectionPage.tsx:142-146`（`saved` case）、`:56`（`bannerKind` 排除 `already_saved`） | `saved` 分支传入已有记录内容；`already_saved` 仍不作为横幅（`NoticeBanner.tsx:4-5` 不变） |
+| 只读渲染 | `components/ReadOnlySection.tsx:77,85`（读 `fields[key].status`、渲染 `FieldStatusTag`） | 与 2.5 节规划一致：按 X-07 加"不显示状态"开关，已有记录与归档详情共用；空值文案按 2.5 节统一 |
+| 与归档一致 | — | 已有记录内容与归档详情读同一份正式库数据，字段与顺序一致（见第 6 节建议） |
+
+### 11.3 新旧差异展示与"确认更新"（PRD #4 补 3 条）
+
+| 项 | 涉及 | 改法方向 |
+|---|---|---|
+| 触发入口 | `components/ComposerBar.tsx:28`（`disabled`）；`pages/ResumeCollectionPage.tsx:151`（`showComposer` 仅 `empty`/`reviewing`）、`:174-182`（ComposerBar 调用处） | `saved` 相需在"有待更新内容"时显示文本输入（修订 2.4）。用户在对话里说"按这次内容更新"是**自由文本**，前端不得自行解析（ADR-007/F-03 同理）；需要后端在回复里给出明确信号，前端据此展示差异卡片，做法与 2.3 节"确认提交→展示待保存信息"一致（⚠️ Q-frontend-v2-12） |
+| 差异卡片 | 新增 `UpdateDiffCard`；与 2.2 节规划的 `SuggestionCard` 复用**逐项"字段 / 原值 / 新值"行渲染**（字段中文标签经 `SectionConfig`，列表类值的格式化同 Q-frontend-v2-02） | 复用关系：抽出展示层的"差异行"组件供两处使用；**不复用状态与动作**——建议卡片是逐项"应用/取消"，差异卡片是整条记录一次"确认更新 / 取消"。另展示原始文件名的新旧（文件也会被替换，PRD #4）。无差异字段不逐项列出，只给"其余 N 项相同" |
+| 差异由谁算 | 同上 | 建议由后端返回差异项（后端掌握手机号等规范化规则，前端自行比较会因规范化不一致误报）；若后端只给两侧完整值，前端逐字段比较需先对齐规范化（⚠️ Q-frontend-v2-12） |
+| 确认更新动作 | `SessionReducer.ts:24`（`Busy` 增加 `'update'`）、`:67-94`（`SessionAction` 增加 UPDATE_REQUESTED/SUCCEEDED/FAILED，参照 `CONFIRM_*` 的 epoch/`isStale` 写法，`:337`、`:367`）、`:49-66`（状态中保存待更新差异，与 `pendingFile` 同构）；`hooks/useResumeSession.ts:156-166`（参照 `startConfirm`）、`:198`（返回对象增加 `confirmUpdate`/`cancelUpdate`） | 点击"确认更新"才发请求；busy 期间沿用"忙时禁用其他交互"。取消：差异卡片关闭，已有记录与本次内容保持原状（PRD #4 "未再次确认→已有不变"）。对话文字（包括"确认""是的"）不得触发更新，只有卡片按钮可以 |
+| API 层 | `api/ResumeApi.ts:9-12`（`createResume`）旁新增更新函数；`api/ResponseShapes.ts:24-33` 旁新增更新响应的形状校验；`types/Resume.ts:10-13` 旁新增类型 | 沿用统一 `request()` 与不自动重试（DD-06）；响应只需"记录 id（内部使用，不展示）+ 更新时间" |
+| 焦点 | `hooks/useChatScroll.ts:14-18` | 差异卡片出现时增加焦点键，键盘用户跟随（TD-13） |
+
+### 11.4 更新成功/失败提示与 F-03
+
+- **成功**：仅当更新请求 2xx 且形状校验通过后，`SessionReducer` 才置"已更新"状态（新增 `NoticeKind` 成员或结果卡文案，`SessionReducer.ts:25`），随后展示更新后的记录内容（重读或用响应内容，取决于契约 ⚠️ Q-frontend-v2-13）；差异卡片清除；会话列表刷新最近活动时间（同 2.4 列表刷新点）。不得乐观更新：点击后、请求未返回前不显示"已更新"，也不替换已有记录的展示。
+- **失败（明确失败）**：沿用 `ErrorAlert`（`components/ErrorAlert.tsx:17`）显示后端 `message`；文案明确"已有简历未改变"（HLD：失败时已有记录不变）；差异卡片保留，用户可重试或取消。
+- **结果未知（超时/断网/形状不符）**：参照 `components/FinalReviewCard.tsx:46,60` 的"当前不能确认……"做法：不说成功也不说失败，提示"无法确认是否已更新"，让用户重新打开该会话核对已有记录（⚠️ 重试是否安全取决于后端更新是否幂等，Q-frontend-v2-14）。
+- **F-03 约束**：（1）对话回复、差异卡片出现、请求发出，都不是"已更新"的依据；（2）`already_saved` 响应既不是"已保存"也不是"已更新"，现有 `isCreateResumeResponse` 判断（`api/ResponseShapes.ts:25-33`）不变；（3）更新失败/未知时不得改动已有记录的展示。
+- **归档页**：保持只读，无任何更新入口（PRD #7）；更新成功后归档页下一次激活时重读即可（2.5 节已规定每次激活重新拉取）。
+
+### 11.5 受影响的现有测试（只列清单，不写测试）
+
+| 测试文件:位置 | 原因 |
+|---|---|
+| `hooks/model/SessionReducer.test.ts:350-357` | 断言 `already_saved=true` 时只有通知、无摘要；v2.1 后该状态要带已有记录内容与（可能的）待更新差异 |
+| `components/SavedResultCard.test.tsx:27-28` | 断言 `alreadySaved` 时只出现"该简历已保存过"；需改为同时展示已有记录内容 |
+| `pages/ResumeCollectionPage.final.test.tsx:241-265`（describe "REQ-FE-04.5 already_saved：只显示文字，不展示已有记录（D-04）"） | 该组用例的前提 D-04 被替代，需重写 |
+| `pages/ResumeCollectionPage.integration.test.tsx:305-312`（"shows one sentence and no record content"） | 同上 |
+| `test/FakeBackend.ts:9`、`test/ApiMocks.ts:88` | 夹具需增加更新接口与"已保存过"后的会话形态（v2 已需整体换会话模型，合并处理） |
+| `components/NoticeBanner.test.tsx:27-30` | 预期不受影响（`already_saved` 仍不是横幅） |
+| `api/ResumeApi.test.ts:22-26`、`api/ResponseShapes.test.ts:7-25` | 预期不受影响（`createResume` 与其形状校验不变）；更新函数的新增用例属新增，不在本清单 |
+| `ResumeCollectionPage.final.test.tsx:61,351`、`integration.test.tsx:93` | 断言"不出现该简历已保存过"，预期不受影响 |
+
+### 11.6 技术风险（仅 v2.1）
+
+| 风险 | 严重性 | 说明 |
+|---|---|---|
+| 更新是覆盖已有记录的不可逆写（无版本历史） | 高（红线 B-05 的前端侧） | 前端能做的是：必须展示新旧差异与文件变化后才允许确认；确认按钮仅在差异卡片上；不因对话文字触发；请求中禁用重复点击。覆盖与补偿的正确性在 backend |
+| 差异基于过期的"已有记录" | 低 | 另一浏览器在此期间更新了同一记录时，卡片展示的"原值"可能已过期；POC 本机使用，接受，写入使用说明 |
+| 已保存会话开放文本输入后，与"已保存会话只读"规则互相牵连 | 中 | 需后端明确哪些已保存会话允许对话（11.3），否则前端只能凭 `already_saved` 事实自行推断 |
+
+### 11.7 待澄清问题（接 Q-frontend-v2-10 之后续编）
+
+| 编号 | 待澄清问题 | 建议回答人 | 不同答案的影响 |
+|---|---|---|---|
+| Q-frontend-v2-11 | ⚠️ `already_saved` 后，会话是什么状态？本次内容（草稿字段与原始文件）是否仍由后端保留以备更新，会话仍可对话，还是直接变成"已保存"只读并丢弃本次内容（ADR-004 原行为） | DL（跨 Workbench） | 保留：前端可展示差异、开放文本输入；丢弃：无法更新，与 PRD #4 冲突 |
+| Q-frontend-v2-12 | ⚠️ "要求更新"的识别方式与差异数据：回复里是否带明确的"展示更新差异"信号；差异项由后端算好返回，还是前端比较两侧完整值（含原始文件新旧信息） | DL（跨 Workbench） | 后端算：前端只渲染；前端算：需对齐规范化规则，易误报 |
+| Q-frontend-v2-13 | ⚠️ 更新成功响应的内容：是否带更新后的完整记录，还是前端需再读一次；会话在更新后的状态（仍"已保存"、待更新内容是否清除） | DL（跨 Workbench） | 带完整记录：少一次请求；否则前端成功后重读 |
+| Q-frontend-v2-14 | ⚠️ 更新请求超时/断网后用户重试是否安全（更新是否幂等），以及明确失败的错误码（如记录已被删除/并发冲突/文件替换失败）与面向用户的 `message` | DL（跨 Workbench） | 幂等：可直接提示重试；否则必须引导先重读核对 |
+
+### 11.8 v2.1 验证回路自检
+
+| # | 检查项 | 结论 |
+|---|---|---|
+| 1 | 来源检查 | 通过：v2.1 的每条"修改"均带 `文件:行号`（见 11.2、11.3、11.5）；新增组件按新文件处理 |
+| 2 | 约束覆盖 | 通过：F-03（11.4）、F-02（差异卡片/已有记录内容仅内存，沿用 2.7 节，无新增存储）、B-03（前端侧沿用 `logFailure`，不记内容）、B-05 在 backend，前端侧只做 11.6 所列防护 |
+| 3 | 推断检查 | 通过：依赖后端契约的点均标 ⚠️ 并落在 Q-frontend-v2-11..14 |
+| 4 | 方案可行性追踪 | 有缺口：已追踪 `CONFIRM_SUCCEEDED` 对 `already_saved` 的现行处理（`SessionReducer.ts:353-354`）与结果卡分支（`SavedResultCard.tsx:27-31`），改法可行；"已保存会话开放文本输入"是否与 2.4 节规划的只读标志在 reducer 中可共存，未在代码中验证（v2 代码尚不存在），留技术设计 |
+| 5 | 新分支键唯一性 | 通过：新增 `Busy='update'`、`NoticeKind` 的"已更新"、焦点键，与现有 `upload/patch/confirm`、`restored/draft_expired/maybe_saved/already_saved`、`saved/final/section:*` 均不重叠（核对 `SessionReducer.ts:24-27`、`useChatScroll.ts:14-18`） |
+| 6 | 共享逻辑完整性 | 通过：已搜索 `already_saved`/`alreadySaved` 全部出现位置（源码 `SessionReducer.ts:25,353-354`、`SavedResultCard.tsx:14,23,27`、`ResumeCollectionPage.tsx:56,144`、`NoticeBanner.tsx:4-5`、`types/Resume.ts:11-12`、`ResponseShapes.ts:24,29`，及测试，见 11.5），均已覆盖；`scripts/*.py` 仍未查，沿用第 10 节缺口 |
+
+**汇总**：通过 5 项；有缺口 1 项（第 4 项）。本节新增修改点 14 处（11.2 共 5、11.3 共 7、11.4 共 2），修订已有结论 5 条（11.1），新增待澄清 4 条（Q-frontend-v2-11..14），关闭 1 条（Q-frontend-v2-10）。
