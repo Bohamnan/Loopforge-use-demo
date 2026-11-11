@@ -368,7 +368,7 @@
 - [x] `NewChatButton` 与对话框接线
 - [x] `requestNewChat` / `confirmNewChat` 与 epoch 处理
 
-### Task 2.8：无障碍与响应式（增量：新控件与焦点键） ⟳ v2 重开
+### Task 2.8：无障碍与响应式（增量：新控件与焦点键） ✅
 - **关联：** design.md §3.3（useChatScroll）、§3.4（ChatThread）、§6（ChatThread、AppShell）、TD-13、TD-14；Q-DL-05
 - **内容：** `src/hooks/useChatScroll.ts`（仅返回“需要滚动 / 聚焦的区块 key”，不触碰 DOM 样式）、`ChatThread` 使用该信号完成 `scrollIntoView` / `focus()`；`aria-live="polite"` 播报加载与保存结果、`role="alert"` 用于错误；分区推进后焦点移到新分区标题；< 860px 外壳折叠（`Drawer` 或顶栏按钮承载“＋ 新对话”）；状态用文字 + 颜色；核心按钮键盘可达。
 - **测试：** 按角色与名称查询核心按钮并通过键盘触发；加载 / 错误 / 保存结果出现在对应 `aria-live` / `role=alert` 区域；分区推进后焦点位于新分区标题；`useChatScroll` 为纯信号（不引用 DOM API）；窄屏下外壳折叠且“＋ 新对话”仍可达（以 `matchMedia` mock 验证）。
@@ -383,8 +383,8 @@
 
 #### 子任务
 
-- [ ] `useChatScroll` 与 `ChatThread` 焦点 / 滚动
-- [ ] 外壳响应式与 aria 属性
+- [x] `useChatScroll` 与 `ChatThread` 焦点 / 滚动
+- [x] 外壳响应式与 aria 属性
 
 ### Task 2.9：会话栏、切换、删除与离开确认（REQ-FE-05） ✅
 - **关联：** design §3.3（useSessionList）、§3.4（SessionList、AppShell）、TD-16/17/26/29/30；REQ-FE-05.1–05.6；ADR-008

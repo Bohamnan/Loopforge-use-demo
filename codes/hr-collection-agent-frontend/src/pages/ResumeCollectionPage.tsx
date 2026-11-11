@@ -70,7 +70,13 @@ export default function ResumeCollectionPage({ visible = true, nav }: ResumeColl
   } = useResumeSession({ onActivity: list.reload });
   const [text, setText] = useState('');
   usePreventFileDropNavigation(); // also covers phases without a composer
-  const focusKey = useChatScroll({ phase: state.phase, view: state.view, activeSection: state.activeSection });
+  const focusKey = useChatScroll({
+    phase: state.phase,
+    view: state.view,
+    activeSection: state.activeSection,
+    lastMessageId: state.messages.at(-1)?.message_id ?? null,
+    diffOpen: state.diff !== null,
+  });
   const composerRef = useRef<ComposerBarHandle>(null);
   const busy = state.busy !== null;
   const bannerKind = state.notice === 'session_gone' ? state.notice : null;
