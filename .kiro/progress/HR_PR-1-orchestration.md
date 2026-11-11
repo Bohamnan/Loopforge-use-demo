@@ -9,6 +9,8 @@
 
 > 本文件只记录**编排的接续上下文**。业务结论以 `_progress.md` 和各审查报告为准，本文件不重复。
 
+> **QA worker（DL 2026-11-11）**：执行重跑清单 5q 时，新建一个 Orca worktree 启动 kiro-cli QA agent，该 worktree 的 `local_profile.yaml` 设 `role: qa`（qa-test-case 只允许 qa / dev-lead）。新 worktree 首次需先 Trust（见第二节第 2 条）。
+
 ---
 
 ## 一、编排结构
