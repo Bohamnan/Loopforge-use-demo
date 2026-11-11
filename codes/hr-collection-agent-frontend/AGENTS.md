@@ -2,7 +2,7 @@
 
 | 项 | 内容 |
 |---|---|
-| 状态 | 待复核（设计有更新） |
+| 状态 | 已确认（v2，DL 2026-11-11 复核） |
 | 版本 | v2（会话化变更，待 Dev Lead 复核） |
 | 来源 | [solution-design.md](../../01-requirements/HR_PR-1/solution-design.md)（HR_PR-1）；工作台 frontend 规范与架构参考；v2 补全依据 [design.md](../../frontend-docs/HR_PR-1/04_design/design.md)（v2.0）、[interface_spec_resume.md](../../frontend-docs/HR_PR-1/03_api/interface_spec_resume.md)（v0.3）、[tasks.md](../../frontend-docs/HR_PR-1/05_task/tasks.md)（v2.0）、[openapi.yaml](../../backend-docs/HR_PR-1/03_api/openapi.yaml)（**0.2.0**，已冻结） |
 | 最后更新 | 2026-11-11（v2 增量更新，待 Dev Lead 复核） |
@@ -149,4 +149,4 @@ codes/hr-collection-agent-frontend/
 | 3 | backend OpenAPI 的具体路径、字段类型、状态值和错误码 | ✅ 已关闭 | v1：OpenAPI 0.1.1（4 个接口、22 字段、13 个业务码）；**v2：OpenAPI 0.2.0 已冻结**（13 个操作、19 个业务码）；G-01、G-02、CR-01、CR-01a；跨 Workbench Review 已通过 |
 | 4 | Node.js 版本（及 `engines` / `.nvmrc`） | ✅ 已关闭 | DL 复核决定（2026-11-10）：`engines` 为 `"node": ">=24"`（Node 24 LTS）；本机 v25.8.2 满足 |
 | 5 | 非本地（非 localhost）部署时的同源方式（反向代理、Cookie `Secure`） | ⏳ 保留 | 本期为 localhost POC，生产部署形态未定（与 backend 待确认 #2a 同属部署设计）。确认人：Dev Lead/部署负责人；时机：部署设计 |
-| 6 | 本文件 v2 增量（契约 0.2.0、会话 / 对话 / 归档、红线更新、脚本退役）的复核 | ⏳ 待复核 | design v2.0 §10.1 REQ-AGENTS-01；确认人：Dev Lead；复核通过后状态改回“已确认”，feature-developer 在此之前不得开始 |
+| 6 | 本文件 v2 增量（契约 0.2.0、会话 / 对话 / 归档、红线更新、脚本退役）的复核 | ✅ 已关闭（DL 2026-11-11 复核） | design v2.0 §10.1 REQ-AGENTS-01；确认人：Dev Lead；复核通过后状态改回“已确认”，feature-developer 在此之前不得开始 |
