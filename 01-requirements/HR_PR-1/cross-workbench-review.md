@@ -16,6 +16,7 @@
 | 2026-11-10 | 新增「契约审视（第二轮）：frontend 接口消费设计」节（G-01、F-01..F-05） | frontend Step 2.2 提出契约缺口与待确认点 |
 | 2026-11-10 | 新增「契约变更：OpenAPI 0.1.1」节（G-01、G-02、CR-01） | backend 技术设计提出 CR-01，与 G-01/G-02 合并为一次兼容修订 |
 | 2026-11-10 | C-01 补充：任务 1.8 实测 deepseek-flash 不接受 PDF，PDF 改为本地转换后提交（见 ADR-001 修订 1） | 实测证据推翻原结论 |
+| 2026-11-11 | 新增「契约审视：OpenAPI 0.2.0 草稿」节（裁决落实 12 项、O2-01..05） | C-13：v2 契约变更冻结前审视 |
 | 2026-11-11 | v2 审视节追加「v2.1 增量比对」（Y-01、Y-02）；X-06 选 B | HR_PR-1-CRv2.1：两侧 v2.1 影响分析补充（4f02d13、5582374） |
 | 2026-11-11 | 新增「v2 增量审视」节（X-01..X-10、X-10a）；就地标注被 v2 替代的 v1 裁决（C-03、C-06、C-07、C-11、D-01、D-05、O-01、O-03、O-12）；汇总状态补 v2 分析 | HR_PR-1-CRv2：两侧 v2 影响分析（backend 924a75b、frontend 0ee2330 + 1476ce6）完成，按 requirement-change-router 重跑清单第 4 项增量审视 |
 
@@ -466,6 +467,39 @@
 **确认人**：Yin Yang（Dev Lead，对话中确认"接受建议"、X-06 选 B、v2.1 方案 A、Y-01/Y-02"采纳"）  **确认日期**：2026-11-11
 
 ---
+
+## 契约审视：OpenAPI 0.2.0 草稿（v2，2026-11-11）
+
+> 依据 C-13：契约变更须经本 Review。审视对象：`backend-docs/HR_PR-1/03_api/openapi.yaml` 0.2.0（21e0e4f）、`api_design_resume.md` §八（frontend 数据需求对照）。主 agent 复验：openapi-spec-validator 0.7.1 校验通过；10 个路径 / 13 个操作；ErrorCode 19 个。
+
+### 裁决落实检查
+
+| 裁决 | 契约落点 | 结论 |
+|---|---|---|
+| X-01 对话超时 | 后端模型超时不变；前端 75s 属 frontend 实现 | ✅（frontend 6b/7b 落实） |
+| X-02 不加确认信号 | `SendMessageResponse` 只含用户消息与助手消息，无确认类字段 | ✅ |
+| X-03 删除 204 | `DELETE /sessions/{id}` → 204 / 404 | ✅ |
+| X-04 后端生成名称 | `SessionSummary.name`、`SessionDetail.name` | ✅ |
+| X-05 文件可用性 | `ArchivedResume.file_available` + `file_not_available` 错误码 | ✅ |
+| X-07 已保存内容只含值 | `ResumeValues`（无 status），用于 `ArchivedResume.fields`、`SessionDetail.resume`、`UpdateCandidate.fields` | ✅ |
+| X-08 会话命名 | 全部路径与 DTO 使用 `session`；`draft_not_found` 由 `session_not_found` 取代 | ✅ |
+| Y-01 快捷回复触发更新 | 已保存会话不开放对话（`session_read_only`）；更新只经 `PUT /sessions/{id}/resume` | ✅ |
+| Y-02 前端比较差异 | `SessionDetail` 同时返回 `resume` 与 `update_candidate` | ✅ |
+| TQ-v2-06 消息长度 | `SendMessageRequest.content` 1–2000 | ✅ |
+| TQ-v2-09 保存时间 | `saved_at`（首次）与 `updated_at`（最近更新）分开 | ✅ |
+| ADR-008 浏览器标识 | Cookie `browser_id`，`HttpOnly; SameSite=Lax; Path=/; Max-Age=34560000`；`expires_at` 已删除 | ✅ |
+
+### backend 提出的待确认点（DL 长期授权，采纳建议）
+
+| # | 事项 | 结论 |
+|---|---|---|
+| O2-01 | 建议以助手消息为应用单位（整卡应用/取消）；不可应用的建议状态保持 `pending`、不参与动作，不新增第 4 个状态值 | ✅ 采纳（与 REQ-BE-07 AC7"整卡全部成功或全部不生效"一致） |
+| O2-02 | apply/cancel 响应返回完整字段，而非整个会话 | ✅ 采纳（frontend 用其替换当前字段即可） |
+| O2-03 | 原始文件下载使用 `attachment` + `nosniff`，不内联 | ✅ 采纳（frontend 走 blob 并用通用文件名，REQ-FE-06 AC3） |
+| O2-04 | 确认更新用 `PUT /sessions/{id}/resume`，首次保存用 `POST` | ✅ 采纳 |
+| O2-05 | v1 契约测试（tests/contract、schemas 对齐、api/e2e/selftest）会因 openapi 替换整体失效 | ✅ 采纳：在 7a/8a 任务拆分中处理，6a 不改代码 |
+
+**不一致项**：0 条。**结论**：经 DL 确认后冻结 OpenAPI 0.2.0，frontend 进入 6b（接口消费规范同步）。
 
 ## Dev Lead 确认（v1）
 
