@@ -5,7 +5,12 @@ from fastapi import APIRouter, Depends, Response
 from app.api import cookies
 from app.api.deps import get_browser_id, get_resume_service, get_settings
 from app.core.config import Settings
-from app.schemas.resume import CreateResumeRequest, CreateResumeResponse
+from app.schemas.resume import (
+    CreateResumeRequest,
+    CreateResumeResponse,
+    UpdateResumeRequest,
+    UpdateResumeResponse,
+)
 from app.services.resume_service import ResumeService
 
 router = APIRouter(prefix="/api/v1/sessions", tags=["session-resume"])
@@ -38,3 +43,21 @@ def create_resume(
     return CreateResumeResponse(
         resume_id=result.resume_id, already_saved=result.already_saved, saved_at=result.saved_at
     )
+
+
+@router.put(
+    "/{session_id}/resume", response_model=UpdateResumeResponse, operation_id="updateResume"
+)
+def update_resume(
+    session_id: str,
+    body: UpdateResumeRequest,
+    response: Response,
+    browser_id: str | None = Depends(get_browser_id),
+    service: ResumeService = Depends(get_resume_service),
+    settings: Settings = Depends(get_settings),
+) -> UpdateResumeResponse:
+    """Overwrite the saved record with the session's update candidate (explicit confirmation)."""
+    result = service.update_existing(session_id, browser_id, body.confirm_update)
+    if browser_id is not None:  # always true here: the service raises otherwise
+        cookies.renew(response, browser_id, settings)
+    return result

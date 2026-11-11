@@ -9,6 +9,7 @@ The session stays after saving (ADR-008): "finish" is a conditional state change
 delete, so every "was it already handled?" question is answered by re-reading the session.
 """
 
+import secrets
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,6 +21,7 @@ from app.core.errors import (
     SaveFailedError,
     SessionNotFoundError,
     SessionReadOnlyError,
+    UpdateNotAvailableError,
     ValidationFailedError,
 )
 from app.core.ids import IdGenerator
@@ -28,6 +30,7 @@ from app.repositories.archive_file_store import ArchiveFileStore, final_name
 from app.repositories.draft_file_store import EXTENSIONS, DraftFileStore
 from app.repositories.resume_repository import NewResume, ResumeRef, ResumeRepository
 from app.repositories.session_repository import SessionRecord, SessionRepository
+from app.schemas.resume import UpdateResumeResponse
 from app.schemas.resume_fields import ResumeFields
 from app.services.field_validation import validate_core_fields
 from app.services.identity_key import Identity, build_identity
@@ -89,6 +92,42 @@ class ResumeService:
             return self._duplicate(session, existing)
         return self._save_new(session, owner, fields, identity)
 
+    def update_existing(
+        self, session_id: str, browser_id: str | None, confirm_update: bool | None
+    ) -> UpdateResumeResponse:
+        """Overwrite the saved record with the session's frozen candidate (REQ-BE-09, B-04/B-05).
+
+        Order (design 5.3a): unique-name stage -> promote -> replace_aggregate (one
+        transaction) -> remove the old file -> mark the session applied. At every moment the
+        record points at an existing file; nothing before the transaction touches the record.
+        """
+        if confirm_update is not True:
+            raise ConfirmationRequiredError()
+        session = self._load_for_update(session_id, browser_id)
+        if session.update_state == "applied":  # repeated request: same answer, no writes
+            return self._applied_answer(session)
+        if session.update_state != "pending":
+            raise UpdateNotAvailableError()
+        fields = ResumeFields.model_validate_json(session.fields_json)
+        issues = validate_core_fields(fields.name.value, fields.phone.value, fields.email.value)
+        if issues:
+            raise ValidationFailedError(issues)
+        identity = build_identity(
+            fields.name.value or "", fields.phone.value or "", fields.email.value or ""
+        )
+        target = self._find(identity)
+        if target is None or target.id != session.resume_id:
+            raise UpdateNotAvailableError()
+        new_name = self._publish_new_version(session, target.id)
+        now = format_utc(self._clock.now())
+        resume = self._build_resume(session, fields, identity, target.id, new_name, now)
+        old_name = self._replace(resume, new_name, now)
+        if old_name != new_name:
+            self._remove_old(old_name, target.id)
+        self._finish_update(session, now)
+        log_event("resume_updated", resume_id=target.id, session_id=session.id)
+        return UpdateResumeResponse(resume_id=target.id, updated_at=now)
+
     # ---- steps ---------------------------------------------------------------------------
 
     def _load(self, session_id: str, browser_id: str | None) -> SessionRecord:
@@ -115,7 +154,9 @@ class ResumeService:
         if raced is not None:
             return self._duplicate(session, raced)
         created_at = format_utc(self._clock.now())
-        resume = self._build_resume(session, fields, identity, resume_id, ext, created_at)
+        resume = self._build_resume(
+            session, fields, identity, resume_id, final_name(resume_id, ext), created_at
+        )
         try:
             self._resumes.create_aggregate(resume)
         except DuplicateIdentityError as exc:
@@ -243,13 +284,98 @@ class ResumeService:
         except _CLEANUP_ERRORS as exc:
             log_event("tmp_cleanup_failed", level="warning", exc=exc, resume_id=resume_id)
 
+    # ---- steps of the confirmed update ----------------------------------------------------
+
+    def _load_for_update(self, session_id: str, browser_id: str | None) -> SessionRecord:
+        if browser_id is None:
+            raise SessionNotFoundError()
+        record = self._sessions.get(session_id, browser_hash(browser_id))
+        if record is None:
+            raise SessionNotFoundError()
+        if record.status != "saved":
+            raise UpdateNotAvailableError()
+        return record
+
+    def _applied_answer(self, session: SessionRecord) -> UpdateResumeResponse:
+        stored = self._resumes.get_detail(session.resume_id or "")
+        if stored is None:
+            raise UpdateNotAvailableError()
+        return UpdateResumeResponse(resume_id=stored.id, updated_at=stored.updated_at)
+
+    def _publish_new_version(self, session: SessionRecord, resume_id: str) -> str:
+        """Stage the candidate file under a unique name and promote it. Returns its final name.
+
+        The unique name means the existing file is never overwritten; a failure here leaves the
+        record and the old file exactly as they were.
+        """
+        file_id = f"{resume_id}-{secrets.token_hex(4)}"
+        ext = EXTENSIONS[session.content_type]
+        source = self._resolve_source(session, resume_id)
+        try:
+            self._archive.stage(source, file_id, ext)
+            self._archive.promote(file_id, ext)
+        except Exception as exc:
+            self._discard_tmp(file_id, ext)
+            log_event("update_stage_failed", level="error", exc=exc, resume_id=resume_id)
+            raise SaveFailedError() from exc
+        return final_name(file_id, ext)
+
+    def _replace(self, resume: NewResume, new_name: str, now: str) -> str:
+        """Run the overwrite transaction; returns the file name the record pointed at before.
+
+        On failure the new file is removed unless the record already points at it (a commit
+        whose outcome is unknown is decided by the record, not by the exception).
+        """
+        try:
+            return self._resumes.replace_aggregate(resume, now)
+        except Exception as exc:
+            log_event("db_write_failed", level="error", exc=exc, resume_id=resume.id)
+            committed = self._points_at(resume.id, new_name)
+            if committed is None:
+                raise SaveFailedError() from exc  # unknown: keep the file, reconcile decides
+            if not committed:
+                self._remove_file(new_name, resume.id)
+                raise SaveFailedError() from exc
+            return new_name  # committed: the old name is unknown, reconcile removes the old file
+
+    def _points_at(self, resume_id: str, name: str) -> bool | None:
+        """Whether the record's file is ``name``; ``None`` when that cannot be read."""
+        try:
+            stored = self._resumes.get_detail(resume_id)
+        except Exception as exc:  # noqa: BLE001 - outcome unknown, keep the file
+            log_event("commit_check_failed", level="error", exc=exc, resume_id=resume_id)
+            return None
+        return stored is not None and stored.file_path == name
+
+    def _remove_old(self, name: str, resume_id: str) -> None:
+        """Best effort: a leftover old file is removed by the next start-up reconciliation."""
+        self._remove_file(name, resume_id)
+
+    def _remove_file(self, name: str, resume_id: str) -> None:
+        try:
+            self._archive.remove(name)
+        except _CLEANUP_ERRORS as exc:
+            log_event("archive_cleanup_failed", level="warning", exc=exc, resume_id=resume_id)
+
+    def _finish_update(self, session: SessionRecord, now: str) -> None:
+        """Mark applied, then delete the candidate's temp file; failures are logged only."""
+        try:
+            self._sessions.mark_update_applied(session.id, session.browser_hash, now)
+        except _CLEANUP_ERRORS as exc:
+            log_event("session_finish_failed", level="warning", exc=exc, session_id=session.id)
+            return  # still pending: pressing again overwrites with the same content
+        try:
+            self._draft_files.delete(session.file_path or "")
+        except _CLEANUP_ERRORS as exc:
+            log_event("draft_cleanup_failed", level="warning", exc=exc, session_id=session.id)
+
     @staticmethod
     def _build_resume(
         session: SessionRecord,
         fields: ResumeFields,
         identity: Identity,
         resume_id: str,
-        ext: str,
+        file_name: str,
         created_at: str,
     ) -> NewResume:
         return NewResume(
@@ -260,7 +386,7 @@ class ResumeService:
             name_key=identity.name_key,
             phone_key=identity.phone_key,
             email_key=identity.email_key,
-            file_path=final_name(resume_id, ext),
+            file_path=file_name,
             original_filename=session.original_filename,
             content_type=session.content_type,
             file_size=session.file_size,

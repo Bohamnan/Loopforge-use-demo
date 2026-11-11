@@ -74,7 +74,7 @@ from app.services.reconcile_service import ReconcileReport, ReconcileService  # 
 from app.services.resume_service import ResumeService  # noqa: E402
 from tests.services.fault_injection import (  # noqa: E402
     FaultInjector,
-    FaultyArchiveStore,
+    FaultyArchiveStoreRemove,
     FaultyDraftFileStore,
     FaultyResumeRepository,
     FaultySessionRepository,
@@ -90,7 +90,7 @@ class ResumeEnv:
     session_repo: FaultySessionRepository
     draft_files: FaultyDraftFileStore
     resume_repo: FaultyResumeRepository
-    archive: FaultyArchiveStore
+    archive: FaultyArchiveStoreRemove
     injector: FaultInjector
     parser: FakeParserClient
     clock: FakeClock
@@ -105,6 +105,7 @@ class ResumeEnv:
         phone: str = "13800138000",
         email: str = "ZS@EXAMPLE.COM",
         browser: str | None = None,
+        upload: ValidatedUpload | None = None,
         **overrides: object,
     ) -> str:
         """Create a session through the real upload path; returns its id."""
@@ -115,8 +116,19 @@ class ResumeEnv:
         self.parser.result = make_raw_result(
             name=node(name), phone=node(phone), email=node(email), **overrides
         )
-        created = self.sessions_service.create(make_upload(), browser or self.browser)
+        created = self.sessions_service.create(upload or make_upload(), browser or self.browser)
         return created.detail.session_id
+
+    def pending_candidate(self, upload: ValidatedUpload | None = None, **overrides: object):  # noqa: ANN201
+        """Save a person first, then upload the same person again: returns (session id, saved)."""
+        saved = self.confirm(
+            self.new_session(job_title={"value": "OLD JOB", "status": "recognized"})
+        )
+        sid = self.new_session(
+            upload=upload, job_title={"value": "NEW JOB", "status": "recognized"}, **overrides
+        )
+        assert self.confirm(sid).already_saved is True
+        return sid, saved
 
     def confirm(self, session_id: str, confirmed: bool | None = True, browser: str | None = None):  # noqa: ANN201
         return self.service.confirm(session_id, browser or self.browser, confirmed)
@@ -162,7 +174,7 @@ def resume_env(data_dir: Path, file_dir: Path) -> ResumeEnv:
     session_repo = FaultySessionRepository(data_dir / "drafts.db", injector)
     draft_files = FaultyDraftFileStore(data_dir, injector)
     resume_repo = FaultyResumeRepository(data_dir / "resumes.db", injector)
-    archive = FaultyArchiveStore(file_dir, injector)
+    archive = FaultyArchiveStoreRemove(file_dir, injector)
     parser = FakeParserClient(result=make_raw_result())
     clock, ids = FakeClock(), SequentialIdGenerator()
     sessions_service = SessionService(

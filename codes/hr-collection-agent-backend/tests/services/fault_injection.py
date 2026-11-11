@@ -64,6 +64,14 @@ class FaultyArchiveStore(ArchiveFileStore):
         return super().promote(resume_id, ext)
 
 
+class FaultyArchiveStoreRemove(FaultyArchiveStore):
+    """Adds point ``archive_remove`` (before deleting a final file by name)."""
+
+    def remove(self, name: str) -> bool:
+        self.injector.hit("archive_remove")
+        return super().remove(name)
+
+
 class FaultyResumeRepository(ResumeRepository):
     """Points: ``db_before`` (crash before the transaction), ``db_after_main``,
     ``db_after_sub`` (inside the transaction), ``db_after_commit`` (after COMMIT).
@@ -92,6 +100,17 @@ class FaultyResumeRepository(ResumeRepository):
         super().create_aggregate(resume)
         self.injector.hit("db_after_commit")
 
+    def replace_aggregate(self, resume: NewResume, updated_at: str) -> str:
+        """Points: ``replace_before``, ``replace_after_main`` (inside), ``replace_after_commit``."""
+        self.injector.hit("replace_before")
+        old = super().replace_aggregate(resume, updated_at)
+        self.injector.hit("replace_after_commit")
+        return old
+
+    def _update_main(self, conn: sqlite3.Connection, r: NewResume, updated_at: str) -> None:  # type: ignore[override]
+        super()._update_main(conn, r, updated_at)
+        self.injector.hit("replace_after_main")
+
     def _insert_main(self, conn: sqlite3.Connection, r: NewResume) -> None:  # type: ignore[override]
         super()._insert_main(conn, r)
         self.injector.hit("db_after_main")
@@ -113,6 +132,10 @@ class FaultySessionRepository(SessionRepository):
     def mark_saved(self, session_id: str, browser_hash: str, resume_id: str, now: str) -> bool:
         self.injector.hit("session_mark_saved")
         return super().mark_saved(session_id, browser_hash, resume_id, now)
+
+    def mark_update_applied(self, session_id: str, browser_hash: str, now: str) -> bool:
+        self.injector.hit("session_mark_applied")
+        return super().mark_update_applied(session_id, browser_hash, now)
 
     def mark_candidate_pending(
         self, session_id: str, browser_hash: str, resume_id: str, now: str
