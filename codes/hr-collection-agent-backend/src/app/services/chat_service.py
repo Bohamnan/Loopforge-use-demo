@@ -9,6 +9,8 @@ write leaves no message, no suggestion and no field changed.
 
 import json
 
+from pydantic import ValidationError
+
 from app.clients.resume_chat_client import ChatRequest, ChatTurn, ResumeChatClient
 from app.core.clock import Clock, format_utc
 from app.core.errors import (
@@ -18,16 +20,25 @@ from app.core.errors import (
     IssueReason,
     SessionNotFoundError,
     SessionReadOnlyError,
+    SuggestionUnavailableError,
     ValidationFailedError,
 )
 from app.core.ids import IdGenerator
 from app.core.logging import log_event
-from app.repositories.chat_repository import ChatRepository, MessageRecord, NewSuggestion
+from app.repositories.chat_repository import (
+    ChatRepository,
+    ChatTransaction,
+    MessageRecord,
+    NewSuggestion,
+    SuggestionRecord,
+)
 from app.repositories.session_repository import SessionRecord, SessionRepository
 from app.schemas import limits as L
-from app.schemas.chat import SendMessageResponse
-from app.schemas.resume_fields import ResumeFields
-from app.services.chat_view import to_message
+from app.schemas.chat import SendMessageResponse, SuggestionActionResponse
+from app.schemas.resume_fields import ResumeFields, ResumeFieldsUpdate
+from app.services.chat_view import to_message, to_suggestion
+from app.services.field_merge import merge_update
+from app.services.field_validation import validate_update
 from app.services.session_service import browser_hash
 from app.services.suggestion_validation import validate_suggestions
 
@@ -75,6 +86,22 @@ class ChatService:
         if dropped:
             log_event("chat_suggestions_dropped", count=dropped)
         return response
+
+    def apply(
+        self, session_id: str, message_id: str, browser_id: str | None
+    ) -> SuggestionActionResponse:
+        """Apply every applicable pending suggestion of one card, all or nothing (REQ-BE-07.7).
+
+        The only way a suggestion changes a field: the values are re-validated and merged by
+        the same ``merge_update`` as the manual partial update, so the field becomes confirmed.
+        """
+        return self._act(session_id, message_id, browser_id, apply=True)
+
+    def cancel(
+        self, session_id: str, message_id: str, browser_id: str | None
+    ) -> SuggestionActionResponse:
+        """Dismiss the card's pending suggestions; fields stay as they are."""
+        return self._act(session_id, message_id, browser_id, apply=False)
 
     # ---- steps ---------------------------------------------------------------------------
 
@@ -130,3 +157,67 @@ class ChatService:
             user_message=to_message(user, [], None),
             assistant_message=to_message(assistant, stored, current),
         )
+
+    def _act(
+        self, session_id: str, message_id: str, browser_id: str | None, *, apply: bool
+    ) -> SuggestionActionResponse:
+        """One BEGIN IMMEDIATE transaction: any failure rolls the whole card back."""
+        if browser_id is None:
+            raise SessionNotFoundError()
+        owner = browser_hash(browser_id)
+        now = format_utc(self._clock.now())
+        with self._sessions.transaction() as tx:
+            record = tx.get(session_id, owner)
+            if record is None:
+                raise SessionNotFoundError()
+            if record.status != "reviewing":
+                raise SessionReadOnlyError()
+            chat = self._chats.bind(tx)
+            todo = self._pending_of_card(chat, session_id, message_id)
+            fields = ResumeFields.model_validate_json(record.fields_json)
+            updated_at = record.updated_at
+            if apply:
+                fields = merge_update(fields, self._as_update(todo))
+                if not tx.update_fields(session_id, owner, fields.model_dump_json(), now):
+                    raise SessionNotFoundError()
+                updated_at = now
+            status = "applied" if apply else "cancelled"
+            if chat.mark_suggestions(message_id, status, now) != len(todo):
+                raise SuggestionUnavailableError()
+            cards = chat.suggestions_of_message(message_id)
+        log_event("chat_card_applied" if apply else "chat_card_cancelled", message_id=message_id)
+        return SuggestionActionResponse(
+            message_id=message_id,
+            suggestions=[to_suggestion(s, None) for s in cards],
+            fields=fields,
+            updated_at=updated_at,
+        )
+
+    @staticmethod
+    def _pending_of_card(
+        chat: ChatTransaction, session_id: str, message_id: str
+    ) -> list[SuggestionRecord]:
+        message = chat.get_message(session_id, message_id)
+        if message is None or message.role != "assistant":
+            raise SessionNotFoundError()  # a message of another session looks like a miss
+        todo = [
+            s
+            for s in chat.suggestions_of_message(message_id)
+            if s.applicable and s.status == "pending"
+        ]
+        if not todo:
+            raise SuggestionUnavailableError()  # already applied, cancelled, or nothing to do
+        return todo
+
+    @staticmethod
+    def _as_update(todo: list[SuggestionRecord]) -> ResumeFieldsUpdate:
+        """Re-validate stored values exactly like a manual edit; anything off voids the card."""
+        try:
+            update = ResumeFieldsUpdate.model_validate(
+                {s.field: json.loads(s.new_value_json) for s in todo}
+            )
+        except (ValidationError, ValueError) as exc:
+            raise SuggestionUnavailableError() from exc
+        if validate_update(update):
+            raise SuggestionUnavailableError()
+        return update
