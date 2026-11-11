@@ -13,6 +13,7 @@ import NoticeBanner from '../components/NoticeBanner';
 import SessionList from '../components/SessionList';
 import QuickReplyChips from '../components/QuickReplyChips';
 import ReviewSummary from '../components/ReviewSummary';
+import UpdateDiffCard from '../components/UpdateDiffCard';
 import SavedSessionView from '../components/SavedSessionView';
 import SectionCard from '../components/SectionCard';
 import UploadProgressNotice from '../components/UploadProgressNotice';
@@ -46,6 +47,10 @@ export default function ResumeCollectionPage() {
     confirmResume,
     proceedUnconfirmed,
     rereadSession,
+    openUpdateDiff,
+    closeUpdateDiff,
+    confirmUpdate,
+    verifyUpdate,
     requestNewChat,
     confirmLeave,
     dismissDialog,
@@ -179,10 +184,22 @@ export default function ResumeCollectionPage() {
     case 'saved':
       content = (
         <SavedSessionView
-          kind={state.notice === 'already_saved' ? 'already_saved' : 'saved'}
+          kind={state.notice === 'updated' ? 'updated' : state.notice === 'already_saved' ? 'already_saved' : 'saved'}
           saved={state.saved}
           summary={state.savedSummary}
           messages={readOnlyMessages}
+          diff={
+            state.diff ? (
+              <UpdateDiffCard
+                diff={state.diff}
+                busy={busy}
+                error={state.error?.scope === 'update' ? state.error.cause : null}
+                onConfirm={confirmUpdate}
+                onCancel={closeUpdateDiff}
+                onVerify={verifyUpdate}
+              />
+            ) : null
+          }
           busy={busy}
           onUploadNext={requestNewChat}
           onReread={rereadSession}
@@ -208,6 +225,11 @@ export default function ResumeCollectionPage() {
         ]}
       />
     );
+  }
+
+  // "按本次内容更新" is a quick reply, not a chat message: it opens the diff card without any request (Y-01).
+  if (state.phase === 'saved' && state.saved?.update_state === 'pending' && state.saved.update_candidate && state.diff === null) {
+    quickReplies = <QuickReplyChips chips={[{ label: '按本次内容更新', primary: true, disabled: busy, onClick: openUpdateDiff }]} />;
   }
 
   return (

@@ -548,3 +548,10 @@ body {
   overflow: hidden;
   clip: rect(0 0 0 0);
 }
+.update-diff-card {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--border, #d5dce2);
+  border-radius: 12px;
+  background: #fff;
+}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useReducer, useState } from 'react';
 import { ApiError } from '../api/ApiError';
 import { applySuggestions, cancelSuggestions, sendMessage } from '../api/ConversationApi';
-import { createResume } from '../api/ResumeApi';
+import { createResume, updateResume } from '../api/ResumeApi';
 import { createSession, deleteSession, getSession, updateSessionFields } from '../api/SessionApi';
 import type { SessionDetail } from '../types/Session';
 import type { ResumeFieldsUpdate } from '../types/ResumeModel';
@@ -132,6 +132,17 @@ function createEngine(dispatch: (action: SessionAction) => void) {
         );
         break;
       }
+      case 'update': {
+        // F-03: "已更新" only after a well-formed 2xx PUT (then re-read) or a verification read saying applied.
+        const id = after.sessionId;
+        if (id === null) break;
+        void updateResume(id).then(
+          (response) =>
+            reread(id).then(({ detail, readError }) => settle({ type: 'UPDATE_SUCCEEDED', response, detail, readError, epoch })),
+          (error: unknown) => settle({ type: 'UPDATE_FAILED', error: toApiError(error), epoch }, false),
+        );
+        break;
+      }
       case 'suggest': {
         const target = suggestTarget;
         if (target === null || after.sessionId === null) break;
@@ -183,6 +194,13 @@ function createEngine(dispatch: (action: SessionAction) => void) {
         // Unknown save result (timeout / network / read-only): the server decides, nothing is resent (TD-19).
         if (after.sessionId === null) break;
         void getSession(after.sessionId).then((detail) => settle({ type: 'CONFIRM_VERIFIED', detail, epoch }, (a) => a.phase === 'saved'), fail);
+        break;
+      case 'verify_update':
+        if (after.sessionId === null) break;
+        void getSession(after.sessionId).then(
+          (detail) => settle({ type: 'UPDATE_VERIFIED', detail, epoch }, (a) => a.notice === 'updated'),
+          fail,
+        );
         break;
       case 'sync':
         if (after.sessionId === null) break;
@@ -243,6 +261,21 @@ function createEngine(dispatch: (action: SessionAction) => void) {
       /** "Continue" in the unconfirmed-fields dialog: confirm what is displayed. */
       proceedUnconfirmed() {
         send({ type: 'CONFIRM_PROCEEDED' });
+      },
+      /** Quick reply "按本次内容更新": builds the diff locally, no request and no model call. */
+      openUpdateDiff() {
+        send({ type: 'DIFF_OPENED' });
+      },
+      closeUpdateDiff() {
+        send({ type: 'DIFF_CLOSED' });
+      },
+      /** "确认更新" on the diff card: the only way to start an update. */
+      confirmUpdate() {
+        send({ type: 'UPDATE_REQUESTED' });
+      },
+      /** "重新读取核对" after an unknown update result. */
+      verifyUpdate() {
+        send({ type: 'UPDATE_VERIFY_REQUESTED' });
       },
       /** Reads a saved session again after its reload failed. */
       rereadSession() {

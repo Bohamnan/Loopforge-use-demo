@@ -59,7 +59,11 @@ function normalize(config: FieldConfig, value: unknown): DiffValue {
   }
 }
 
-const isEmpty = (value: DiffValue): boolean => value === null || (Array.isArray(value) && value.length === 0);
+/** Empty = null, an empty list, or (experience lists) only items whose every sub-field is empty (SUGGEST-1). */
+const isBlankItem = (item: unknown): boolean =>
+  typeof item === 'object' && item !== null && !Array.isArray(item) && Object.values(item).every((v) => v === null || (Array.isArray(v) && v.length === 0));
+const isEmpty = (value: DiffValue): boolean =>
+  value === null || (Array.isArray(value) && (value as unknown[]).every((item) => isBlankItem(item)));
 
 export function buildUpdateDiff(resume: ArchivedResume, candidate: UpdateCandidate): UpdateDiff {
   const changed: DiffItem[] = [];

@@ -5,8 +5,8 @@ import type { SavedSummary } from '../hooks/model/SessionReducer';
 /** Kept as an alias: the formatter moved to hooks/model/FormatTime (v2, shared by lists, messages and archive). */
 export const formatSavedAt = formatDateTime;
 
-/** saved = this confirmation created the record; already_saved = it hit an existing record (X-06). */
-export type SavedResultKind = 'saved' | 'already_saved';
+/** saved = this confirmation created the record; already_saved = it hit an existing record (X-06); updated = the confirmed update succeeded. */
+export type SavedResultKind = 'saved' | 'already_saved' | 'updated';
 
 interface SavedResultCardProps {
   kind: SavedResultKind;
@@ -24,9 +24,9 @@ export default function SavedResultCard({ kind, summary, onUploadNext }: SavedRe
   const savedAt = summary ? formatSavedAt(summary.saved_at) : null;
   return (
     <div className="saved-card" role="status">
-      {kind === 'already_saved' ? (
+      {kind === 'already_saved' || kind === 'updated' ? (
         <p className="saved-title" data-focus-key="saved" tabIndex={-1}>
-          该简历已保存过
+          {kind === 'updated' ? '已更新' : '该简历已保存过'}
         </p>
       ) : (
         <div data-testid="saved-result">

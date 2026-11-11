@@ -446,9 +446,9 @@
 
 #### 子任务
 
-- [ ] `UpdateDiffCard` 与快捷回复入口
-- [ ] `confirmUpdate` 及核对重读
-- [ ] 红线用例集（单独成组）
+- [x] `UpdateDiffCard` 与快捷回复入口
+- [x] `confirmUpdate` 及核对重读
+- [x] 红线用例集（单独成组）
 
 ### Task 2.14：已归档简历页（REQ-FE-08） 🆕 v2 新增
 - **关联：** design §3.3（useArchive）、§3.4（ArchiveList、ArchiveDetail）、§3.5（ArchivePage、App）、TD-25/26/27；REQ-FE-08.1–08.5
