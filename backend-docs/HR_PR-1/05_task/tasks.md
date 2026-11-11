@@ -159,7 +159,7 @@
 
 ---
 
-### Task 1.4：schemas：字段模型与 DTO　↺ v2
+### Task 1.4：schemas：字段模型与 DTO　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `schemas/session.py`（原 `draft.py`，改名）、`schemas/chat.py`（新）、`schemas/archive.py`（新）、`schemas/resume.py`、`schemas/limits.py`、`tests/schemas/test_dtos.py`、`tests/schemas/test_openapi_alignment.py`（`resume_fields.py`、`errors.py`、`parse.py` 不变）。
