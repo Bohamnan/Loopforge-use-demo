@@ -2,7 +2,7 @@
 
 | 项 | 内容 |
 |---|---|
-| 状态 | 待复核（设计有更新） |
+| 状态 | 已确认（v2，DL 2026-11-11 复核） |
 | 版本 | v2（HR_PR-1 v2 设计后增量补全，待 Dev Lead 复核） |
 | 来源 | [solution-design.md](../../01-requirements/HR_PR-1/solution-design.md)（HR_PR-1）；工作台 backend 规范与架构参考；v1 补全依据、v2 增量依据（design.md v0.4、sql_ddl_resume.md v0.2.0）[design.md](../../backend-docs/HR_PR-1/04_design/design.md)、[sql_ddl_resume.md](../../backend-docs/HR_PR-1/02_schema/sql_ddl_resume.md)、[openapi.yaml](../../backend-docs/HR_PR-1/03_api/openapi.yaml)（**0.2.0**，v2 冻结）、[tasks.md](../../backend-docs/HR_PR-1/05_task/tasks.md) |
 | 最后更新 | 2026-11-11（HR_PR-1 v2 任务 8a：会话/对话/归档/确认更新落地到仓库约定，尚未改代码；此前 2026-11-10：任务 2.6/2.7：清理与启动编排，对账运行约束与运维处置；此前：存储加固：SQLite ≥ 3.35 要求；此前：任务 1.8 审查修复：模型与外发地址锁定；此前任务 1.8：依赖清单增加 `pypdfium2`，日志白名单增加 token 用量；此前：第一批审查后修订） |
