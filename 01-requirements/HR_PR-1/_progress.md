@@ -53,7 +53,7 @@
 | 技术设计 | architecture-advisor | 各 Workbench 工程师 | ⚠ v2 进行中：backend ✅（design.md v0.4）；frontend ✅（design.md v2.0）（2026-11-11 DL 确认）；v1：backend ✅ / frontend ✅（ADR-006 将被替代） | 2026-11-10 | `backend-docs/HR_PR-1/04_design/design.md`；`frontend-docs/HR_PR-1/04_design/design.md` |
 | 任务拆分 | architecture-advisor | 各 Workbench 工程师 | ✅ v2（DL 2026-11-11 确认）：backend（tasks.md v2.0：26 任务 / 107h，HIGH_RISK 7）；frontend（tasks.md v2.0：26 任务 / 138h，其中 v2 21 个 / 112h，HIGH_RISK 6）；v1：backend（20 任务 / 91h）/ frontend（15 任务 / 79h） | 2026-11-10 | `backend-docs/HR_PR-1/05_task/tasks.md`；`frontend-docs/HR_PR-1/05_task/tasks.md` |
 | 仓库约定补全与复核（仅新项目 Workbench） | architecture-advisor（Step 5） | 各 Workbench 工程师/Dev Lead | ✅ v2：backend、frontend `AGENTS.md` DL 2026-11-11 复核，状态改回已确认；v1：backend / frontend 已确认 | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
-| 代码实现 | feature-developer | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：backend 21/21（含 2.3a，pytest 1001、覆盖率 99%、CRAP 最大 9.0）/ ✅ frontend 15/15（vitest 650、lint 0、build 通过） | — | `codes/hr-collection-agent-backend/`、`codes/hr-collection-agent-frontend/` |
+| 代码实现 | feature-developer | 各 Workbench 工程师 | ⚠️ 待重审（v2）；frontend v2 阶段 2 ✅、3.2 ✅，3.1 待审查（HIGH_RISK）；v1：backend 21/21（含 2.3a，pytest 1001、覆盖率 99%、CRAP 最大 9.0）/ ✅ frontend 15/15（vitest 650、lint 0、build 通过） | — | `codes/hr-collection-agent-backend/`、`codes/hr-collection-agent-frontend/` |
 | 代码审查 | code-reviewer | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：backend 第一至第十批 ✅（含 2.4/2.5 HIGH_RISK）；frontend 第一至第十一批 ✅（0 BLOCK） | — | `backend-docs/HR_PR-1/10_review/code_review.md`；`frontend-docs/HR_PR-1/10_review/code_review.md` |
 | QA 测试用例（需求确认后，可与开发并行） | qa-test-case | QA（role=qa 的独立 worker） | ✅ v2 用例 86 条（v2 AC 67/67），两个 QA 门控 DL 确认；v1 不补做（DL 2026-11-11）；接口类用例路径待 OpenAPI 0.2.0 冻结后补 | 2026-11-11 | `01-requirements/HR_PR-1/qa/qa_test_cases.md`；`01-requirements/HR_PR-1/qa/qa_data_requirements.md` |
 | 开发自测用例 | dev-self-test | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：DL 2026-11-11 实测确认功能正常（变更源于体验与预期不符，非缺陷）：backend 123 条全通过（AC 37/37）；frontend 108 条 0 失败 0 未执行（实测 51 + 引用单测 52 + 静态/构建 5，AC 33/33） | 2026-11-10 | `backend-docs/HR_PR-1/06_test/dev_self_test_resume.md`；`frontend-docs/HR_PR-1/06_test/dev_self_test_resume.md` |
@@ -212,6 +212,7 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent | 恢复编排：第六批审查 PASS_WITH_SUGGESTIONS（0e92cb4），DL 接受 4 个偏差（本地运行，大小前置限制登记跟踪项）；合并 frontend 跟踪项与 3.1（195ba1d），复跑 643 例通过、lint 0、build 通过；DL 指出 LLM 请求体上限 1 MB，批准新增 Pillow，新增 Task 2.3a（图像预处理 + SUGGEST-1/2），下发 backend worker ctx_6cac87d0c5c6 |
 | 2026-11-10 | Yin Yang（Dev Lead） | dev-self-test | DL 要求流程完整执行并用真实样品自动化测试。backend 自测完成并合并（1141 passed）；frontend 自测部分完成并合并；DL 要求本轮结束，暂停 |
 | 2026-11-11 | Yin Yang（frontend） | architecture-advisor | 完成 frontend v2 任务拆分（tasks.md v2.0，Step 4）与仓库约定增量更新（AGENTS.md v2，Step 5，待复核）；停在任务清单确认关卡；仓库无远端，未推送（SV-07） |
+| 2026-11-11 | Yin Yang（frontend） | feature-developer | 阶段 3：3.1 集成验证与红线（d03559c，追溯 54/54，HIGH_RISK 待审查）；3.2 退役两脚本并清理 AGENTS.md 引用（✅） |
 
 ---
 

@@ -488,7 +488,7 @@
 - [x] 浏览器存储与 `console` 泄露断言
 - [x] 全量 lint / test / build 与追溯核对
 
-### Task 3.2：v1 自测脚本退役（Q-TD-01） 🆕 v2 新增
+### Task 3.2：v1 自测脚本退役（Q-TD-01） ✅
 - **关联：** design §6.2（X-10）、§10.3 Q-TD-01；DL 授权采纳“退役，由 11b 自测覆盖”
 - **涉及文件：** 删除 `scripts/drill_resume.py`、`scripts/selftest_resume.py`（含 `scripts/__pycache__`）；`AGENTS.md` 中如有对脚本的引用同步去除；不新增替代脚本。
 - **内容：** 两脚本依赖 v1 单草稿契约（`/resume-drafts/current`、`draft_token`、`drafts` 表、`POST /resumes`），v2 后失效；退役后真实样品演练由 11b 自测（Vitest 红线测试 + 浏览器实测）覆盖。确需“真实样品演练”另立小任务，不在本轮。
@@ -497,7 +497,7 @@
 
 #### 子任务
 
-- [ ] 删除脚本并清理引用
+- [x] 删除脚本并清理引用
 
 ---
 
