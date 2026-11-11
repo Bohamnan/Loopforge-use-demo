@@ -20,10 +20,10 @@
 
 | worktree | 分支 | 路径 | role | 最近 dispatch | 状态（2026-11-11） |
 |---|---|---|---|---|---|
-| backend | feature-backend | `/Users/yanyin/orca/workspaces/workspce-coding/feature-backend` | backend | `ctx_994edd9e620a` | 空闲（7a、G2 描述修订已交付） |
-| frontend | feature-frontend | `/Users/yanyin/orca/workspaces/workspce-coding/feature-frontend` | frontend | `ctx_aab03a18d492` | 空闲（7b 已交付） |
+| backend | feature-backend | `/Users/yanyin/orca/workspaces/workspce-coding/feature-backend` | backend | `ctx_4cc071af025c` | 空闲（阶段 1 已交付） |
+| frontend | feature-frontend | `/Users/yanyin/orca/workspaces/workspce-coding/feature-frontend` | frontend | `ctx_0788935e6ecd` | 空闲（阶段 1 已交付） |
 | QA | feature-qa | `/Users/yanyin/orca/workspaces/workspce-coding/feature-qa` | qa（`code_roots: {}`，不读代码） | `ctx_e7bd268b345e` | 空闲（5q 已完成，11q 待开发自测后） |
-| 审查 agent | review-batch1 | `/Users/yanyin/orca/workspaces/workspce-coding/review-batch1` | dev-lead（只读审查） | — | v1 用过，v2 第 10 项审查时再启用（需先同步 feature） |
+| 审查 agent | review-batch1 | `/Users/yanyin/orca/workspaces/workspce-coding/review-batch1` | dev-lead（只读审查） | `ctx_d01f5e56ce74` | v2 审查第 1 批进行中 |
 
 ## 二、启动 / 下发 worker 的做法（已踩过的坑）
 
@@ -46,7 +46,7 @@
 | 7a backend 技术设计（`design.md` v0.4，8368919） | ✅ DL 确认 |
 | 7b frontend 技术设计（`design.md` v2.0，34ff8f7） | ✅ DL 确认 |
 | 8a/8b 任务拆分 + `AGENTS.md` 更新 | ✅ DL 确认（tasks.md v2.0；AGENTS.md 已确认；同意删除 backend `tests/selftest/`） |
-| 9a/9b 编码 | 🔄 第 1 批 = tasks.md 阶段 1（backend `ctx_4cc071af025c`、frontend `ctx_0788935e6ecd`）；每阶段一批审查，共 ≤ 3 批 |
+| 9a/9b 编码 | 🔄 第 1 批（阶段 1）已合并（backend 0fb8eda、frontend b97961a）；审查第 1 批进行中（review-batch1 `ctx_d01f5e56ce74`）；审查通过后派阶段 2。每阶段一批审查，共 ≤ 3 批 |
 | 10 审查（每批）→ 11a/11b 自测 → 11q QA 执行（AT/E2E/UAT）→ 12 DL 最终 Review | 未开始 |
 
 ## 四、DL 的长期决定（易忘）
