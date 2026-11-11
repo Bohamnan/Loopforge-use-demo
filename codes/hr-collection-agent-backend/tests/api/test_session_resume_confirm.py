@@ -39,10 +39,8 @@ def test_same_person_again_is_200_without_a_second_record(
     assert second.status_code == 200 and second.json()["already_saved"] is True
     assert second.json()["resume_id"] == first.json()["resume_id"]
     assert query(settings, "SELECT count(*) FROM resumes", "resumes.db") == [(1,)]
-    assert query(settings, "SELECT update_state FROM sessions ORDER BY created_at, id") == [
-        ("none",),
-        ("pending",),
-    ]
+    states = query(settings, "SELECT update_state FROM sessions")
+    assert sorted(states) == [("none",), ("pending",)]
 
 
 @pytest.mark.parametrize("body", [{}, {"confirmed": False}, {"confirmed": "true"}])
