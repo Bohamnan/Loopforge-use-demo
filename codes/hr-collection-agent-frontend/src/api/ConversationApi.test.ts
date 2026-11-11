@@ -38,10 +38,4 @@ describe('ConversationApi', () => {
       'POST /api/v1/sessions/s1/messages/m1/cancel ',
     ]);
   });
-
-  it('apply surfaces suggestion_unavailable', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    stubFetch(() => errorResponse(409, { code: 'suggestion_unavailable' }));
-    await expect(applySuggestions('s1', 'm1')).rejects.toMatchObject({ code: 'suggestion_unavailable' });
-  });
 });

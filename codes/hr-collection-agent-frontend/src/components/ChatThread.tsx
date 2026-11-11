@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { FOCUS_TOKEN_SEPARATOR } from '../hooks/useChatScroll';
 
 interface ChatThreadProps {
   children: ReactNode;
@@ -12,7 +13,8 @@ export default function ChatThread({ children, focusKey = null }: ChatThreadProp
 
   useEffect(() => {
     if (!focusKey) return;
-    const target = container.current?.querySelector<HTMLElement>(`[data-focus-key="${focusKey}"]`);
+    const name = focusKey.split(FOCUS_TOKEN_SEPARATOR)[0];
+    const target = container.current?.querySelector<HTMLElement>(`[data-focus-key="${name}"]`);
     if (!target) return;
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     target.scrollIntoView?.({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });

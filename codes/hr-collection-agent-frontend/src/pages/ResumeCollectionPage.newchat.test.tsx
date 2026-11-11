@@ -1,142 +1,70 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConfigProvider } from 'antd';
-import { StrictMode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { errorResponse, jsonResponse, sampleCreateResumeResponse, sampleDraft, stubFetch } from '../test/ApiMocks';
-import { RESUME_FIELD_KEYS } from '../types/ResumeModel';
+import { sampleSessionDetail, stubFetch } from '../test/ApiMocks';
+import { createGate, FakeBackend, type FakeBackendOptions } from '../test/FakeBackend';
 import ResumeCollectionPage from './ResumeCollectionPage';
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function page() {
-  return (
-    <StrictMode>
-      <ConfigProvider theme={{ token: { motion: false } }}>
-        <ResumeCollectionPage />
-      </ConfigProvider>
-    </StrictMode>
+const ID = sampleSessionDetail().session_id;
+
+async function openReviewing(options: FakeBackendOptions = {}) {
+  const backend = new FakeBackend({ sessions: [sampleSessionDetail('reviewing')], ...options });
+  stubFetch(backend.handle);
+  render(
+    <ConfigProvider theme={{ token: { motion: false } }}>
+      <ResumeCollectionPage />
+    </ConfigProvider>,
   );
+  await userEvent.click(await screen.findByRole('button', { name: /^简历 · 测试用户甲/ }));
+  await screen.findByRole('heading', { name: /基本信息/ });
+  return backend;
 }
-
 const newChat = () => screen.getByRole('button', { name: /新对话/ });
-const fileInput = (c: HTMLElement) => c.querySelector('input[type="file"]') as HTMLInputElement;
-const pdf = () => new File(['%PDF'], '新文件.pdf', { type: 'application/pdf' });
+const writes = (backend: FakeBackend) => backend.requests.filter((r) => !r.startsWith('GET '));
 
-function backend(draft: ReturnType<typeof sampleDraft> | null) {
-  return stubFetch((url) => {
-    if (url.endsWith('/current')) return draft ? jsonResponse(200, draft) : errorResponse(404, { code: 'draft_not_found' });
-    if (url === '/api/v1/resumes') return jsonResponse(201, sampleCreateResumeResponse());
-    return jsonResponse(201, sampleDraft({ original_file: { filename: '新文件.pdf', content_type: 'application/pdf', size_bytes: 4 } }));
-  });
-}
-const calls = (mock: ReturnType<typeof stubFetch>) => mock.mock.calls.map(([url, init]) => `${init.method} ${url}`);
-
-describe('new chat (P-08, TD-12)', () => {
-  it('clears at once, without a dialog, when there is no draft', async () => {
-    const mock = backend(null);
-    render(page());
-    await screen.findByText(/上传简历文件/);
+describe('new chat clears the view only (TD-12 v2)', () => {
+  it('without unsubmitted edits clears at once, calls nothing and keeps the session in the list', async () => {
+    const backend = await openReviewing();
     await userEvent.click(newChat());
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(screen.getByText(/上传简历文件/)).toBeInTheDocument();
-    expect(calls(mock)).toEqual(['GET /api/v1/resume-drafts/current']);
-  });
-
-  it('asks first when an unconfirmed draft is on screen, and says what stays on the server', async () => {
-    backend(sampleDraft());
-    render(page());
-    await screen.findByText('已为你恢复未完成的简历');
-    await userEvent.click(newChat());
-    const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText(/刷新页面会恢复/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/再次上传.*覆盖/)).toBeInTheDocument();
-  });
-
-  it('cancelling keeps the draft and the unsubmitted edits', async () => {
-    backend(sampleDraft());
-    render(page());
-    await screen.findByText('已为你恢复未完成的简历');
-    await userEvent.type(screen.getByLabelText('个人主页'), 'x');
-    await userEvent.click(newChat());
-    expect(within(await screen.findByRole('dialog')).getByText(/未提交的修改将丢失/)).toBeInTheDocument();
-    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /取\s?消/ }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(screen.getByLabelText('个人主页')).toHaveValue('x');
-    expect(screen.getByText('合成简历.pdf')).toBeInTheDocument();
-  });
-
-  it('confirming clears the screen and calls no API (there is no discard endpoint)', async () => {
-    const mock = backend(sampleDraft());
-    render(page());
-    await screen.findByText('已为你恢复未完成的简历');
-    await userEvent.click(newChat());
-    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '清空并开始' }));
     expect(await screen.findByText(/上传简历文件/)).toBeInTheDocument();
-    expect(document.querySelectorAll('[data-field]')).toHaveLength(0);
-    expect(screen.queryByText('合成简历.pdf')).not.toBeInTheDocument();
-    expect(calls(mock)).toEqual(['GET /api/v1/resume-drafts/current']);
-  });
-
-  it('the next upload overwrites the old draft without asking a second time', async () => {
-    const mock = backend(sampleDraft());
-    const { container } = render(page());
-    await screen.findByText('已为你恢复未完成的简历');
-    await userEvent.click(newChat());
-    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '清空并开始' }));
-    await screen.findByText(/上传简历文件/);
-    await userEvent.upload(fileInput(container), pdf());
-    expect(await screen.findByText('新文件.pdf')).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(calls(mock)).toEqual(['GET /api/v1/resume-drafts/current', 'POST /api/v1/resume-drafts']);
+    expect(writes(backend)).toEqual([]);
+    expect(backend.sessions.has(ID)).toBe(true);
+    expect(screen.getByRole('button', { name: /^简历 · 测试用户甲/ })).toBeInTheDocument();
   });
 
-  it('after a reload the old draft is restored again (known behaviour)', async () => {
-    backend(sampleDraft());
-    const first = render(page());
-    await screen.findByText('已为你恢复未完成的简历');
+  it('with unsubmitted edits asks first: cancel keeps everything, continue clears', async () => {
+    const backend = await openReviewing();
+    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: '改过的名字' } });
     await userEvent.click(newChat());
-    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '清空并开始' }));
-    await screen.findByText(/上传简历文件/);
-    first.unmount();
-    render(page());
-    expect(await screen.findByText('已为你恢复未完成的简历')).toBeInTheDocument();
-  });
-
-  it('also asks on the final review screen', async () => {
-    const draft = sampleDraft();
-    for (const key of RESUME_FIELD_KEYS) draft.fields[key].status = 'confirmed';
-    backend(draft);
-    render(page());
-    await screen.findByRole('button', { name: /确认提交/ });
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: /返\s?回/ }));
+    expect(screen.getByLabelText('姓名')).toHaveValue('改过的名字');
     await userEvent.click(newChat());
-    expect(await screen.findByRole('dialog')).toBeInTheDocument();
-  });
-
-  it('from the result screen clears at once, and the old result is gone', async () => {
-    const draft = sampleDraft();
-    for (const key of RESUME_FIELD_KEYS) draft.fields[key].status = 'confirmed';
-    backend(draft);
-    render(page());
-    await userEvent.click(await screen.findByRole('button', { name: /确认提交/ }));
-    await screen.findByTestId('saved-result');
-    await userEvent.click(newChat());
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '放弃修改并继续' }));
     expect(await screen.findByText(/上传简历文件/)).toBeInTheDocument();
-    expect(screen.queryByTestId('saved-result')).not.toBeInTheDocument();
+    expect(writes(backend)).toEqual([]);
   });
 
-  it('is locked while a request is running', async () => {
-    let release: (r: Response) => void = () => undefined;
-    stubFetch((url) => (url.endsWith('/current') ? errorResponse(404, { code: 'draft_not_found' }) : (new Promise<Response>((r) => (release = r)) as unknown as Response)));
-    const { container } = render(page());
-    await screen.findByText(/上传简历文件/);
-    fireEvent.change(fileInput(container), { target: { files: [pdf()] } });
+  it('is disabled while a request is running', async () => {
+    const hold = createGate();
+    await openReviewing({ faults: [{ match: `PATCH /api/v1/sessions/${ID}/fields`, gate: hold.gate }] });
+    await userEvent.click(screen.getByRole('button', { name: /确认本区|确认修改/ }));
     expect(newChat()).toBeDisabled();
-    fireEvent.click(newChat());
+    hold.open();
+    await waitFor(() => expect(newChat()).toBeEnabled());
+  });
+
+  it('"上传下一份" on a saved session goes back to the empty view without a dialog', async () => {
+    stubFetch(new FakeBackend({ sessions: [sampleSessionDetail('saved')] }).handle);
+    render(<ResumeCollectionPage />);
+    await userEvent.click(await screen.findByRole('button', { name: /^简历 · 测试用户甲/ }));
+    await userEvent.click(await screen.findByRole('button', { name: '上传下一份' }));
+    expect(await screen.findByText(/上传简历文件/)).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    release(jsonResponse(201, sampleDraft()));
   });
 });

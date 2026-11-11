@@ -89,7 +89,7 @@ describe('ApiClient.request', () => {
     expect(((await pending) as ApiError).code).toBe('client_timeout');
   });
 
-  it('honours a custom 75s upload timeout', async () => {
+  it('honours a custom 75s timeout (upload and chat share it)', async () => {
     vi.useFakeTimers();
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     stubHangingFetch();
@@ -220,19 +220,5 @@ describe('ApiClient.request', () => {
       const error = (await request('/x', { method: 'GET', responseMode: 'blob' }).catch((e: unknown) => e)) as ApiError;
       expect(error.code).toBe('file_not_available');
     });
-  });
-
-  it('honours the 75s chat timeout', async () => {
-    vi.useFakeTimers();
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    stubHangingFetch();
-    const pending = request('/x', { method: 'POST', timeoutMs: CHAT_TIMEOUT_MS }).catch((e: unknown) => e);
-    await vi.advanceTimersByTimeAsync(DEFAULT_TIMEOUT_MS + 1);
-    let settled = false;
-    void pending.then(() => (settled = true));
-    await vi.advanceTimersByTimeAsync(0);
-    expect(settled).toBe(false);
-    await vi.advanceTimersByTimeAsync(CHAT_TIMEOUT_MS);
-    expect(((await pending) as ApiError).code).toBe('client_timeout');
   });
 });

@@ -18,6 +18,8 @@ export interface Fault {
   times?: number;
   /** Wait this long before answering (works with fake timers). */
   delayMs?: number;
+  /** Answer only once this promise settles (deterministic "request in flight" tests). */
+  gate?: Promise<void>;
   /** Answer with this instead of the normal behaviour. */
   response?: () => Response;
   /** Reject like a network failure. */
@@ -37,6 +39,8 @@ export interface FakeBackendOptions {
   faults?: Fault[];
   /** Suggestions of the assistant reply to POST /messages; default: none. */
   suggest?: (content: string) => Suggestion[];
+  /** Text of the assistant reply to POST /messages; default: a fixed acknowledgement. */
+  reply?: (content: string) => string;
 }
 
 const SESSION_PATH = /^\/api\/v1\/sessions\/([^/]+)(\/fields|\/messages|\/resume)?(?:\/([^/]+)\/(apply|cancel))?$/;
@@ -79,7 +83,7 @@ export class FakeBackend {
     if (!fault) return this.route(method, url, body);
     fault.left -= 1;
     const normal = fault.afterEffect || (!fault.response && !fault.networkError) ? this.route(method, url, body) : undefined;
-    return this.wait(fault.delayMs).then(() => {
+    return Promise.all([this.wait(fault.delayMs), fault.gate]).then(() => {
       if (fault.networkError) throw new TypeError('network down');
       if (fault.response) return fault.response();
       return normal as Response;
@@ -189,7 +193,7 @@ export class FakeBackend {
     const assistant: ChatMessage = {
       message_id: this.nextId(),
       role: 'assistant',
-      content: '好的，已处理。',
+      content: this.options.reply?.(content) ?? '好的，已处理。',
       suggestions: this.options.suggest?.(content) ?? [],
       created_at: at,
     };
@@ -286,4 +290,11 @@ export class FakeBackend {
       headers: { 'Content-Type': resume.original_file.content_type },
     });
   }
+}
+
+/** A gate for `Fault.gate`: the matching request stays in flight until `open()` is called. */
+export function createGate(): { gate: Promise<void>; open: () => void } {
+  let open: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => (open = resolve));
+  return { gate, open };
 }
