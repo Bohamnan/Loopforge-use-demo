@@ -379,7 +379,7 @@
 
 ---
 
-### Task 2.3：接口：分区更新 + `field_merge` 抽出　↺ v2
+### Task 2.3：接口：分区更新 + `field_merge` 抽出　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `services/field_merge.py`（新，纯函数 `merge_update`，自原 `draft_service` 抽出）、`services/session_service.py`（update）、`api/routes/sessions.py`（`PATCH /sessions/{id}/fields`）、`tests/services/test_field_merge.py`、`tests/services/test_session_service_update.py`、`tests/api/test_sessions_patch.py`。

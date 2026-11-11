@@ -5,7 +5,12 @@ from fastapi import APIRouter, Depends, File, Response, UploadFile
 from app.api import cookies
 from app.api.deps import get_browser_id, get_session_service, get_settings
 from app.core.config import Settings
-from app.schemas.session import SessionDetail, SessionListResponse
+from app.schemas.session import (
+    SessionDetail,
+    SessionFieldsResponse,
+    SessionFieldsUpdateRequest,
+    SessionListResponse,
+)
 from app.services.session_service import SessionService
 from app.services.upload_validation import validate_upload
 
@@ -56,3 +61,21 @@ def get_session(
     if browser_id is not None:  # always true here: the service raises otherwise
         cookies.renew(response, browser_id, settings)
     return detail
+
+
+@router.patch(
+    "/{session_id}/fields", response_model=SessionFieldsResponse, operation_id="updateSessionFields"
+)
+def update_session_fields(
+    session_id: str,
+    body: SessionFieldsUpdateRequest,
+    response: Response,
+    browser_id: str | None = Depends(get_browser_id),
+    service: SessionService = Depends(get_session_service),
+    settings: Settings = Depends(get_settings),
+) -> SessionFieldsResponse:
+    """Submit corrections: present fields become confirmed. Only the session is written."""
+    result = service.update_fields(session_id, browser_id, body.fields)
+    if browser_id is not None:  # always true here: the service raises otherwise
+        cookies.renew(response, browser_id, settings)
+    return result

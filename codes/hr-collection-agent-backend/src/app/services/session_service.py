@@ -12,22 +12,25 @@ from dataclasses import dataclass
 
 from app.clients.resume_parser_client import ResumeParserClient
 from app.core.clock import Clock, format_utc
-from app.core.errors import SessionNotFoundError
+from app.core.errors import SessionNotFoundError, SessionReadOnlyError, ValidationFailedError
 from app.core.ids import IdGenerator, generate_token, hash_token
 from app.core.logging import log_event
 from app.repositories.chat_repository import ChatRepository
 from app.repositories.draft_file_store import DraftFileStore
 from app.repositories.resume_repository import ResumeReader
 from app.repositories.session_repository import SessionRecord, SessionRepository
-from app.schemas.resume_fields import ResumeFields
+from app.schemas.resume_fields import ResumeFields, ResumeFieldsUpdate
 from app.schemas.session import (
     SessionDetail,
+    SessionFieldsResponse,
     SessionListResponse,
     SessionSummary,
     UpdateCandidate,
 )
 from app.services.archive_view import file_info, to_archived_resume, values_of
 from app.services.chat_view import build_messages
+from app.services.field_merge import merge_update
+from app.services.field_validation import validate_update
 from app.services.parse_normalizer import normalize
 from app.services.upload_validation import ValidatedUpload
 
@@ -132,6 +135,33 @@ class SessionService:
     def get(self, session_id: str, browser_id: str | None) -> SessionDetail:
         """Read a session in its current shape; reading changes nothing (TQ-v2-05)."""
         return self._detail(self._owned(session_id, browser_id))
+
+    def update_fields(
+        self, session_id: str, browser_id: str | None, update: ResumeFieldsUpdate
+    ) -> SessionFieldsResponse:
+        """Apply the user's corrections (REQ-BE-03). All-or-nothing.
+
+        Validation runs first and outside the transaction; read-merge-write then runs in one
+        BEGIN IMMEDIATE transaction so concurrent requests cannot lose each other's changes.
+        Only the session is written (B-04).
+        """
+        issues = validate_update(update)
+        if issues:
+            raise ValidationFailedError(issues)
+        if browser_id is None:
+            raise SessionNotFoundError()
+        owner = browser_hash(browser_id)
+        now = format_utc(self._clock.now())
+        with self._sessions.transaction() as tx:
+            record = tx.get(session_id, owner)
+            if record is None:
+                raise SessionNotFoundError()
+            if record.status != "reviewing":
+                raise SessionReadOnlyError()
+            merged = merge_update(ResumeFields.model_validate_json(record.fields_json), update)
+            if not tx.update_fields(session_id, owner, merged.model_dump_json(), now):
+                raise SessionNotFoundError()
+        return SessionFieldsResponse(session_id=session_id, fields=merged, updated_at=now)
 
     # ---- helpers -------------------------------------------------------------------------
 
