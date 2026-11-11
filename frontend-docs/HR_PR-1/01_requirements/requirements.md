@@ -8,6 +8,7 @@
 | v1.1 | 2026-11-10 | REQ-FE-03.1 按原型评审 P-04 改为分区核对（澄清，不改范围） | Dev Lead |
 | v1.2 | 2026-11-10 | REQ-FE-04.4 按 Q-DL-03 澄清：保存卡保留姓名 / 原始文件名 / 保存时间 | Dev Lead |
 | v2.0 | 2026-11-11 | 需求变更 v2/v2.1：REQ-FE-01/04/05/06 修订（会话化、已保存过展示已有内容）；新增 REQ-FE-07 对话修改与问答、REQ-FE-08 已归档简历页、REQ-FE-09 已保存过后的确认更新。v1 全文快照 `_history/requirements.v1.md` | Dev Lead |
+| v2.0.1 | 2026-11-11 | 澄清（不改范围）：REQ-FE-04 AC8/AC9 顺序修正；补 AC10"已保存会话不显示确认入口"；REQ-FE-06 AC3 下载文件名明确为不含姓名的通用名。来源：QA 5q 待澄清 3、4，DL 授权采纳建议 | Dev Lead |
 
 ---
 
@@ -106,8 +107,9 @@
 5. WHEN backend 返回 `already_saved` 标识, THE 前端 SHALL 显示"该简历已保存过"，并在其下以只读方式展示已有记录内容，不展示记录编号；同时在对话流中提供快捷回复"按本次内容更新"（见 REQ-FE-09）（X-06、Y-01）。<!-- 变更 v2.1，驱动 HR_PR-1-CRv2.1 -->
 6. IF 确认请求超时或网络失败, THEN THE 前端 SHALL 不提示成功，并允许用户直接重试确认；不调用任何保存状态查询接口（C-05）。
 7. IF backend 返回"会话不存在"业务码, THEN THE 前端 SHALL 提示该会话已不存在，回到空态并刷新会话列表（v2 替代 D-01）。<!-- 变更 v2，驱动 HR_PR-1-CRv2 -->
-9. WHEN 用户在对话中表示"确认提交", THE 前端 SHALL 只展示回复文本，由用户点击现有的确认入口完成保存；对话内容不触发保存（X-02、PRD #4）。<!-- 变更 v2，驱动 HR_PR-1-CRv2 -->
 8. THE 前端 SHALL 在确认请求进行期间防止重复点击。
+9. WHEN 用户在对话中表示"确认提交", THE 前端 SHALL 只展示回复文本，由用户点击现有的确认入口完成保存；对话内容不触发保存（X-02、PRD #4）。<!-- 变更 v2，驱动 HR_PR-1-CRv2 -->
+10. WHEN 会话为已保存, THE 前端 SHALL 不显示最终确认入口（只读视图）；IF backend 拒绝对已保存会话的确认, THEN SHALL 只展示错误 `message`（PRD #6，澄清 v2.0.1）。<!-- 变更 v2.0.1：QA 5q 澄清，驱动 HR_PR-1-CRv2 -->
 
 ---
 
@@ -138,7 +140,7 @@
 
 1. THE 前端 SHALL 只通过统一的 api 封装调用 backend `/api/v1` 接口，不持有任何凭证，不直连模型或其他外部服务（F-01）。
 2. THE 前端 SHALL 不使用 localStorage、sessionStorage 或 IndexedDB 保存简历、校对、对话内容或会话列表；文本输入框关闭自动填充；原始文件的临时 blob URL 用后即回收（F-02）。<!-- 变更 v2，驱动 HR_PR-1-CRv2 -->
-3. THE 前端 SHALL 不在控制台或日志中输出简历内容、对话内容或接口响应体，也不把姓名等写入页面标题、URL 或下载文件名（B-03）。<!-- 变更 v2，驱动 HR_PR-1-CRv2 -->
+3. THE 前端 SHALL 不在控制台或日志中输出简历内容、对话内容或接口响应体，也不把姓名等写入页面标题、URL 或下载文件名；下载原始文件时使用通用文件名（如"原始简历.pdf"）（B-03、v2.0.1 澄清）。<!-- 变更 v2，驱动 HR_PR-1-CRv2 -->
 4. THE 前端 SHALL 把错误统一解析为 `{code, message, request_id}`，以及可选的 `details: [{field, reason}]`（D-06）。
 5. THE 前端的 types 与 api 层 SHALL 在 backend OpenAPI 草稿冻结后与之对齐；冻结前只搭骨架（C-13）。
 6. THE 前端测试 SHALL 使用 Vitest 与 React Testing Library，代码检查使用 ESLint，测试数据只用合成简历（C-15、B-06）。

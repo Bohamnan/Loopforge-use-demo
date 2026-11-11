@@ -106,6 +106,7 @@
 | 2026-11-11 | Yin Yang（Dev Lead） | solution-designer | 补门控 1：DL 确认 v2 无技术约束引起的需求修订；DL 授权编排同步所需的本地提交（不推送） |
 | 2026-11-11 | Yin Yang（backend） | impact-analyzer | 完成 backend v2 影响分析（delta 覆盖，924a75b）：新增 11 / 修改 22 / 不变 15，待澄清 6 条；仓库无远端，未推送（SV-07） |
 | 2026-11-11 | Yin Yang（Dev Lead） | impact-analyzer | DL review 通过两侧 v2 影响分析；DL 决定加入 qa-test-case（v1 漏执行，SV-11），登记为重跑清单 5q |
+| 2026-11-11 | Yin Yang（Dev Lead） | qa-test-case | 合并 QA 用例（0f0cb71、0b05114，85 条，v2 AC 66/66）。QA 待澄清 6 条按 DL 长期授权采纳建议：①对话类用例以模型桩判定，11q 另用真实模型做语义抽查；②超 2000 字符前端阻止输入、后端拒绝（业务码 6a 定）；③下载用不含姓名的通用文件名；④REQ-FE-04 AC 顺序修正并补 AC10（frontend requirements v2.0.1 澄清）；⑤接口类用例的路径清单在 OpenAPI 0.2.0 冻结后提供；⑥11q 执行 AT/E2E/UAT，NEG/PERM/REG 只生成不执行 |
 | 2026-11-11 | Yin Yang（Dev Lead） | requirements-analyst | DL 确认两侧 requirements.md，需求汇总 ✅；票号复议后维持 HR_PR-1（见关键决策）；v1 开发自测按 DL 实测确认；下一步 5q（QA worker）与 6a（backend Schema+接口）并行 |
 | 2026-11-11 | Yin Yang（Dev Lead） | requirements-analyst | 质量关卡 1：7 条待答 DL 采纳建议；Step 2：两侧 requirements.md 增量更新（backend 新增 REQ-BE-07..09、frontend 新增 REQ-FE-07..09），ADR-005 补 v2.1 修订；Step 3：glossary 按 X-10a 修订 2 条、新增 5 条。DL 长期授权：需澄清的问题只要不特殊，一律采纳建议 |
 | 2026-11-11 | Yin Yang（Dev Lead） | requirements-analyst | Step 1：两侧 requirements_plan.md 追加 v2 第二轮技术 Q&A（backend TQ-v2-01..10、frontend TQ-v2-F01..F14），等待质量关卡 1 |
