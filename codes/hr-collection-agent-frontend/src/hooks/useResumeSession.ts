@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useState } from 'react';
 import { ApiError } from '../api/ApiError';
-import { sendMessage } from '../api/ConversationApi';
+import { applySuggestions, cancelSuggestions, sendMessage } from '../api/ConversationApi';
 import { createSession, deleteSession, getSession, updateSessionFields } from '../api/SessionApi';
 import type { ResumeFieldsUpdate } from '../types/ResumeModel';
 import type { SessionStatus } from '../types/Session';
@@ -37,6 +37,8 @@ function createEngine(dispatch: (action: SessionAction) => void) {
   let openId: string | null = null;
   /** Section whose PATCH is being started. */
   let patchSection: SectionKey | null = null;
+  /** Card (assistant message) and action of the suggestion request being started. */
+  let suggestTarget: { messageId: string; action: 'apply' | 'cancel' } | null = null;
 
   /** Callers of sendMessage / retryMessage waiting to learn whether the text reached the conversation. */
   const waiters: { length: number; resolve: (result: 'sent' | 'failed') => void }[] = [];
@@ -105,6 +107,17 @@ function createEngine(dispatch: (action: SessionAction) => void) {
         void sendMessage(after.sessionId, pending.text).then(
           (response) => settle({ type: 'SEND_SUCCEEDED', response, epoch }),
           (error: unknown) => settle({ type: 'SEND_FAILED', error: toApiError(error), epoch }, false),
+        );
+        break;
+      }
+      case 'suggest': {
+        const target = suggestTarget;
+        if (target === null || after.sessionId === null) break;
+        const call = target.action === 'apply' ? applySuggestions : cancelSuggestions;
+        const { messageId } = target;
+        void call(after.sessionId, messageId).then(
+          (response) => settle({ type: 'SUGGEST_SUCCEEDED', response, epoch }),
+          (error: unknown) => settle({ type: 'SUGGEST_FAILED', error: toApiError(error), messageId, epoch }, false),
         );
         break;
       }
@@ -223,6 +236,15 @@ function createEngine(dispatch: (action: SessionAction) => void) {
         const text = latest.current.pendingMessage?.text ?? null;
         const { after } = send({ type: 'MESSAGE_DISCARDED' });
         return after.pendingMessage === null ? text : null;
+      },
+      /** Applies every applicable suggestion of one card; the response replaces the fields (no section jump). */
+      applySuggestions(messageId: string) {
+        suggestTarget = { messageId, action: 'apply' };
+        send({ type: 'SUGGEST_REQUESTED', messageId });
+      },
+      cancelSuggestions(messageId: string) {
+        suggestTarget = { messageId, action: 'cancel' };
+        send({ type: 'SUGGEST_REQUESTED', messageId });
       },
       /** Opens the delete confirmation; the wording depends on the session status (REQ-FE-05.5). */
       requestDelete(id: string, status: SessionStatus) {

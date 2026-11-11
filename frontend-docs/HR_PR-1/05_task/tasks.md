@@ -413,7 +413,7 @@
 - [x] `sendMessage` 及核对重读
 - [x] 红线用例集（单独成组）
 
-### Task 2.11：修改建议卡片（REQ-FE-07.4–07.6） 🆕 v2 新增
+### Task 2.11：修改建议卡片（REQ-FE-07.4–07.6） ✅
 - **关联：** design §3.4（SuggestionCard、ChangeRows）、TD-21；REQ-FE-07.4–07.6；O2-01
 - **涉及文件：** `SuggestionCard.tsx`、`ChangeRows.tsx`、`useResumeSession.ts`（`applySuggestions`/`cancelSuggestions`）、`MessageList.tsx` 接线及测试。
 - **内容：** 一条助手消息一张卡；整卡应用 / 取消；`applicable=false` 行只展示原因文案；按钮仅在 `cardStatus=pending ∧ phase=reviewing ∧ !busy` 显示；应用成功用响应 `fields` 整体替换、**不自动跳转分区**、清除 `editBuffer` 中被应用字段（TD-03）、提供“查看 X 分区”芯片；`suggestion_unavailable` 在卡片内 `ErrorAlert`。
@@ -422,8 +422,8 @@
 
 #### 子任务
 
-- [ ] `ChangeRows`、`SuggestionCard`
-- [ ] 应用 / 取消及 `editBuffer` 清理
+- [x] `ChangeRows`、`SuggestionCard`
+- [x] 应用 / 取消及 `editBuffer` 清理
 
 ### Task 2.12：已保存会话视图（REQ-FE-04.4、04.5、05.3） 🆕 v2 新增
 - **关联：** design §3.4（SavedSessionView）、TD-11/18/22；REQ-FE-04.4、04.5、05.3

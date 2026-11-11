@@ -61,7 +61,7 @@ describe('recognised result display (REQ-FE-02, REQ-FE-05.2)', () => {
 
   it('opens the first section that needs attention and marks it active', async () => {
     await openReview();
-    const active = document.querySelector('[aria-current="true"]') as HTMLElement;
+    const active = document.querySelector('section[aria-current="true"]') as HTMLElement;
     expect(within(active).getByRole('heading', { name: /基本信息/ })).toBeInTheDocument();
   });
 
@@ -70,14 +70,14 @@ describe('recognised result display (REQ-FE-02, REQ-FE-05.2)', () => {
     for (const key of RESUME_FIELD_KEYS) draft.fields[key].status = 'confirmed';
     draft.fields.work_years.status = 'uncertain';
     await openReview(draft);
-    const active = document.querySelector('[aria-current="true"]') as HTMLElement;
+    const active = document.querySelector('section[aria-current="true"]') as HTMLElement;
     expect(within(active).getByRole('heading', { name: /个人信息/ })).toBeInTheDocument();
   });
 
   it('lets the user switch the active section with the 修改 entry and the summary chips', async () => {
     await openReview();
     await userEvent.click(screen.getByRole('button', { name: /求职意向/ })); // summary chip
-    expect(within(document.querySelector('[aria-current="true"]') as HTMLElement).getByRole('heading', { name: /求职意向/ })).toBeInTheDocument();
+    expect(within(document.querySelector('section[aria-current="true"]') as HTMLElement).getByRole('heading', { name: /求职意向/ })).toBeInTheDocument();
     const personal = screen.getByRole('heading', { name: /个人信息/ }).closest('section') as HTMLElement;
     await userEvent.click(within(personal).getByRole('button', { name: /修\s?改/ }));
     expect(personal).toHaveAttribute('aria-current', 'true');
@@ -88,6 +88,6 @@ describe('recognised result display (REQ-FE-02, REQ-FE-05.2)', () => {
     for (const key of RESUME_FIELD_KEYS) draft.fields[key].status = 'confirmed';
     await openReview(draft);
     expect(document.querySelectorAll('[data-field]')).toHaveLength(22);
-    expect(document.querySelector('[aria-current="true"]')).toBeNull();
+    expect(document.querySelector('section[aria-current="true"]')).toBeNull();
   });
 });

@@ -497,3 +497,54 @@ body {
   color: var(--muted, #65717b);
   font-size: 12px;
 }
+.suggestion-card {
+  align-self: flex-start;
+  max-width: 90%;
+  margin-top: 4px;
+  padding: 8px 12px;
+  border: 1px solid var(--border, #d5dce2);
+  border-radius: 12px;
+  background: #fff;
+}
+.suggestion-title {
+  font-weight: 600;
+}
+.suggestion-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.change-rows {
+  margin: 4px 0;
+}
+.change-row {
+  display: flex;
+  gap: 8px;
+  padding: 2px 0;
+}
+.change-row dt {
+  width: 80px;
+  flex: none;
+  color: var(--muted, #65717b);
+}
+.change-row dd {
+  margin: 0;
+}
+.change-row-highlight {
+  background: #fff4e5;
+}
+.change-old {
+  text-decoration: line-through;
+  color: var(--muted, #65717b);
+}
+.change-note {
+  margin-left: 8px;
+  color: var(--warn, #b26a00);
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}

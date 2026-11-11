@@ -8,6 +8,7 @@ import ErrorAlert from '../components/ErrorAlert';
 import FileCard from '../components/FileCard';
 import FinalReviewCard from '../components/FinalReviewCard';
 import MessageList from '../components/MessageList';
+import SuggestionCard from '../components/SuggestionCard';
 import NoticeBanner from '../components/NoticeBanner';
 import SessionList from '../components/SessionList';
 import QuickReplyChips from '../components/QuickReplyChips';
@@ -52,6 +53,8 @@ export default function ResumeCollectionPage() {
     sendMessage,
     retryMessage,
     discardPendingMessage,
+    applySuggestions,
+    cancelSuggestions,
   } = useResumeSession({ onActivity: list.reload });
   const [text, setText] = useState('');
   usePreventFileDropNavigation(); // also covers phases without a composer
@@ -85,6 +88,16 @@ export default function ResumeCollectionPage() {
         const original = discardPendingMessage();
         if (original !== null) setText(original);
       }}
+      renderCard={(message) => (
+        <SuggestionCard
+          suggestions={message.suggestions}
+          actionable={state.phase === 'reviewing' && !busy}
+          error={state.error?.scope === 'suggest' && state.error.messageId === message.message_id ? state.error.cause : null}
+          onApply={() => applySuggestions(message.message_id)}
+          onCancel={() => cancelSuggestions(message.message_id)}
+          onJump={selectSection}
+        />
+      )}
     />
   );
 

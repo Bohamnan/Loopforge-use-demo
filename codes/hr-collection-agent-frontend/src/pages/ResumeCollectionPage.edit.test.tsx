@@ -91,7 +91,7 @@ describe('section review: confirming a section (REQ-FE-03.2)', () => {
     const intent = screen.getByRole('heading', { name: /求职意向/ }).closest('section') as HTMLElement;
     await waitFor(() => expect(within(intent).getByTestId('section-status')).toHaveTextContent('已确认'));
     expect(intent).not.toHaveAttribute('aria-current');
-    expect(document.querySelector('[aria-current="true"]')).not.toBeNull();
+    expect(document.querySelector('section[aria-current="true"]')).not.toBeNull();
     expect(screen.queryByText('未提交修改')).not.toBeInTheDocument();
   });
 
@@ -230,7 +230,7 @@ describe('quick replies (ADR-006)', () => {
   it('"其余都没问题" jumps to the final view without sending anything', async () => {
     const mock = await open();
     await userEvent.click(screen.getByRole('button', { name: '其余都没问题' }));
-    expect(document.querySelector('[aria-current="true"]')).toBeNull();
+    expect(document.querySelector('section[aria-current="true"]')).toBeNull();
     expect(patches(mock)).toHaveLength(0);
     expect(screen.getByRole('button', { name: /我还要修改/ })).toBeInTheDocument();
   });
@@ -253,7 +253,7 @@ describe('quick replies (ADR-006)', () => {
     await open();
     await userEvent.click(screen.getByRole('button', { name: '其余都没问题' }));
     await userEvent.click(screen.getByRole('button', { name: /我还要修改/ }));
-    expect(document.querySelector('[aria-current="true"]')).not.toBeNull();
+    expect(document.querySelector('section[aria-current="true"]')).not.toBeNull();
   });
 
   it('offers no free-text box besides the chat input (ADR-007)', async () => {
