@@ -55,7 +55,7 @@
 | 仓库约定补全与复核（仅新项目 Workbench） | architecture-advisor（Step 5） | 各 Workbench 工程师/Dev Lead | ⚠️ 待重审（v2）；v1：backend / frontend 已确认 | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
 | 代码实现 | feature-developer | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：backend 21/21（含 2.3a，pytest 1001、覆盖率 99%、CRAP 最大 9.0）/ ✅ frontend 15/15（vitest 650、lint 0、build 通过） | — | `codes/hr-collection-agent-backend/`、`codes/hr-collection-agent-frontend/` |
 | 代码审查 | code-reviewer | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：backend 第一至第十批 ✅（含 2.4/2.5 HIGH_RISK）；frontend 第一至第十一批 ✅（0 BLOCK） | — | `backend-docs/HR_PR-1/10_review/code_review.md`；`frontend-docs/HR_PR-1/10_review/code_review.md` |
-| QA 测试用例（需求确认后，可与开发并行） | qa-test-case | QA（role=qa 的独立 worker） | ⏸ v2 用例已生成（85 条，v2 AC 66/66 覆盖），等待 DL 确认「QA 用例设计确认」「QA UAT 场景确认」；v1 不补做（DL 2026-11-11） | 2026-11-11 | `01-requirements/HR_PR-1/qa/qa_test_cases.md`；`01-requirements/HR_PR-1/qa/qa_data_requirements.md` |
+| QA 测试用例（需求确认后，可与开发并行） | qa-test-case | QA（role=qa 的独立 worker） | ⏸ v2 用例已生成（86 条，v2 AC 67/67 覆盖），等待 DL 确认「QA 用例设计确认」「QA UAT 场景确认」；v1 不补做（DL 2026-11-11） | 2026-11-11 | `01-requirements/HR_PR-1/qa/qa_test_cases.md`；`01-requirements/HR_PR-1/qa/qa_data_requirements.md` |
 | 开发自测用例 | dev-self-test | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：DL 2026-11-11 实测确认功能正常（变更源于体验与预期不符，非缺陷）：backend 123 条全通过（AC 37/37）；frontend 108 条 0 失败 0 未执行（实测 51 + 引用单测 52 + 静态/构建 5，AC 33/33） | 2026-11-10 | `backend-docs/HR_PR-1/06_test/dev_self_test_resume.md`；`frontend-docs/HR_PR-1/06_test/dev_self_test_resume.md` |
 | QA 用例执行（开发自测通过后、交付 Review 前） | qa-test-case 产出的用例，手工执行 | QA/Dev Lead | ☐ v2 执行，见重跑清单 11q | — | `01-requirements/HR_PR-1/qa/qa_test_report.md` |
 | 造数脚本 | test-data-script-generator | 各 Workbench 工程师/QA | — | — | — |
@@ -119,6 +119,7 @@
 | 2026-11-11 | Yin Yang（backend） | impact-analyzer | 追加 backend v2.1 影响分析小节（4f02d13，第十一节）：新增待澄清 Q-backend-07..10；仓库无远端，未推送（SV-07） |
 | 2026-11-11 | Yin Yang（frontend） | impact-analyzer | 完成 frontend v2.1 影响分析小节（提交 5582374）：已保存过视图、差异与确认更新卡片、F-03；新增待澄清 4 条；仓库无远端，未推送（SV-07） |
 | 2026-11-11 | Yin Yang（QA） | qa-test-case | 生成 v2/v2.1 QA 用例 85 条（AT 54 / E2E 5 / NEG 9 / PERM 4 / REG 8 / UAT 5），v2 AC 覆盖 66/66，数据需求 21 项（需开发配合 9 项）；只生成不执行；仓库无远端，未推送 |
+| 2026-11-11 | Yin Yang（QA） | qa-test-case | 按 5q 待澄清答复（DL 授权采纳建议）更新用例：对话类以模型桩为准、AT-20/NEG-04/AT-41/AT-46 调整、新增 AT-55，共 86 条；补 11q 执行范围；仓库无远端，未推送 |
 
 ---
 
