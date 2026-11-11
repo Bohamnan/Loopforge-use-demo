@@ -48,7 +48,7 @@
 | 仓库约定初稿与确认（仅新项目 Workbench） | solution-designer（Step 7） | Dev Lead | ✅ 已确认；未推送（代码目录尚未初始化 Git） | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
 | Workbench 影响分析（各 Workbench 并行） | impact-analyzer | 各 Workbench 工程师 | ✅ v2 DL review 通过（2026-11-11）：backend 924a75b（6 条待澄清）；frontend 0ee2330 + 1476ce6（10 条待澄清） | 2026-11-11 | `backend-docs/HR_PR-1/00_impact_analysis.md`；`frontend-docs/HR_PR-1/00_impact_analysis.md` |
 | 跨 Workbench 一致性 review（仅跨 Workbench 需求） | cross-workbench-reviewer | Dev Lead | ✅ v2/v2.1 已裁决（X-01..X-10a、Y-01、Y-02）；v1 裁决中 C-03、C-06、C-07、C-11、D-01、D-04、D-05、O-01、O-03、O-12 被替代 | 2026-11-11 | `01-requirements/HR_PR-1/cross-workbench-review.md` |
-| 需求汇总（第二轮技术 Q&A + requirements.md） | requirements-analyst | Dev Lead/BA | ⚠️ 待重审（v2）；v1 已确认 | 2026-11-10 | `backend-docs/HR_PR-1/01_requirements/requirements.md`；`frontend-docs/HR_PR-1/01_requirements/requirements.md` |
+| 需求汇总（第二轮技术 Q&A + requirements.md） | requirements-analyst | Dev Lead/BA | ⏸ v2 第二轮技术 Q&A 已汇总（23 条：16 条由已有裁决填空、7 条待答），等待质量关卡 1；v1 已确认 | 2026-11-11 | `backend-docs/HR_PR-1/01_requirements/requirements.md`；`frontend-docs/HR_PR-1/01_requirements/requirements.md` |
 | 架构设计（Schema+接口） | architecture-advisor | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：backend（OpenAPI 0.1.0 冻结，0.1.1 待修订 G-01/G-02）/ frontend（Step 2.2 评审通过） | 2026-11-10 | `backend-docs/HR_PR-1/02_schema/`、`03_api/`；`frontend-docs/HR_PR-1/03_api/interface_spec_resume.md` |
 | 技术设计 | architecture-advisor | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：backend ✅ / frontend ✅（ADR-006 将被替代） | 2026-11-10 | `backend-docs/HR_PR-1/04_design/design.md`；`frontend-docs/HR_PR-1/04_design/design.md` |
 | 任务拆分 | architecture-advisor | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：backend（20 任务 / 91h）/ frontend（15 任务 / 79h） | 2026-11-10 | `backend-docs/HR_PR-1/05_task/tasks.md`；`frontend-docs/HR_PR-1/05_task/tasks.md` |
@@ -104,6 +104,7 @@
 | 2026-11-11 | Yin Yang（Dev Lead） | solution-designer | 补门控 1：DL 确认 v2 无技术约束引起的需求修订；DL 授权编排同步所需的本地提交（不推送） |
 | 2026-11-11 | Yin Yang（backend） | impact-analyzer | 完成 backend v2 影响分析（delta 覆盖，924a75b）：新增 11 / 修改 22 / 不变 15，待澄清 6 条；仓库无远端，未推送（SV-07） |
 | 2026-11-11 | Yin Yang（Dev Lead） | impact-analyzer | DL review 通过两侧 v2 影响分析；DL 决定加入 qa-test-case（v1 漏执行，SV-11），登记为重跑清单 5q |
+| 2026-11-11 | Yin Yang（Dev Lead） | requirements-analyst | Step 1：两侧 requirements_plan.md 追加 v2 第二轮技术 Q&A（backend TQ-v2-01..10、frontend TQ-v2-F01..F14），等待质量关卡 1 |
 | 2026-11-11 | Yin Yang（Dev Lead） | cross-workbench-reviewer | v2.1 比对 Y-01（对话流内快捷回复"按本次内容更新"，不经模型）、Y-02（前端逐字段比较，清空字段列为差异）采纳建议；签署 v2 确认，跨 Workbench review ✅；下一步 requirements-analyst |
 | 2026-11-11 | Yin Yang（Dev Lead） | 主 agent | 按 SV-11 修订后的模板补齐 QA：流程表加 QA 用例执行行、门控表加 3 行、QA 产出路径改为 `qa/`、5q 改为只生成用例、新增 11q 手工执行；DL：v1 已完成部分不补做 QA，v2 变更走新流程，QA 由 role=qa 的独立 worker 执行 |
 | 2026-11-11 | Yin Yang（Dev Lead） | solution-designer | v2.1 门控 1、门控 2 确认；派两端补 v2.1 影响分析小节（3a'/3b'） |
