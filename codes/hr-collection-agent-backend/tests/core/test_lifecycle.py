@@ -1,7 +1,6 @@
-"""Start-up sequence and cleanup scheduler (task 2.7).
+"""Start-up sequence (task 2.7): dirs -> init -> reconcile -> orphan sweep, no threads.
 
-The order is pinned with a recording fake of the single steps. Waiting for the scheduler uses
-threading events (never ``sleep`` polling).
+The order is pinned with a recording fake of the single steps.
 """
 
 import logging
@@ -21,18 +20,16 @@ from app.repositories.resume_repository import ResumeRepository
 from tests.fakes import FakeClock
 from tests.repositories.test_resume_repository import make_resume
 
-WAIT = 10  # seconds; only an upper bound for a hung test, never slept in full
+ORDER = ["dirs", "init", "reconcile", "sweep"]
 
 
 class RecordingLifecycle(Lifecycle):
-    """Real ``start``/``stop``/scheduler, fake steps that only record what ran and where."""
+    """Real ``start``/``stop``, fake steps that only record what ran and where."""
 
-    def __init__(self, settings: Settings, **kwargs: object) -> None:
-        super().__init__(settings, FakeClock(), **kwargs)  # type: ignore[arg-type]
+    def __init__(self, settings: Settings) -> None:
+        super().__init__(settings, FakeClock())
         self.calls: list[str] = []
         self.threads: dict[str, int] = {}
-        self.tick = threading.Event()
-        self.cleanup_runs = 0
 
     def _note(self, name: str) -> None:
         self.calls.append(name)
@@ -47,14 +44,8 @@ class RecordingLifecycle(Lifecycle):
     def reconcile(self) -> None:
         self._note("reconcile")
 
-    def cleanup(self) -> None:
-        self.cleanup_runs += 1
-        self._note("cleanup")
-        self.tick.set()
-
-    def start_scheduler(self) -> None:
-        self._note("scheduler")
-        super().start_scheduler()
+    def sweep_orphans(self) -> None:
+        self._note("sweep")
 
 
 @pytest.fixture
@@ -62,28 +53,19 @@ def settings(data_dir: Path, file_dir: Path) -> Settings:
     return Settings(_env_file=None, data_dir=data_dir, file_dir=file_dir)
 
 
-def test_start_order_is_dirs_init_reconcile_cleanup_scheduler(settings: Settings) -> None:
-    life = RecordingLifecycle(settings, interval_seconds=3600)
+def test_start_order_is_dirs_init_reconcile_sweep_and_runs_in_the_calling_thread(
+    settings: Settings,
+) -> None:
+    life = RecordingLifecycle(settings)
     life.start()
-    try:
-        assert life.calls == ["dirs", "init", "reconcile", "cleanup", "scheduler"]
-    finally:
-        life.stop()
+    assert life.calls == ORDER
+    assert set(life.threads.values()) == {threading.get_ident()}
 
 
-def test_reconcile_runs_synchronously_in_the_starting_thread(settings: Settings) -> None:
-    life = RecordingLifecycle(settings, interval_seconds=3600)
-    life.start()
-    try:
-        main = threading.get_ident()
-        assert life.threads["reconcile"] == main and life.threads["cleanup"] == main
-        assert life.cleanup_runs == 1  # the scheduler has not run anything yet
-    finally:
-        life.stop()
-
-
-def test_requests_start_after_the_whole_sequence(settings: Settings) -> None:
-    life = RecordingLifecycle(settings, interval_seconds=3600)
+def test_requests_start_after_the_whole_sequence_and_no_thread_is_left(
+    settings: Settings,
+) -> None:
+    life = RecordingLifecycle(settings)
     app = create_app(settings, lifecycle=life)
 
     @app.get("/t/probe")
@@ -95,20 +77,8 @@ def test_requests_start_after_the_whole_sequence(settings: Settings) -> None:
         client.get("/t/probe")
     life.calls.append("closed")
 
-    assert life.calls == ["dirs", "init", "reconcile", "cleanup", "scheduler", "request", "closed"]
-
-
-def test_reconcile_is_called_once_even_when_the_scheduler_ticks(settings: Settings) -> None:
-    life = RecordingLifecycle(settings, interval_seconds=0.001)
-    life.start()
-    try:
-        for _ in range(3):
-            life.tick.clear()
-            assert life.tick.wait(WAIT)
-    finally:
-        life.stop()
-    assert life.calls.count("reconcile") == 1 and life.calls.count("init") == 1
-    assert life.cleanup_runs >= 3
+    assert life.calls == [*ORDER, "request", "closed"]
+    assert not any("cleanup" in t.name for t in threading.enumerate())  # no scheduler thread
 
 
 def test_only_the_lifecycle_module_uses_the_reconcile_service() -> None:
@@ -121,52 +91,13 @@ def test_only_the_lifecycle_module_uses_the_reconcile_service() -> None:
     assert users == {"core/lifecycle.py"}, users
 
 
-# ---- scheduler --------------------------------------------------------------------------------
-
-
-def test_scheduler_cleans_again_after_the_interval(settings: Settings) -> None:
-    life = RecordingLifecycle(settings, interval_seconds=0.001)
-    life.start()
-    try:
-        assert life.cleanup_runs >= 1
-        life.tick.clear()
-        assert life.tick.wait(WAIT)
-        assert life.threads["cleanup"] != threading.get_ident()  # ran in the scheduler thread
-    finally:
-        life.stop()
-
-
-def test_stop_joins_the_scheduler_thread(settings: Settings) -> None:
-    life = RecordingLifecycle(settings, interval_seconds=3600)  # would sleep for an hour
-    life.start()
-    thread = life._thread
-    assert thread is not None and thread.is_alive() and thread.daemon
-
-    life.stop()
-
-    assert not thread.is_alive()
-    life.stop()  # idempotent
-
-
-def test_testclient_with_block_starts_and_stops_without_leaking_threads(
-    settings: Settings,
-) -> None:
-    before = {t.name for t in threading.enumerate()}
-    with TestClient(create_app(settings)):
-        assert "draft-cleanup" in {t.name for t in threading.enumerate()}
-    assert "draft-cleanup" not in {t.name for t in threading.enumerate()} - before
-
-
-# ---- real steps -------------------------------------------------------------------------------
-
-
-def test_real_start_creates_directories_and_databases(tmp_path: Path) -> None:
+def test_real_start_creates_directories_and_databases_at_their_versions(tmp_path: Path) -> None:
     settings = Settings(_env_file=None, data_dir=tmp_path / "d", file_dir=tmp_path / "f")
     with TestClient(create_app(settings)):
         assert (tmp_path / "d" / "drafts").is_dir() and (tmp_path / "f").is_dir()
-        for name in ("drafts.db", "resumes.db"):
+        for name, version in (("drafts.db", 2), ("resumes.db", 1)):
             conn = connect(tmp_path / "d" / name)
-            assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+            assert conn.execute("PRAGMA user_version").fetchone()[0] == version
             conn.close()
 
 
@@ -199,27 +130,21 @@ def test_real_start_with_missing_database_never_wipes_the_archive(settings: Sett
     assert final.read_bytes() == b"%PDF-1.4 precious"
 
 
-def test_real_start_cleans_expired_drafts_before_the_first_request(settings: Settings) -> None:
-    from app.core.db import init_drafts_db
-    from app.repositories.draft_repository import DraftRecord, DraftRepository
+def test_real_start_sweeps_old_orphans_but_never_the_archive(settings: Settings) -> None:
+    import os
 
-    init_drafts_db(settings.data_dir / "drafts.db")
-    (settings.data_dir / "drafts").mkdir(exist_ok=True)
-    name = "00000000-0000-4000-8000-0000000000aa.pdf"
-    (settings.data_dir / "drafts" / name).write_bytes(b"%PDF-1.4")
-    DraftRepository(settings.data_dir / "drafts.db").insert(
-        DraftRecord("d1", "h" * 64, name, "x.pdf", "application/pdf", 8, "{}",
-                    "2000-01-01T00:00:00Z", "2000-01-01T00:00:00Z", "2000-01-01T00:00:00Z")
-    )  # fmt: skip
+    drafts = settings.data_dir / "drafts"
+    drafts.mkdir(parents=True)
+    orphan = drafts / "99999999-0000-4000-8000-000000000001.pdf"
+    orphan.write_bytes(b"x")
+    os.utime(orphan, (1, 1))  # ancient
+    archived = settings.file_dir / "99999999-0000-4000-8000-000000000001.pdf"
+    archived.write_bytes(b"%PDF-1.4 final")
+    os.utime(archived, (1, 1))
 
     with TestClient(create_app(settings)):
-        assert not (settings.data_dir / "drafts" / name).exists()
-        assert (
-            connect(settings.data_dir / "drafts.db")
-            .execute("SELECT count(*) FROM drafts")
-            .fetchone()[0]
-            == 0
-        )
+        assert not orphan.exists()  # swept before the first request
+        assert archived.read_bytes() == b"%PDF-1.4 final"  # reconcile keeps it (no records)
 
 
 def test_requests_and_start_up_share_the_same_directories(settings: Settings) -> None:
@@ -227,10 +152,7 @@ def test_requests_and_start_up_share_the_same_directories(settings: Settings) ->
     assert app.state.lifecycle._settings is app.state.settings
 
 
-# ---- failures do not block the start ----------------------------------------------------------
-
-
-def test_reconcile_failure_does_not_block_start_and_is_logged(
+def test_reconcile_and_sweep_failures_do_not_block_start_and_are_logged(
     settings: Settings, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     caplog.set_level(logging.DEBUG, logger="app")
@@ -241,42 +163,13 @@ def test_reconcile_failure_does_not_block_start_and_is_logged(
             raise RuntimeError("cannot build")
 
     monkeypatch.setattr(module, "ReconcileService", Broken)
-    cleaned: list[int] = []
-    monkeypatch.setattr(Lifecycle, "cleanup", lambda self: cleaned.append(1))
+    monkeypatch.setattr(module, "OrphanSweepService", Broken)
 
     with TestClient(create_app(settings)) as client:
         assert client.get("/nope").status_code == 404  # serving
 
-    assert cleaned  # later steps still ran
-    assert any(
-        r.levelno >= logging.ERROR and "RuntimeError" in r.getMessage() for r in caplog.records
-    )
-
-
-def test_cleanup_failure_does_not_block_start_and_does_not_kill_the_thread(
-    settings: Settings, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
-    caplog.set_level(logging.DEBUG, logger="app")
-    import app.core.lifecycle as module
-
-    runs = threading.Semaphore(0)
-
-    class Broken:
-        def __init__(self, *args: object) -> None:
-            pass
-
-        def run_once(self) -> None:
-            runs.release()
-            raise RuntimeError("cleanup broke")
-
-    monkeypatch.setattr(module, "CleanupService", Broken)
-    life = Lifecycle(settings, FakeClock(), interval_seconds=0.001)
-
-    with TestClient(create_app(settings, lifecycle=life)):
-        for _ in range(3):  # start-up run + two scheduler runs: the thread outlived the errors
-            assert runs.acquire(timeout=WAIT)
-
-    assert any("cleanup_failed" in r.getMessage() for r in caplog.records)
+    text = "\n".join(r.getMessage() for r in caplog.records if r.levelno >= logging.ERROR)
+    assert "reconcile_failed" in text and "orphan_sweep_failed" in text
 
 
 def test_database_initialisation_failure_stops_the_start(
@@ -291,28 +184,3 @@ def test_database_initialisation_failure_stops_the_start(
 
     with pytest.raises(RuntimeError), TestClient(create_app(settings)):
         pass  # pragma: no cover
-
-
-def test_stop_warns_when_the_scheduler_does_not_finish_in_time(
-    settings: Settings, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
-    """A cleanup run that outlives the join timeout is reported, and stop still returns."""
-    caplog.set_level(logging.DEBUG, logger="app")
-    import app.core.lifecycle as module
-
-    monkeypatch.setattr(module, "STOP_JOIN_TIMEOUT_SECONDS", 0.05)
-    entered, release = threading.Event(), threading.Event()
-
-    class Blocking(RecordingLifecycle):
-        def cleanup(self) -> None:
-            entered.set()
-            release.wait(WAIT)
-
-    life = Blocking(settings, interval_seconds=0.001)
-    life.start_scheduler()
-    try:
-        assert entered.wait(WAIT)
-        life.stop()
-        assert any("scheduler_stop_timeout" in r.getMessage() for r in caplog.records)
-    finally:
-        release.set()
