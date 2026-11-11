@@ -201,7 +201,7 @@
 - [x] `ResumeApi`（改）、`ArchiveApi`
 - [x] 各模块测试
 
-### Task 1.8：Verify（结果未知后的核对，纯逻辑；HIGH_RISK：F-03） 🆕 v2 新增
+### Task 1.8：Verify（结果未知后的核对，纯逻辑；HIGH_RISK：F-03） 🆕 v2 新增 ✅（v2 第一批审查 PASS，DL 2026-11-11 确认）
 - **关联：** design §3.3、§6（Verify）、TD-19；REQ-FE-04.6、07.3、09.4；G2-04
 - **涉及文件：** `src/hooks/model/Verify.ts`、`Verify.test.ts`。
 - **内容：** `matchSentMessage(messages, knownIds, text)`（尾部连续 `user(content===text)` + `assistant`，二者 `message_id` 均 ∉ `knownIds`）、`decideAfterConfirmRead(detail)` → `saved{already}` | `still_reviewing`、`decideAfterUpdateRead(detail)` → `applied|pending|other`、`cardStatus(suggestions)`（四种卡片状态，由 backend 的 `Suggestion.status` 归纳，前端不推断）。
@@ -213,7 +213,7 @@
 - [x] `Verify` 四个纯函数
 - [x] 表驱动测试（含 F-03 回落断言）
 
-### Task 1.9：UpdateDiff（更新差异计算，纯逻辑；HIGH_RISK：差异必列清空字段） 🆕 v2 新增
+### Task 1.9：UpdateDiff（更新差异计算，纯逻辑；HIGH_RISK：差异必列清空字段） 🆕 v2 新增 ✅（v2 第一批审查 PASS，DL 2026-11-11 确认）
 - **关联：** design §3.3、§6（UpdateDiff）、TD-23；REQ-FE-09.2；Y-02
 - **涉及文件：** `src/hooks/model/UpdateDiff.ts`、`UpdateDiff.test.ts`。
 - **内容：** `buildUpdateDiff(resume, candidate)`：按 `SECTIONS` 顺序遍历 22 个键；标量 `null`/空白视为同一“空”，字符串先 trim；文本列表逐项 trim 并丢弃空项，**顺序有意义**；经历子项缺失键与 `null` 视为相同，子项键集合取 `SectionConfig`；有差异的逐项给出，候选为空而已有值非空 → `clears=true` 且**必列**；相同字段只计数；附原始文件新旧名称。
