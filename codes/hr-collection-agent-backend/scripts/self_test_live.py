@@ -5,14 +5,11 @@ Usage (from the backend directory; the credential is loaded into the environment
 this script never reads or prints it):
 
     set -a; . ./.env; set +a
-    PYTHONPATH=src:. uv run python scripts/self_test_live.py \
-        --sample /tmp/hr_sample/sample.png --truth /tmp/hr_sample/truth.json \
-        --out /tmp/hr_sample/live_result.json
+    PYTHONPATH=src:. uv run python scripts/self_test_live.py --out "$(mktemp -d)/live_result.json"
 
-- The sample resume and the truth file live outside the repository (never commit them). The
-  truth file is JSON with: name, email, phone, job_title_contains, work_years_digits,
-  education{school,major,degree}, certificates_contains[], skills_contains[], project_count,
-  must_not_appear_in_logs[].
+- The resume sample is SYNTHETIC: the script renders a fictitious one-page resume (example.com
+  mail, 137 0000 0001 phone, invented names and schools) in memory. No real resume is read.
+  The expected values (the "truth") are kept in memory too and never written anywhere.
 - The server runs with a temporary DATA_DIR/FILE_DIR on 127.0.0.1:8000 (single worker); both
   directories and the process are removed at the end.
 - Personal values are compared in memory only. The result file and the console contain case
@@ -23,6 +20,7 @@ this script never reads or prints it):
 
 import argparse
 import hashlib
+import io
 import json
 import os
 import re
@@ -37,6 +35,7 @@ import uuid
 from pathlib import Path
 
 import httpx
+from PIL import Image, ImageDraw, ImageFont
 
 BASE = "http://127.0.0.1:8000"
 SESSIONS = f"{BASE}/api/v1/sessions"
@@ -45,6 +44,50 @@ COOKIE_TAIL = "; HttpOnly; SameSite=Lax; Path=/; Max-Age=34560000"
 CHAT_TEXT = "请用一句话概括这份简历的工作年限"  # synthetic instruction, no personal data
 BACKEND = Path(__file__).resolve().parents[1]
 RESULTS: dict[str, dict] = {}
+FONT_CANDIDATES = (
+    "/System/Library/Fonts/STHeiti Medium.ttc",
+    "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+    "/Library/Fonts/Arial Unicode.ttf",
+)
+# Every value below is invented: example.com mail, 137 0000 0001 number, fictitious school/company.
+SYNTHETIC_TRUTH = {
+    "name": "测试甲乙",
+    "email": "synthetic.hr@example.com",
+    "phone": "13700000001",
+    "job_title_contains": "后端开发",
+    "work_years_digits": "3",
+    "education": {"school": "示例大学", "major": "计算机科学与技术", "degree": "本科"},
+    "certificates_contains": ["英语六级"],
+    "skills_contains": ["Python", "SQL"],
+    "project_count": 2,
+    "must_not_appear_in_logs": ["测试甲乙", "13700000001", "synthetic.hr@example.com"],
+}
+SYNTHETIC_LINES = [
+    "简历（合成样例，非真实人员）",
+    "姓名：测试甲乙    手机：13700000001    邮箱：synthetic.hr@example.com",
+    "求职意向：后端开发工程师    期望城市：示例城市",
+    "工作经历：2021.07-2024.06  示例科技有限公司  后端开发工程师  工作 3 年",
+    "项目经历：",
+    "1. 订单对账平台（2022.01-2022.12）负责接口设计",
+    "2. 库存同步服务（2023.01-2023.09）负责数据迁移",
+    "教育背景：示例大学  计算机科学与技术  本科  2017.09-2021.06",
+    "专业技能：Python、SQL",
+    "证书荣誉：英语六级",
+    "自我评价：认真负责，善于沟通。",
+]
+
+
+def synthetic_resume() -> tuple[bytes, dict]:
+    """Render the fictitious resume as PNG in memory. Returns (png_bytes, truth)."""
+    font_path = next((p for p in FONT_CANDIDATES if Path(p).exists()), None)
+    font = ImageFont.truetype(font_path, 30) if font_path else ImageFont.load_default(size=30)
+    image = Image.new("RGB", (1400, 760), "white")
+    draw = ImageDraw.Draw(image)
+    for index, line in enumerate(SYNTHETIC_LINES):
+        draw.text((40, 40 + index * 60), line, fill="black", font=font)
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue(), SYNTHETIC_TRUTH
 
 
 def record(case: str, ok: bool, note: str = "") -> None:
@@ -151,8 +194,7 @@ def cookie_value(set_cookie: str) -> str:
 
 
 def run(args: argparse.Namespace) -> None:
-    sample = Path(args.sample).read_bytes()
-    truth = json.loads(Path(args.truth).read_text(encoding="utf-8"))
+    sample, truth = synthetic_resume()
     work = Path(tempfile.mkdtemp(prefix="hr_selftest_live_"))
     server = Server(work)
     http = httpx.Client(timeout=90, trust_env=False)  # never route resume data through a proxy
@@ -318,12 +360,17 @@ def run(args: argparse.Namespace) -> None:
             upload_attempts.append(again.status_code)
         sid2 = again.json().get("session_id", "")
         dup = http.post(f"{SESSIONS}/{sid2}/resume", json={"confirmed": True})
+        # A duplicate keeps its temp file as the frozen update candidate (design 5.3), so the
+        # draft directory must hold exactly that file and nothing else.
+        cand_rows = sql(
+            work, "drafts.db", "SELECT update_state, file_path FROM sessions WHERE id = ?", (sid2,)
+        )
+        cand_names = sorted(p.name for p in (work / "data" / "drafts").iterdir())
         record("TC-RES-008-HP-07", again.status_code == 201 and dup.status_code == 200 and dup.json().get("already_saved") is True
                and dup.json().get("resume_id") == rid and sql(work, "resumes.db", "SELECT count(*) FROM resumes") == [(1,)]
                and sorted(p.name for p in (work / "file").iterdir()) == [f"{rid}.png"]
-               and sql(work, "drafts.db", "SELECT update_state FROM sessions WHERE id = ?", (sid2,)) == [("pending",)]
-               and not list((work / "data" / "drafts").iterdir()),
-               f"upload attempts={upload_attempts}, confirm HTTP {dup.status_code}; one record, one file; first model_call log: {model_calls[-1] if model_calls else None}")  # fmt: skip
+               and len(cand_rows) == 1 and cand_rows[0][0] == "pending" and cand_names == [Path(cand_rows[0][1]).name],
+               f"upload attempts={upload_attempts}, confirm HTTP {dup.status_code}; one record, one file; update_state=pending; draft dir holds only the candidate file={cand_names == [Path(cand_rows[0][1]).name] if cand_rows else False}; first model_call log: {model_calls[-1] if model_calls else None}")  # fmt: skip
 
         # ---- 008-HP-08: confirmed update overwrites the record with the candidate ------------
         update = http.put(f"{SESSIONS}/{sid2}/resume", json={"confirm_update": True})
@@ -373,15 +420,28 @@ def run(args: argparse.Namespace) -> None:
                f"exit codes={first_exit},{second_exit}; shutdown complete logged; port 8000 released")  # fmt: skip
     finally:
         server.stop()
+        usage = {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0}
+        if server.log_all.exists():
+            for line in server.log_all.read_text(errors="replace").splitlines():
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if (
+                    entry.get("event") in ("model_call", "chat_call")
+                    and entry.get("prompt_tokens") is not None
+                ):
+                    usage["calls"] += 1
+                    usage["prompt_tokens"] += int(entry["prompt_tokens"])
+                    usage["completion_tokens"] += int(entry.get("completion_tokens") or 0)
         shutil.rmtree(work, ignore_errors=True)
         out = Path(args.out)
+        RESULTS["_usage"] = usage  # token counts only
         out.write_text(json.dumps(RESULTS, ensure_ascii=False, indent=2))
-        print(f"cleaned {work.name}; results -> {out}")
+        print(f"usage {usage}; cleaned {work.name}; results -> {out}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--sample", required=True)
-    parser.add_argument("--truth", required=True)
     parser.add_argument("--out", required=True)
     run(parser.parse_args())
