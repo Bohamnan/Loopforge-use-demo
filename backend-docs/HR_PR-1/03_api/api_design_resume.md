@@ -13,7 +13,7 @@
 
 > **输入**：`01_requirements/requirements.md`（v2：REQ-BE-01..09）、HLD v2.1 §4、裁决 C-01..C-15 / D-01..D-06 / O-01..O-13（v1）与 X-01..X-10a / Y-01、Y-02（v2）、第二轮 TQ-v2-01..10、`rules/backend/api.md`、`02_schema/sql_ddl_resume.md`（v0.2.0）、frontend `00_impact_analysis.md` 第 7、11 节（数据/动作需求）。
 > **契约载体**：`openapi.yaml`（OpenAPI 3.1.0，`info.version = 0.2.0`，已用 openapi-spec-validator 校验通过）。本文给出设计说明与决策；字段级细节以 `openapi.yaml` 为准，二者不重复双写。
-> **状态**：**0.2.0 草稿**（2026-11-11），待 Dev Lead 评审并交 cross-workbench-reviewer 审视后冻结。0.1.1 的 `/resume-drafts*` 与 `POST /resumes` 在 0.2.0 中被替换（v1 未交付，不保留兼容路由，TQ-v2-02）。字段长度上限、手机号/邮箱 `pattern` 沿用 0.1.1 的唯一来源原则（`ResumeFieldsUpdate`），本版不改。
+> **状态**：**0.2.0 已冻结**（2026-11-11，经 Dev Lead 评审与 cross-workbench-reviewer 审视）。0.1.1 的 `/resume-drafts*` 与 `POST /resumes` 在 0.2.0 中被替换（v1 未交付，不保留兼容路由，TQ-v2-02）。字段长度上限、手机号/邮箱 `pattern` 沿用 0.1.1 的唯一来源原则（`ResumeFieldsUpdate`），本版不改。
 
 ---
 
@@ -45,7 +45,7 @@
 
 | 项 | 约定 |
 |---|---|
-| 前缀与版本 | `/api/v1`；OpenAPI `info.version = 0.2.0`（草稿）；v1 内只做向后兼容的新增，破坏性变更须新版本并经 cross-workbench-reviewer。0.2.0 相对 0.1.1 是破坏性变更（v1 未交付，直接替换） |
+| 前缀与版本 | `/api/v1`；OpenAPI `info.version = 0.2.0`（已冻结）；v1 内只做向后兼容的新增，破坏性变更须新版本并经 cross-workbench-reviewer。0.2.0 相对 0.1.1 是破坏性变更（v1 未交付，直接替换） |
 | 数据格式 | JSON；字段 `snake_case`；时间 ISO 8601 UTC（`...Z`）；文件上传 `multipart/form-data`；文件下载为二进制 |
 | 身份 | 无账号。**浏览器标识**经 Cookie `browser_id` 传递：`HttpOnly; SameSite=Lax; Path=/; Max-Age=34560000`（400 天，浏览器上限），**不强制 `Secure`**（C-06，POC 同源 localhost）。标识为 `secrets.token_urlsafe(32)` 随机值，库内只存 SHA-256，不含简历内容，前端不读取。**随每次带有效标识的成功响应续期**（`Set-Cookie` 属性完全一致才能覆盖）；上传时没有有效标识则先签发；列表接口无标识时返回空列表且不签发。标识格式不合法（长度/字符集）视为没有标识 |
 | 会话归属 | 按会话 id 访问的接口都校验会话属于当前浏览器标识；**不存在与不属于本浏览器返回同一个 404 `session_not_found`**，不区分两种情形（ADR-008）；路径参数格式不合法同样按 404 处理，不返回 422 |
