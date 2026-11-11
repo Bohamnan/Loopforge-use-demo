@@ -14,6 +14,7 @@ from app.repositories.chat_repository import ChatRepository
 from app.repositories.draft_file_store import DraftFileStore
 from app.repositories.resume_repository import ResumeRepository
 from app.repositories.session_repository import SessionRepository
+from app.services.resume_service import ResumeService
 from app.services.session_service import SessionService
 
 _PARSER_LOCK = threading.Lock()
@@ -52,6 +53,20 @@ def get_session_service(request: Request) -> SessionService:
         get_parser(request),
         ResumeRepository(data_dir / "resumes.db"),
         archive.is_available,
+        state.clock,
+        state.ids,
+    )
+
+
+def get_resume_service(request: Request) -> ResumeService:
+    """The only service that writes the formal database (B-04)."""
+    state = request.app.state
+    data_dir = state.settings.data_dir
+    return ResumeService(
+        SessionRepository(data_dir / "drafts.db"),
+        DraftFileStore(data_dir),
+        ResumeRepository(data_dir / "resumes.db"),
+        ArchiveFileStore(state.settings.file_dir),
         state.clock,
         state.ids,
     )

@@ -11,8 +11,8 @@ from pathlib import Path
 
 from app.repositories.archive_file_store import ArchiveFileStore, tmp_name
 from app.repositories.draft_file_store import DraftFileStore
-from app.repositories.draft_repository import DraftRepository
 from app.repositories.resume_repository import NewResume, ResumeRef, ResumeRepository
+from app.repositories.session_repository import SessionRepository
 
 
 class SimulatedCrash(BaseException):
@@ -96,21 +96,29 @@ class FaultyResumeRepository(ResumeRepository):
         super()._insert_main(conn, r)
         self.injector.hit("db_after_main")
 
-    def _insert_sub_rows(self, conn: sqlite3.Connection, r: NewResume) -> None:  # type: ignore[override]
-        super()._insert_sub_rows(conn, r)
+    def _insert_sub_rows(  # type: ignore[override]
+        self, conn: sqlite3.Connection, r: NewResume, created_at: str, updated_at: str
+    ) -> None:
+        super()._insert_sub_rows(conn, r, created_at, updated_at)
         self.injector.hit("db_after_sub")
 
 
-class FaultyDraftRepository(DraftRepository):
-    """Point: ``draft_delete``."""
+class FaultySessionRepository(SessionRepository):
+    """Points: ``session_mark_saved``, ``session_mark_candidate`` (before the statement)."""
 
     def __init__(self, db_path: Path, injector: FaultInjector) -> None:
         super().__init__(db_path)
         self.injector = injector
 
-    def delete(self, draft_id: str) -> bool:
-        self.injector.hit("draft_delete")
-        return super().delete(draft_id)
+    def mark_saved(self, session_id: str, browser_hash: str, resume_id: str, now: str) -> bool:
+        self.injector.hit("session_mark_saved")
+        return super().mark_saved(session_id, browser_hash, resume_id, now)
+
+    def mark_candidate_pending(
+        self, session_id: str, browser_hash: str, resume_id: str, now: str
+    ) -> bool:
+        self.injector.hit("session_mark_candidate")
+        return super().mark_candidate_pending(session_id, browser_hash, resume_id, now)
 
 
 class FaultyDraftFileStore(DraftFileStore):

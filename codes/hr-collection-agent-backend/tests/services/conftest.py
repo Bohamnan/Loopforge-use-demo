@@ -66,3 +66,111 @@ def session_env(data_dir: Path, file_dir: Path) -> SessionEnv:
 
 def make_upload(name: str = "synthetic.pdf") -> ValidatedUpload:
     return ValidatedUpload(make_pdf_bytes(300), "application/pdf", name)
+
+
+# ---- confirm-save environment (ResumeService) ------------------------------------------------
+
+from app.services.reconcile_service import ReconcileReport, ReconcileService  # noqa: E402
+from app.services.resume_service import ResumeService  # noqa: E402
+from tests.services.fault_injection import (  # noqa: E402
+    FaultInjector,
+    FaultyArchiveStore,
+    FaultyDraftFileStore,
+    FaultyResumeRepository,
+    FaultySessionRepository,
+)
+
+
+@dataclass
+class ResumeEnv:
+    """SessionService (to create sessions) + ResumeService wired with fault-injectable doubles."""
+
+    service: ResumeService
+    sessions_service: SessionService
+    session_repo: FaultySessionRepository
+    draft_files: FaultyDraftFileStore
+    resume_repo: FaultyResumeRepository
+    archive: FaultyArchiveStore
+    injector: FaultInjector
+    parser: FakeParserClient
+    clock: FakeClock
+    ids: SequentialIdGenerator
+    data_dir: Path
+    file_dir: Path
+    browser: str = BROWSER_A
+
+    def new_session(
+        self,
+        name: str = "ZZ ZHANG SAN",
+        phone: str = "13800138000",
+        email: str = "ZS@EXAMPLE.COM",
+        browser: str | None = None,
+        **overrides: object,
+    ) -> str:
+        """Create a session through the real upload path; returns its id."""
+
+        def node(value: object) -> dict:
+            return {"value": value, "status": "recognized"}
+
+        self.parser.result = make_raw_result(
+            name=node(name), phone=node(phone), email=node(email), **overrides
+        )
+        created = self.sessions_service.create(make_upload(), browser or self.browser)
+        return created.detail.session_id
+
+    def confirm(self, session_id: str, confirmed: bool | None = True, browser: str | None = None):  # noqa: ANN201
+        return self.service.confirm(session_id, browser or self.browser, confirmed)
+
+    def build_service(self) -> ResumeService:
+        """A second service over the same stores (used by concurrent requests)."""
+        return ResumeService(
+            self.session_repo, self.draft_files, self.resume_repo, self.archive,
+            self.clock, self.ids,
+        )  # fmt: skip
+
+    def query(self, sql: str, db: str = "resumes.db") -> list:
+        conn = connect(self.data_dir / db)
+        try:
+            return [tuple(r) for r in conn.execute(sql).fetchall()]
+        finally:
+            conn.close()
+
+    def count(self, table: str = "resumes", db: str = "resumes.db") -> int:
+        return self.query(f"SELECT count(*) FROM {table}", db)[0][0]  # noqa: S608
+
+    def reconcile(self) -> ReconcileReport:
+        """Run the start-up reconciliation over the same stores."""
+        return ReconcileService(self.resume_repo, self.archive, self.clock).run()
+
+    def archive_names(self) -> list[str]:
+        return sorted(p.name for p in self.file_dir.iterdir())
+
+    def session_rows(self) -> list:
+        return self.query(
+            "SELECT id, status, update_state, resume_id, file_path FROM sessions", "drafts.db"
+        )
+
+    def draft_file_names(self) -> list[str]:
+        return sorted(p.name for p in (self.data_dir / "drafts").iterdir())
+
+
+@pytest.fixture
+def resume_env(data_dir: Path, file_dir: Path) -> ResumeEnv:
+    init_drafts_db(data_dir / "drafts.db")
+    init_resumes_db(data_dir / "resumes.db")
+    injector = FaultInjector()
+    session_repo = FaultySessionRepository(data_dir / "drafts.db", injector)
+    draft_files = FaultyDraftFileStore(data_dir, injector)
+    resume_repo = FaultyResumeRepository(data_dir / "resumes.db", injector)
+    archive = FaultyArchiveStore(file_dir, injector)
+    parser = FakeParserClient(result=make_raw_result())
+    clock, ids = FakeClock(), SequentialIdGenerator()
+    sessions_service = SessionService(
+        session_repo, ChatRepository(data_dir / "drafts.db"), draft_files, parser,
+        resume_repo, archive.is_available, clock, ids,
+    )  # fmt: skip
+    service = ResumeService(session_repo, draft_files, resume_repo, archive, clock, ids)
+    return ResumeEnv(
+        service, sessions_service, session_repo, draft_files, resume_repo, archive, injector,
+        parser, clock, ids, data_dir, file_dir,
+    )  # fmt: skip
