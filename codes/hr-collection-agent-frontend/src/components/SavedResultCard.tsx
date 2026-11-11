@@ -1,12 +1,9 @@
 import { Button } from 'antd';
+import { formatDateTime } from '../hooks/model/FormatTime';
 import type { SavedSummary } from '../hooks/model/SessionReducer';
 
-/** Readable local time for the saved-at timestamp, or null when it cannot be read (the api layer already rejects such values). */
-export function formatSavedAt(iso: string): string | null {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleString('zh-CN', { hour12: false });
-}
+/** Kept as an alias: the formatter moved to hooks/model/FormatTime (v2, shared by lists, messages and archive). */
+export const formatSavedAt = formatDateTime;
 
 interface SavedResultCardProps {
   /** Name, original file name and saved time; null when the resume had been saved before. */
