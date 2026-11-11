@@ -386,7 +386,7 @@
 - [ ] `useChatScroll` 与 `ChatThread` 焦点 / 滚动
 - [ ] 外壳响应式与 aria 属性
 
-### Task 2.9：会话栏、切换、删除与离开确认（REQ-FE-05） 🆕 v2 新增
+### Task 2.9：会话栏、切换、删除与离开确认（REQ-FE-05） ✅
 - **关联：** design §3.3（useSessionList）、§3.4（SessionList、AppShell）、TD-16/17/26/29/30；REQ-FE-05.1–05.6；ADR-008
 - **涉及文件：** `src/hooks/useSessionList.ts`、`src/components/SessionList.tsx`、`AppShell.tsx`（加 `nav`/`sidebar` 插槽、窄屏 `Drawer`）、`ConfirmDialog` 文案（`leave`、`delete` 两种，组件本身不变）、`useResumeSession.ts`（`requestDelete`/`confirmDelete`/`confirmLeave`、`LeaveIntent`）、`ResumeCollectionPage.tsx`（接线）及测试。约 8 个文件。
 - **内容：** 列表 `loading/error（重试）/空` 三态，失败只影响列表区（TD-16）；选会话 → `openSession`；`busy≠null` 时列表不响应；删除校对中（“信息与文件一并删除，无法恢复”）与已保存（“只删对话记录，归档简历保留”）两种文案；删除当前会话回空态、`DELETE` 404 视为成功；离开确认仅当 `editBuffer` 非空，意图 `switch(id)|new_chat|upload(file)`；上传 / 对话 / 应用 / 保存 / 更新 / 删除成功后各 `reload()` 一次，读取类不刷新（TD-30）；窄屏顶栏“会话”按钮开 `Drawer`，选后关闭。
@@ -395,9 +395,9 @@
 
 #### 子任务
 
-- [ ] `useSessionList`、`SessionList`
-- [ ] `AppShell` 插槽与窄屏 `Drawer`
-- [ ] 删除、离开确认与 `reload` 接线
+- [x] `useSessionList`、`SessionList`
+- [x] `AppShell` 插槽与窄屏 `Drawer`
+- [x] 删除、离开确认与 `reload` 接线
 
 ### Task 2.10：对话输入与消息列表（REQ-FE-07.1–07.3，HIGH_RISK：B-03 / F-03 / F-02） 🆕 v2 新增
 - **关联：** design §3.4（ComposerBar、MessageList、MessageBubble、ThinkingNotice）、§5.4、TD-10/15/19/20；REQ-FE-07.1–07.3；ADR-007

@@ -8,6 +8,7 @@ import ErrorAlert from '../components/ErrorAlert';
 import FileCard from '../components/FileCard';
 import FinalReviewCard from '../components/FinalReviewCard';
 import NoticeBanner from '../components/NoticeBanner';
+import SessionList from '../components/SessionList';
 import QuickReplyChips from '../components/QuickReplyChips';
 import ReviewSummary from '../components/ReviewSummary';
 import SavedResultCard from '../components/SavedResultCard';
@@ -19,6 +20,7 @@ import { canConfirmSection, coreReady, unconfirmedCount } from '../hooks/model/S
 import { useChatScroll } from '../hooks/useChatScroll';
 import { usePreventFileDropNavigation } from '../hooks/usePreventFileDropNavigation';
 import { useResumeSession } from '../hooks/useResumeSession';
+import { useSessionList } from '../hooks/useSessionList';
 
 const UPLOAD_TIMEOUT_TEXT = '识别时间过长，请重新上传。';
 // A 2xx answer of the wrong shape: the server may already have replaced the draft, so the screen cannot be trusted.
@@ -26,8 +28,12 @@ const UPLOAD_BAD_RESPONSE_TEXT = '上传结果异常，请刷新页面后核对�
 
 /** Page orchestration only: picks what to render from the session state; never calls the API itself. */
 export default function ResumeCollectionPage() {
+  const list = useSessionList();
   const {
     state,
+    openSession,
+    requestDelete,
+    confirmDelete,
     dismissNotice,
     selectSection,
     editField,
@@ -42,7 +48,7 @@ export default function ResumeCollectionPage() {
     dismissDialog,
     requestUpload,
     selectionNotice,
-  } = useResumeSession();
+  } = useResumeSession({ onActivity: list.reload });
   usePreventFileDropNavigation(); // also covers phases without a composer
   const focusKey = useChatScroll({ phase: state.phase, view: state.view, activeSection: state.activeSection });
   const composerRef = useRef<ComposerBarHandle>(null);
@@ -50,6 +56,7 @@ export default function ResumeCollectionPage() {
   const bannerKind = state.notice === 'session_gone' ? state.notice : null;
   const uploading = state.busy === 'upload';
   const uploadError = state.error?.scope === 'upload' ? state.error.cause : null;
+  const sessionError = state.error?.scope === 'read' || state.error?.scope === 'delete' ? state.error.cause : null;
   const sectionError = state.error?.scope === 'section' ? state.error.cause : null;
   const confirmError = state.error?.scope === 'confirm' ? state.error.cause : null;
   const inSections = state.phase === 'reviewing' && state.view === 'sections' && state.draft !== null;
@@ -153,6 +160,21 @@ export default function ResumeCollectionPage() {
     <AppShell
       onNewChat={requestNewChat}
       newChatDisabled={busy}
+      sidebar={(close) => (
+        <SessionList
+          status={list.status}
+          items={list.items}
+          error={list.error}
+          currentId={state.sessionId}
+          disabled={busy}
+          onSelect={(id) => {
+            close();
+            openSession(id);
+          }}
+          onDelete={requestDelete}
+          onRetry={list.retry}
+        />
+      )}
       footer={
         showComposer ? (
           <ComposerBar
@@ -164,6 +186,8 @@ export default function ResumeCollectionPage() {
             error={
               uploadError ? (
                 <ErrorAlert error={uploadError} timeoutMessage={UPLOAD_TIMEOUT_TEXT} badResponseMessage={UPLOAD_BAD_RESPONSE_TEXT} />
+              ) : sessionError ? (
+                <ErrorAlert error={sessionError} />
               ) : null
             }
           />
@@ -180,6 +204,18 @@ export default function ResumeCollectionPage() {
         okText="放弃修改并继续"
         cancelText="返回"
         onOk={confirmLeave}
+        onCancel={dismissDialog}
+      />
+      <ConfirmDialog
+        open={state.dialog === 'delete'}
+        title="删除会话"
+        content={
+          state.dialogTarget?.kind === 'delete' && state.dialogTarget.status === 'saved'
+            ? '只删除这个会话的对话记录；已归档的简历和原始文件会保留，仍可在“已归档简历”中查看。'
+            : '删除后，这份简历的信息与已上传文件将一并删除，且无法恢复。'
+        }
+        okText="确认删除"
+        onOk={confirmDelete}
         onCancel={dismissDialog}
       />
       <ConfirmDialog

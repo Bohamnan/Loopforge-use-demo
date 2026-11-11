@@ -15,6 +15,7 @@ afterEach(() => {
 const pdf = (name = '合成简历.pdf') => new File(['%PDF-1.4'], name, { type: 'application/pdf' });
 const fileInput = (container: HTMLElement) => container.querySelector('input[type="file"]') as HTMLInputElement;
 const POST_SESSIONS = 'POST /api/v1/sessions';
+const LIST = 'GET /api/v1/sessions';
 const READY = () => screen.findByRole('heading', { name: /基本信息/ });
 
 function setup(options: FakeBackendOptions = {}) {
@@ -70,7 +71,7 @@ describe('upload creates a new session (REQ-FE-01, no overwrite)', () => {
     const { backend, container } = setup();
     fireEvent.change(fileInput(container), { target: { files: [file] } });
     expect(await screen.findByRole('alert')).toHaveTextContent(message);
-    expect(backend.requests).toHaveLength(0);
+    expect(backend.requests.filter((r) => r !== LIST)).toHaveLength(0);
   });
 
   it('takes the first of several dropped files and says so', async () => {
@@ -103,7 +104,7 @@ describe('upload errors (REQ-FE-01.4)', () => {
     const { container } = setup();
     await userEvent.upload(fileInput(container), pdf('旧文件.pdf'));
     await READY();
-    stubFetch(() => errorResponse(502, { code: 'parse_failed', message: '简历解析失败，请更换文件后重新上传。' }));
+    stubFetch((_url, init) => (init.method === 'POST' ? errorResponse(502, { code: 'parse_failed', message: '简历解析失败，请更换文件后重新上传。' }) : jsonResponse(200, { items: [] })));
     await userEvent.upload(fileInput(container), pdf('新文件.pdf'));
     expect(await screen.findByText(/简历解析失败/)).toBeInTheDocument();
     expect(screen.getByText('旧文件.pdf')).toBeInTheDocument();
@@ -112,7 +113,11 @@ describe('upload errors (REQ-FE-01.4)', () => {
   it('times out after 75 seconds with the re-upload hint and unlocks the composer', async () => {
     vi.useFakeTimers();
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    stubFetch((_url, init) => new Promise<Response>((_res, rej) => init.signal?.addEventListener('abort', () => rej(new DOMException('a', 'AbortError')))) as unknown as Response);
+    stubFetch((_url, init) =>
+      init.method === 'POST'
+        ? (new Promise<Response>((_res, rej) => init.signal?.addEventListener('abort', () => rej(new DOMException('a', 'AbortError')))) as unknown as Response)
+        : jsonResponse(200, { items: [] }),
+    );
     const { container } = render(<ResumeCollectionPage />);
     fireEvent.change(fileInput(container), { target: { files: [pdf()] } });
     await act(async () => {
@@ -128,7 +133,7 @@ describe('upload errors (REQ-FE-01.4)', () => {
 
   it('a 2xx answer of the wrong shape asks the user to reload and check', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    stubFetch(() => jsonResponse(201, {}));
+    stubFetch((_url, init) => (init.method === 'POST' ? jsonResponse(201, {}) : jsonResponse(200, { items: [] })));
     const { container } = render(<ResumeCollectionPage />);
     await userEvent.upload(fileInput(container), pdf());
     expect(await screen.findByText('上传结果异常，请刷新页面后核对。')).toBeInTheDocument();
@@ -136,7 +141,7 @@ describe('upload errors (REQ-FE-01.4)', () => {
 
   it('never logs the file name on failure', async () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    stubFetch(() => errorResponse(502, { code: 'parse_failed', request_id: 'req_u2' }));
+    stubFetch((_url, init) => (init.method === 'POST' ? errorResponse(502, { code: 'parse_failed', request_id: 'req_u2' }) : jsonResponse(200, { items: [] })));
     const { container } = render(<ResumeCollectionPage />);
     await userEvent.upload(fileInput(container), pdf('机密文件名.pdf'));
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useReducer, useState } from 'react';
 import { ApiError } from '../api/ApiError';
-import { createSession, getSession, updateSessionFields } from '../api/SessionApi';
+import { createSession, deleteSession, getSession, updateSessionFields } from '../api/SessionApi';
 import type { ResumeFieldsUpdate } from '../types/ResumeModel';
+import type { SessionStatus } from '../types/Session';
 import { getSection, type SectionKey } from './model/SectionConfig';
 import { buildSectionUpdate } from './model/SectionView';
 import { initialState, sessionReducer, type SessionAction, type SessionState } from './model/SessionReducer';
@@ -74,6 +75,16 @@ function createEngine(dispatch: (action: SessionAction) => void) {
         void updateSessionFields(after.sessionId, update).then(
           (response) => settle({ type: 'PATCH_SUCCEEDED', response, section, epoch }),
           (error: unknown) => settle({ type: 'PATCH_FAILED', error: toApiError(error), epoch }, false),
+        );
+        break;
+      }
+      case 'delete': {
+        const target = before.dialogTarget;
+        if (target?.kind !== 'delete') break;
+        const { id } = target;
+        void deleteSession(id).then(
+          () => settle({ type: 'DELETE_SUCCEEDED', id, epoch }),
+          (error: unknown) => settle({ type: 'DELETE_FAILED', error: toApiError(error), epoch }, false),
         );
         break;
       }
@@ -155,6 +166,13 @@ function createEngine(dispatch: (action: SessionAction) => void) {
       /** "＋ 新对话" / "上传下一份": clears the view only; no session is deleted (TD-12). */
       requestNewChat() {
         send({ type: 'NEW_CHAT_REQUESTED' });
+      },
+      /** Opens the delete confirmation; the wording depends on the session status (REQ-FE-05.5). */
+      requestDelete(id: string, status: SessionStatus) {
+        send({ type: 'DELETE_REQUESTED', id, status });
+      },
+      confirmDelete() {
+        send({ type: 'DELETE_CONFIRMED' });
       },
       dismissDialog() {
         send({ type: 'DIALOG_DISMISSED' });

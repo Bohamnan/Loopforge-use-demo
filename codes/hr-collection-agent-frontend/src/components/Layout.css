@@ -375,8 +375,11 @@ body {
 }
 
 /* Narrow screens: "new chat" sits in the title bar */
+
 .app-header-action {
   margin-left: auto;
+  display: flex;
+  gap: 8px;
 }
 
 /* Phone width (360–599px): give editable values the whole row (integration drill SUGGEST-2). */
@@ -399,4 +402,56 @@ body {
   .composer-hint {
     display: none;
   }
+}
+
+/* Session list (side bar / drawer) */
+.session-list ul {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+.session-item {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.session-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.session-main[aria-current='true'] {
+  border-color: var(--primary, #126af3);
+}
+.session-main:disabled,
+.session-delete:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.session-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.session-time,
+.session-empty {
+  color: var(--muted, #65717b);
+  font-size: 12px;
+}
+.session-delete {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0 8px;
 }
