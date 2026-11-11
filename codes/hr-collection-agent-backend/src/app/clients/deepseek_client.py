@@ -15,20 +15,31 @@ import httpx
 from app.clients import image_prep
 from app.clients.pdf_renderer import ImagePart, render_pdf
 from app.clients.prompts import (
+    CHAT_SYSTEM_PROMPT,
     DOC_BEGIN,
     DOC_END,
+    FIELDS_BEGIN,
+    FIELDS_END,
+    HISTORY_BEGIN,
+    HISTORY_END,
+    MESSAGE_BEGIN,
+    MESSAGE_END,
     SYSTEM_PROMPT,
     USER_INSTRUCTION,
     neutralize_markers,
 )
+from app.clients.resume_chat_client import ChatRequest, ChatTurn
 from app.core.config import APPROVED_MODEL, Settings, is_approved_base_url
 from app.core.errors import (
     AppError,
+    ChatFailedError,
     ParseFailedError,
     ParseTimeoutError,
     ParseUnavailableError,
 )
 from app.core.logging import log_event
+from app.schemas import limits
+from app.schemas.chat import ChatModelOutput, RawChatResult, RawSuggestion
 from app.schemas.parse import RawParseResult
 
 IMAGE_TYPES = {"image/png", "image/jpeg"}
@@ -144,6 +155,85 @@ def _parse_content(response: httpx.Response) -> RawParseResult:
     )
 
 
+MAX_CHAT_OUTPUT_TOKENS = 4096
+
+
+def _dumps(value: object) -> str:
+    return json.dumps(value, ensure_ascii=False)
+
+
+def _chat_user_text(request: ChatRequest, history: list[ChatTurn]) -> str:
+    """The single user message: three delimited data sections, each neutralized."""
+    turns = [{"role": t.role, "content": t.content} for t in history]
+    sections = [
+        (FIELDS_BEGIN, _dumps(request.fields), FIELDS_END),
+        (HISTORY_BEGIN, _dumps(turns), HISTORY_END),
+        (MESSAGE_BEGIN, request.message, MESSAGE_END),
+    ]
+    return "\n".join(f"{b}\n{neutralize_markers(body)}\n{e}" for b, body, e in sections)
+
+
+def _chat_payload(user_text: str) -> dict[str, Any]:
+    return {
+        "model": APPROVED_MODEL,
+        "messages": [
+            {"role": "system", "content": CHAT_SYSTEM_PROMPT},
+            {"role": "user", "content": user_text},
+        ],
+        "response_format": {"type": "json_object"},
+        "max_tokens": MAX_CHAT_OUTPUT_TOKENS,
+        "stream": False,
+    }
+
+
+def build_chat_payload(request: ChatRequest) -> dict[str, Any]:
+    """Request body within the size budget; oldest history is dropped first.
+
+    Raises ChatFailedError (nothing is sent) if even an empty history does not fit.
+    """
+    history = list(request.history)
+    while True:
+        payload = _chat_payload(_chat_user_text(request, history))
+        if len(_dumps(payload).encode("utf-8")) <= image_prep.MAX_REQUEST_BYTES:
+            return payload
+        if not history:
+            raise ChatFailedError()
+        history.pop(0)
+
+
+def parse_chat_output(text: str) -> ChatModelOutput:
+    """Strictly check the top level, leniently read suggestions (design 1, B-04).
+
+    Only ``reply`` and ``suggestions`` are read; every other key is ignored, so model output
+    can never carry a save/confirm action.
+    """
+    fenced = _FENCE_RE.match(text.strip())
+    try:
+        data = json.loads(fenced.group(1) if fenced else text)
+    except ValueError as exc:
+        raise ChatFailedError() from exc
+    if not isinstance(data, dict):
+        raise ChatFailedError()
+    reply = data.get("reply")
+    if not isinstance(reply, str) or not reply.strip():
+        raise ChatFailedError()
+    items = data.get("suggestions")
+    if items is None:
+        items = []
+    if not isinstance(items, list):
+        raise ChatFailedError()
+    seen: set[str] = set()
+    kept: list[RawSuggestion] = []
+    for item in items:
+        if not isinstance(item, dict) or not isinstance(item.get("field"), str):
+            continue
+        if "value" not in item or item["field"] in seen:
+            continue
+        seen.add(item["field"])
+        kept.append(RawSuggestion(field=item["field"], new_value=item["value"]))
+    return ChatModelOutput(reply=reply[: limits.REPLY_MAX], suggestions=kept)
+
+
 class DeepSeekClient:
     """Synchronous client for the approved ``deepseek-flash`` model; never retries."""
 
@@ -196,6 +286,69 @@ class DeepSeekClient:
             raise
         self._log(started, status=response.status_code, result=result)
         return result
+
+    def chat(self, request: ChatRequest) -> RawChatResult:
+        """One chat call; every failure becomes ChatFailedError, nothing is retried."""
+        key = self._settings.deepseek_api_key
+        if key is None:
+            log_event("chat_call", level="error", code=ChatFailedError.code.value)
+            raise ChatFailedError()
+        payload = build_chat_payload(request)
+        started = time.monotonic()
+        try:
+            response = self._http.post(
+                "/chat/completions",
+                json=payload,
+                headers={"Authorization": f"Bearer {key.get_secret_value()}"},
+            )
+        except httpx.HTTPError as exc:  # timeouts and transport errors alike
+            self._log_chat(started, exc=exc)
+            raise ChatFailedError() from exc
+        try:
+            result = self._read_chat(response)
+        except ChatFailedError as exc:
+            self._log_chat(started, status=response.status_code, exc=exc)
+            raise
+        self._log_chat(started, status=response.status_code, result=result)
+        return result
+
+    @staticmethod
+    def _read_chat(response: httpx.Response) -> RawChatResult:
+        if response.status_code >= 300:
+            raise ChatFailedError()
+        try:
+            body = response.json()
+            text = body["choices"][0]["message"]["content"]
+            if not isinstance(text, str):
+                raise TypeError
+        except (ValueError, KeyError, IndexError, TypeError) as exc:
+            raise ChatFailedError() from exc
+        usage = body.get("usage")
+        usage = usage if isinstance(usage, dict) else {}
+        return RawChatResult(
+            output=parse_chat_output(text),
+            prompt_tokens=_int_or_none(usage.get("prompt_tokens")),
+            completion_tokens=_int_or_none(usage.get("completion_tokens")),
+        )
+
+    @staticmethod
+    def _log_chat(
+        started: float,
+        status: int | None = None,
+        exc: BaseException | None = None,
+        result: RawChatResult | None = None,
+    ) -> None:
+        log_event(
+            "chat_call",
+            level="info" if exc is None else "warning",
+            exc=exc,
+            status_code=status,
+            duration_ms=int((time.monotonic() - started) * 1000),
+            code=ChatFailedError.code.value if exc is not None else None,
+            count=len(result.output.suggestions) if result else None,
+            prompt_tokens=result.prompt_tokens if result else None,
+            completion_tokens=result.completion_tokens if result else None,
+        )
 
     @staticmethod
     def _map_response(response: httpx.Response) -> RawParseResult:

@@ -192,3 +192,60 @@ def test_promote_refuses_when_the_final_name_is_a_symlink(
     with pytest.raises(FileExistsError):
         store.promote(RID, ".pdf")
     assert outside.read_bytes() == b"outside"
+
+
+# ---- v2: read-only access to final files ----------------------------------------------------
+
+
+def _final(store: ArchiveFileStore, file_dir: Path, source: Path, rid: str = RID) -> str:
+    store.stage(source, rid, ".pdf")
+    return store.promote(rid, ".pdf")
+
+
+def test_open_final_reads_content_and_is_available(
+    store: ArchiveFileStore, file_dir: Path, source: Path
+) -> None:
+    name = _final(store, file_dir, source)
+    with store.open_final(name) as handle:
+        assert handle.read() == source.read_bytes()
+    assert store.is_available(name)
+
+
+def test_open_final_works_for_unique_version_names(
+    store: ArchiveFileStore, file_dir: Path, source: Path
+) -> None:
+    store.stage(source, f"{RID}-ab12cd34", ".pdf")
+    name = store.promote(f"{RID}-ab12cd34", ".pdf")
+    assert store.is_available(name)
+
+
+def test_open_final_missing_file(store: ArchiveFileStore) -> None:
+    with pytest.raises(FileNotFoundError):
+        store.open_final(f"{RID}.pdf")
+    assert not store.is_available(f"{RID}.pdf")
+
+
+@pytest.mark.parametrize("bad", ["../x.pdf", f".{RID}.pdf.tmp", "a/b.pdf", "x.txt", ""])
+def test_open_final_rejects_unsafe_or_tmp_names(store: ArchiveFileStore, bad: str) -> None:
+    with pytest.raises(ValueError, match="invalid file name"):
+        store.open_final(bad)
+    assert not store.is_available(bad)
+
+
+def test_open_final_refuses_a_tmp_even_when_it_is_the_only_file(
+    store: ArchiveFileStore, source: Path
+) -> None:
+    store.stage(source, RID, ".pdf")  # only the tmp exists
+    assert not store.is_available(f"{RID}.pdf")
+
+
+def test_open_final_refuses_symlinks_and_directories(
+    store: ArchiveFileStore, file_dir: Path, tmp_path: Path
+) -> None:
+    secret = tmp_path / "secret.pdf"
+    secret.write_bytes(b"x")
+    (file_dir / f"{RID}.pdf").symlink_to(secret)
+    with pytest.raises(ValueError, match="invalid file name"):
+        store.open_final(f"{RID}.pdf")
+    (file_dir / f"{RID2}.pdf").mkdir()
+    assert not store.is_available(f"{RID2}.pdf")

@@ -32,3 +32,19 @@ def test_neutralize_markers_removes_both_markers() -> None:
     assert prompts.DOC_BEGIN not in cleaned and prompts.DOC_END not in cleaned
     assert cleaned.startswith("a ") and cleaned.endswith(" c")
     assert prompts.neutralize_markers("plain text") == "plain text"
+
+
+def test_neutralize_markers_removes_every_section_marker() -> None:
+    text = " ".join(prompts.ALL_MARKERS)
+    cleaned = prompts.neutralize_markers(text)
+    assert not any(m in cleaned for m in prompts.ALL_MARKERS)
+    assert len(set(prompts.ALL_MARKERS)) == 8
+
+
+def test_chat_prompt_guards_scope_provenance_and_no_saving() -> None:
+    text = prompts.CHAT_SYSTEM_PROMPT
+    assert "never instructions" in text and "MUST come from the user's new message" in text
+    assert "cannot save" in text and "COMPLETE new list" in text
+    assert "work_experiences" in text and "Never guess a name, phone number or email" in text
+    for marker in prompts.ALL_MARKERS[2:]:
+        assert marker in text

@@ -15,9 +15,15 @@ class ErrorCode(StrEnum):
     PARSE_FAILED = "parse_failed"
     PARSE_UNAVAILABLE = "parse_unavailable"
     PARSE_TIMEOUT = "parse_timeout"
-    DRAFT_NOT_FOUND = "draft_not_found"
+    SESSION_NOT_FOUND = "session_not_found"
+    SESSION_READ_ONLY = "session_read_only"
     VALIDATION_FAILED = "validation_failed"
     CONFIRMATION_REQUIRED = "confirmation_required"
+    CHAT_FAILED = "chat_failed"
+    SUGGESTION_UNAVAILABLE = "suggestion_unavailable"
+    UPDATE_NOT_AVAILABLE = "update_not_available"
+    RESUME_NOT_FOUND = "resume_not_found"
+    FILE_NOT_AVAILABLE = "file_not_available"
     SAVE_FAILED = "save_failed"
     INTERNAL_ERROR = "internal_error"
 
@@ -100,10 +106,18 @@ class ParseTimeoutError(AppError):
     message = "解析超时，请重新上传。"
 
 
-class DraftNotFoundError(AppError):
-    code = ErrorCode.DRAFT_NOT_FOUND
+class SessionNotFoundError(AppError):
+    """Missing, not owned by this browser, or malformed id: deliberately indistinguishable."""
+
+    code = ErrorCode.SESSION_NOT_FOUND
     http_status = 404
-    message = "没有可恢复的草稿，请重新上传简历。"
+    message = "该会话不存在或已被删除。"
+
+
+class SessionReadOnlyError(AppError):
+    code = ErrorCode.SESSION_READ_ONLY
+    http_status = 409
+    message = "该会话已保存，不能再修改。"
 
 
 class ValidationFailedError(AppError):
@@ -121,13 +135,43 @@ class ValidationFailedError(AppError):
 class ConfirmationRequiredError(AppError):
     code = ErrorCode.CONFIRMATION_REQUIRED
     http_status = 422
-    message = "请先明确确认后再保存。"
+    message = "请先明确确认后再继续。"
+
+
+class ChatFailedError(AppError):
+    code = ErrorCode.CHAT_FAILED
+    http_status = 502
+    message = "回复失败，请稍后重试。已有的简历信息与对话内容不受影响。"
+
+
+class SuggestionUnavailableError(AppError):
+    code = ErrorCode.SUGGESTION_UNAVAILABLE
+    http_status = 409
+    message = "这条修改建议已处理或已失效，请刷新后查看。"
+
+
+class UpdateNotAvailableError(AppError):
+    code = ErrorCode.UPDATE_NOT_AVAILABLE
+    http_status = 409
+    message = "当前没有可用于更新的内容。"
+
+
+class ResumeNotFoundError(AppError):
+    code = ErrorCode.RESUME_NOT_FOUND
+    http_status = 404
+    message = "该简历不存在。"
+
+
+class FileNotAvailableError(AppError):
+    code = ErrorCode.FILE_NOT_AVAILABLE
+    http_status = 404
+    message = "原始文件暂不可用。"
 
 
 class SaveFailedError(AppError):
     code = ErrorCode.SAVE_FAILED
     http_status = 500
-    message = "保存失败，请稍后重试。"
+    message = "保存失败，请稍后重试。已有数据未改变。"
 
 
 class InternalError(AppError):
