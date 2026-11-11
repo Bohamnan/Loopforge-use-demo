@@ -11,6 +11,12 @@ Situations, per record / file:
 3. final file, no record      -> delete (file without a record)
 4. record, no final and no tmp -> cannot be repaired: warn, keep the record
 
+5. stale older version (confirmed update): a final file of a record that is *not* the file the
+   record points at, while the record's own final file exists -> delete. An update promotes a
+   new uniquely named file before the transaction and removes the old one after it, so a crash
+   in between leaves the old file behind. If the record's own file is missing the other file
+   may be the only copy: it is kept and counted as a conflict.
+
 Anything unclear is left alone and counted as a conflict: a record that has both tmp and final
 file, or a file whose id matches a record but whose name does not. Deleting is irreversible, so
 only files that clearly have no record are deleted. Safeguards against mass deletion:
@@ -27,6 +33,7 @@ only files that clearly have no record are deleted. Safeguards against mass dele
 from starting, but it is always logged (counts and ids only, never content).
 """
 
+import re
 from dataclasses import dataclass
 
 from app.core.clock import Clock
@@ -47,6 +54,7 @@ class ReconcileReport:
     rolled_forward: int = 0
     tmp_removed: int = 0
     final_removed: int = 0
+    stale_removed: int = 0  # older versions left behind by a confirmed update
     missing_files: int = 0  # records without any file: needs a human
     conflicts: int = 0  # unclear states left untouched
     failed: int = 0  # entries whose action raised
@@ -78,7 +86,10 @@ class ReconcileService:
         log_event(
             "reconcile_done",
             level="warning" if _needs_attention(report) else "info",
-            count=report.rolled_forward + report.tmp_removed + report.final_removed,
+            count=report.rolled_forward
+            + report.tmp_removed
+            + report.final_removed
+            + report.stale_removed,
             duration_ms=int(elapsed.total_seconds() * 1000),
         )
         return report
@@ -119,7 +130,8 @@ class ReconcileService:
 
     def _remove_orphans(self, refs: list[ResumeRef], scan: ArchiveScan, counts: "_Counts") -> None:
         paths = {r.file_path for r in refs}
-        record_ids = {r.id for r in refs}
+        by_id = {r.id: r for r in refs}
+        finals = {e.name for e in scan.final}
         keep_finals = not refs and bool(scan.final)  # no records at all: do not wipe the archive
         for entry, is_tmp in [(e, True) for e in scan.tmp] + [(e, False) for e in scan.final]:
             if keep_finals and not is_tmp:
@@ -127,8 +139,14 @@ class ReconcileService:
                 continue
             if final_name(entry.resume_id, entry.ext) in paths:
                 continue  # owned by a record (handled above)
-            if entry.resume_id in record_ids:
-                counts.conflicts += 1  # same id, other file name: do not guess
+            owner = by_id.get(entry.resume_id) if is_tmp else _final_owner(entry.resume_id, by_id)
+            if owner is not None:
+                if is_tmp or owner.file_path not in finals:
+                    counts.conflicts += 1  # do not guess: the other file may be the only copy
+                elif self._remove(entry):
+                    counts.stale_removed += 1
+                else:
+                    counts.failed += 1
                 continue
             if self._remove(entry):
                 if is_tmp:
@@ -147,9 +165,24 @@ class ReconcileService:
         return True
 
 
+_VERSION_SUFFIX_RE = re.compile(r"(?P<base>.+)-[0-9a-f]{8}")
+
+
+def _final_owner(file_id: str, by_id: dict[str, ResumeRef]) -> ResumeRef | None:
+    """The record a final file's id belongs to: ``<id>`` or the update form ``<id>-<suffix8>``."""
+    if file_id in by_id:
+        return by_id[file_id]
+    match = _VERSION_SUFFIX_RE.fullmatch(file_id)
+    return by_id.get(match["base"]) if match else None
+
+
 def _has_entry_with_id(resume_id: str, scan: ArchiveScan) -> bool:
-    """True if some tmp/final file carries this id under another name (a conflict, not a loss)."""
-    return any(e.resume_id == resume_id for e in (*scan.tmp, *scan.final))
+    """True if some tmp/final file carries this id (or its update form): a conflict, not a loss."""
+    for e in (*scan.tmp, *scan.final):
+        match = _VERSION_SUFFIX_RE.fullmatch(e.resume_id)
+        if e.resume_id == resume_id or (match and match["base"] == resume_id):
+            return True
+    return False
 
 
 def _needs_attention(report: ReconcileReport) -> bool:
@@ -163,6 +196,7 @@ class _Counts:
         self.rolled_forward = 0
         self.tmp_removed = 0
         self.final_removed = 0
+        self.stale_removed = 0
         self.missing_files = 0
         self.conflicts = 0
         self.failed = 0
@@ -175,6 +209,7 @@ class _Counts:
             ("reconcile_rolled_forward", self.rolled_forward, "info"),
             ("reconcile_tmp_removed", self.tmp_removed, "info"),
             ("reconcile_final_removed", self.final_removed, "info"),
+            ("reconcile_stale_removed", self.stale_removed, "info"),
             ("reconcile_records_missing_files", self.missing_files, "warning"),
             ("reconcile_conflicts", self.conflicts, "warning"),
             ("reconcile_entries_failed", self.failed, "warning"),
