@@ -28,6 +28,9 @@
 
 ## 观察（不一定是缺陷，持续跟踪）
 
+- 主 agent 在影响分析汇报中说"两边 16 条待澄清问题中属于契约的在第 4 项（cross-workbench-reviewer）裁决"，与该 skill 关键原则 2（待澄清问题不归本 skill，由 requirements-analyst 处理）不符；已在 v2 审视节按原则执行，只在造成两侧口径不一致时引用。另：impact-analyzer backend 文档末尾也写了"Q-backend-02、03 需在 cross-workbench-reviewer 中一并裁决"，同样与该原则冲突——两个 skill 对"跨 Workbench 性质的待澄清问题由谁裁"的说法不一致，建议 impact-analyzer 的待澄清模板注明"交 requirements-analyst，跨 Workbench 性质的由其回呈 DL"。
+- cross-workbench-reviewer 模板的裁决表没有"AI 建议"列，v1 与 v2 都自行加了该列；skill 禁止代为裁决，但允许给建议与否没写明。
+
 - frontend worker 在 Step 4 中用 `--amend` 合并了自己未推送的提交（be0ead1）。全局 git 规则要求优先新提交、amend 需明确要求。影响小（未推送、仅本分支），下发任务时补一句"不要 amend"。
 
 - router 的重跑清单模板没有 solution-designer 一行，Type C"推翻架构决策"时需要执行者自己补；建议模板加一行"solution-designer（仅推翻架构决策/ADR 时）"。
