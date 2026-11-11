@@ -164,6 +164,7 @@ PRD → requirement-kickoff（业务澄清 + 派活） → (solution-designer HL
 
 > 📝 更新 `_progress.md`，将"需求汇总"标记为 ✅
 > 💡 提示用户：可新开会话执行下一步（各 Workbench `/architecture-advisor`）
+> 💡 同时提示 QA 或 Dev Lead（role 为 qa 或 dev-lead）：可新开会话执行 `/qa-test-case`，生成黑盒 QA 用例；它与架构设计、开发并行，不必等开发完成。若本票不执行，在 `_progress.md` 的“QA 测试用例”行备注原因。
 
 ---
 
