@@ -220,7 +220,7 @@
 | 3b | impact-analyzer | frontend 工程师 | HLD ✅ | `frontend-docs/HR_PR-1/00_impact_analysis.md` 覆盖重写（delta 文档）+ 履历表头 | ☑ 2026-11-11（1476ce6；待澄清 10 条） |
 | 4 | cross-workbench-reviewer | Dev Lead | 影响分析 ✅ | 在 `cross-workbench-review.md` 追加 v2 节：新接口契约、会话/浏览器标识 Cookie、修改建议结构、错误码；C-03、P-01、P-02 标注被 v2 替代 || ☑ 2026-11-11（a408e07、4d2be8f；DL 签署） |
 | 5 | requirements-analyst | Dev Lead/BA | 跨 Workbench Review ✅ | 两侧 `requirements.md` 增量更新（先快照 `_history/`），追溯矩阵覆盖新用户故事 || ☑ 2026-11-11（9f2b4e0、1043564；DL 确认） |
-| 5q | qa-test-case | QA（新建 Orca worktree，`local_profile.yaml` role=qa） | 5 requirements ✅ | **只生成用例，不执行**。范围：v2/v2.1 变更（PRD #3、#4 的 v2/v2.1 条目、#5、#6、#7）的 AT/E2E/NEG/PERM/REG/UAT；v1 已完成部分不补做（DL 2026-11-11），只在 REG 中覆盖 v2 影响分析"修改"类模块对 v1 行为的回归。产出 `01-requirements/HR_PR-1/qa/qa_test_cases.md`；与 6a–9b 并行 | ☑ 2026-11-11（HASH5Q） |
+| 5q | qa-test-case | QA（新建 Orca worktree，`local_profile.yaml` role=qa） | 5 requirements ✅ | **只生成用例，不执行**。范围：v2/v2.1 变更（PRD #3、#4 的 v2/v2.1 条目、#5、#6、#7）的 AT/E2E/NEG/PERM/REG/UAT；v1 已完成部分不补做（DL 2026-11-11），只在 REG 中覆盖 v2 影响分析"修改"类模块对 v1 行为的回归。产出 `01-requirements/HR_PR-1/qa/qa_test_cases.md`；与 6a–9b 并行 | ☑ 2026-11-11（0f0cb71） |
 | 6a | architecture-advisor（Schema+接口） | backend 工程师 | requirements ✅ | `sql_ddl_resume.md` 新增会话/消息/浏览器标识存储并调整确认后草稿处理；`openapi.yaml` 0.1.1 → 0.2.0（会话、消息、建议应用、归档查看） | ☐ |
 | 6b | architecture-advisor（接口消费） | frontend 工程师 | 6a OpenAPI 冻结 ✅ | `interface_spec_resume.md` 同步 0.2.0 | ☐ |
 | 7a | architecture-advisor（技术设计） | backend 工程师 | 接口冻结 ✅ | `backend-docs/HR_PR-1/04_design/design.md` 增量更新（先快照 `_history/`）：对话提示词与输出结构、注入防护、日志白名单、会话与删除 | ☐ |
