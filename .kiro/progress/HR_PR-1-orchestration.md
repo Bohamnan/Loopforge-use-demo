@@ -54,7 +54,8 @@
 - **授权采纳建议**：需澄清的问题只要不特殊，一律按 AI 建议采纳并注明"DL 授权采纳建议"；特殊 = 红线、推翻已确认决策、扩大范围。人类门控（审批、确认、签署）仍逐个提交 DL。
 - **严格按 skill 推进**：v2 的目的之一是验证这套 skill，问题登记在 `.kiro/docs/skill-validation/HR_PR-1-v2-skill问题登记.md`（SV-01..13，登记"会影响流程"的问题，不登记措辞）。
 - **票号**：v2 维持在 HR_PR-1（DL 已实测 v1 功能正常，变更源于体验），不另开 HR_PR-2。
-- **QA**：v1 不补做；v2 由 role=qa 的独立 worker 生成用例；11q 只执行 AT/E2E/UAT。
+- **QA**：v1 不补做；v2 由 role=qa 的独立 worker 生成用例；11q 只执行 AT/E2E/UAT（建议：AT/E2E 由 QA worker 用 Orca 浏览器 + 接口调用执行，模型桩为准、真实模型抽查 2 条；UAT 5 条由 DL 亲自执行，待 11q 时确认），报告按 `doc-templates/10_qa_test_report_template.md` 写到 `qa/qa_test_report.md`。
+- **模板同步**：开发 worker 在下一批 spec 第 0 步 `merge feature` 时带上新模板，不在任务执行中途同步。
 - **防止发散**：只做 requirements v2 已有的能力；测试深度按风险分配。
 - **不要扩散，安全第一（DL 2026-11-11 再次强调）**：每批 spec 必须带"不扩散 + 红线清单（B-01..B-05、会话归属、F-01..F-03）"；进度与安全冲突时以安全为准并请示 DL。
 - **编排同步所需的本地提交已授权**（不推送）。
