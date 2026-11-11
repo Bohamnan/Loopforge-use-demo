@@ -5,8 +5,9 @@ from pathlib import Path
 import pytest
 
 from app.core.db import (
+    DRAFTS_SCHEMA_VERSION,
     MIN_SQLITE_VERSION,
-    SCHEMA_VERSION,
+    RESUMES_SCHEMA_VERSION,
     connect,
     init_drafts_db,
     init_resumes_db,
@@ -35,20 +36,37 @@ def resumes_path(data_dir: Path) -> Path:
     return path
 
 
-def _draft_row(**over: object) -> dict:
+def _session_row(**over: object) -> dict:
     row = {
-        "id": "d1", "token_hash": "h1", "file_path": "d1.pdf", "original_filename": "a.pdf",
-        "content_type": "application/pdf", "file_size": 10, "fields_json": "{}",
-        "created_at": NOW, "updated_at": NOW, "last_active_at": NOW,
+        "id": "s1", "browser_hash": "h1", "status": "reviewing", "file_path": "s1.pdf",
+        "original_filename": "a.pdf", "content_type": "application/pdf", "file_size": 10,
+        "fields_json": "{}", "created_at": NOW, "updated_at": NOW, "last_active_at": NOW,
     }  # fmt: skip
     return row | over
 
 
-def _insert_draft(conn: sqlite3.Connection, **over: object) -> None:
-    row = _draft_row(**over)
+def _insert(conn: sqlite3.Connection, table: str, row: dict) -> None:
     cols = ", ".join(row)
     marks = ", ".join(f":{k}" for k in row)
-    conn.execute(f"INSERT INTO drafts ({cols}) VALUES ({marks})", row)  # noqa: S608
+    conn.execute(f"INSERT INTO {table} ({cols}) VALUES ({marks})", row)  # noqa: S608
+
+
+def _insert_session(conn: sqlite3.Connection, **over: object) -> None:
+    _insert(conn, "sessions", _session_row(**over))
+
+
+def _insert_message(conn: sqlite3.Connection, mid: str = "m1", seq: int = 1) -> None:
+    _insert(conn, "chat_messages", {
+        "id": mid, "session_id": "s1", "seq": seq, "role": "user", "content": "hi",
+        "created_at": NOW, "updated_at": NOW,
+    })  # fmt: skip
+
+
+def _insert_suggestion(conn: sqlite3.Connection) -> None:
+    _insert(conn, "chat_suggestions", {
+        "id": "g1", "session_id": "s1", "message_id": "m1", "seq": 1, "field": "skills",
+        "new_value_json": "[]", "applicable": 1, "created_at": NOW, "updated_at": NOW,
+    })  # fmt: skip
 
 
 def _resume_row(**over: object) -> dict:
@@ -73,10 +91,58 @@ def _insert_resume(conn: sqlite3.Connection, **over: object) -> None:
 
 def test_drafts_db_structure(drafts_path: Path) -> None:
     conn = connect(drafts_path)
-    assert _names(conn, "table") >= {"drafts"}
-    assert _names(conn, "index") >= {"uq_drafts_token_hash", "idx_drafts_last_active"}
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 1
+    assert _names(conn, "table") >= {"sessions", "chat_messages", "chat_suggestions"}
+    assert _names(conn, "index") >= {
+        "idx_sessions_browser_active", "uq_chat_messages_session_seq",
+        "uq_chat_suggestions_msg_seq",
+    }  # fmt: skip
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == DRAFTS_SCHEMA_VERSION == 2
+    assert RESUMES_SCHEMA_VERSION == 1
     assert "resumes" not in _names(conn, "table")
+
+
+def _make_v1_drafts_db(path: Path) -> None:
+    conn = sqlite3.connect(path)
+    conn.executescript(
+        "CREATE TABLE drafts (id TEXT PRIMARY KEY, token_hash TEXT NOT NULL);"
+        "CREATE UNIQUE INDEX uq_drafts_token_hash ON drafts (token_hash);"
+        "INSERT INTO drafts VALUES ('d1', 'h1'); PRAGMA user_version = 1;"
+    )
+    conn.close()
+
+
+def test_v1_drafts_db_is_upgraded_and_old_table_dropped(tmp_path: Path) -> None:
+    path = tmp_path / "drafts.db"
+    _make_v1_drafts_db(path)
+    init_drafts_db(path)
+    conn = connect(path)
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
+    assert "drafts" not in _names(conn, "table")
+    assert "uq_drafts_token_hash" not in _names(conn, "index")
+    assert _names(conn, "table") >= {"sessions", "chat_messages", "chat_suggestions"}
+
+
+def test_failed_upgrade_rolls_back_whole_transaction(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    path = tmp_path / "drafts.db"
+    _make_v1_drafts_db(path)
+    monkeypatch.setattr("app.core.db.SESSIONS_DDL", "CREATE TABLE ok (a); CREATE TABLE ok (a);")
+    with pytest.raises(sqlite3.OperationalError):
+        init_drafts_db(path)
+    conn = connect(path)
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+    assert conn.execute("SELECT count(*) FROM drafts").fetchone()[0] == 1  # v1 table untouched
+
+
+def test_deleting_session_cascades_to_messages_and_suggestions(drafts_path: Path) -> None:
+    conn = connect(drafts_path)
+    _insert_session(conn)
+    _insert_message(conn)
+    _insert_suggestion(conn)
+    conn.execute("DELETE FROM sessions WHERE id = 's1'")
+    for table in ("chat_messages", "chat_suggestions"):
+        assert conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0  # noqa: S608
 
 
 def test_resumes_db_structure(resumes_path: Path) -> None:
@@ -98,14 +164,14 @@ def test_two_databases_are_separate_files(drafts_path: Path, resumes_path: Path)
 
 def test_init_is_idempotent_and_keeps_data(drafts_path: Path, resumes_path: Path) -> None:
     conn = connect(drafts_path)
-    _insert_draft(conn)
+    _insert_session(conn)
     conn.close()
     rconn = connect(resumes_path)
     _insert_resume(rconn)
     rconn.close()
     init_drafts_db(drafts_path)
     init_resumes_db(resumes_path)
-    assert connect(drafts_path).execute("SELECT count(*) FROM drafts").fetchone()[0] == 1
+    assert connect(drafts_path).execute("SELECT count(*) FROM sessions").fetchone()[0] == 1
     assert connect(resumes_path).execute("SELECT count(*) FROM resumes").fetchone()[0] == 1
 
 
@@ -137,20 +203,25 @@ def test_connect_pragmas(drafts_path: Path) -> None:
 # ---- constraints -----------------------------------------------------------
 
 
-def test_draft_token_hash_unique(drafts_path: Path) -> None:
-    conn = connect(drafts_path)
-    _insert_draft(conn)
-    with pytest.raises(sqlite3.IntegrityError):
-        _insert_draft(conn, id="d2")
-
-
 @pytest.mark.parametrize(
     "over",
-    [{"content_type": "text/plain"}, {"file_size": 0}, {"file_size": 10485761}],
+    [
+        {"content_type": "text/plain"},
+        {"file_size": 0},
+        {"file_size": 10485761},
+        {"status": "saved"},  # saved needs resume_id
+        {"update_state": "pending"},  # reviewing must stay 'none'
+    ],
 )
-def test_draft_checks(drafts_path: Path, over: dict) -> None:
+def test_session_checks(drafts_path: Path, over: dict) -> None:
     with pytest.raises(sqlite3.IntegrityError):
-        _insert_draft(connect(drafts_path), **over)
+        _insert_session(connect(drafts_path), **over)
+
+
+def test_one_browser_can_own_many_sessions(drafts_path: Path) -> None:
+    conn = connect(drafts_path)
+    _insert_session(conn)
+    _insert_session(conn, id="s2", file_path="s2.pdf")  # same browser_hash
 
 
 def test_resume_identity_unique(resumes_path: Path) -> None:
@@ -200,16 +271,16 @@ def test_foreign_key_enforced_and_cascade(resumes_path: Path) -> None:
 def test_transaction_commits(drafts_path: Path) -> None:
     conn = connect(drafts_path)
     with transaction(conn):
-        _insert_draft(conn)
-    assert connect(drafts_path).execute("SELECT count(*) FROM drafts").fetchone()[0] == 1
+        _insert_session(conn)
+    assert connect(drafts_path).execute("SELECT count(*) FROM sessions").fetchone()[0] == 1
 
 
 def test_transaction_rolls_back_on_error(drafts_path: Path) -> None:
     conn = connect(drafts_path)
     with pytest.raises(RuntimeError, match="boom"), transaction(conn):
-        _insert_draft(conn)
+        _insert_session(conn)
         raise RuntimeError("boom")
-    assert connect(drafts_path).execute("SELECT count(*) FROM drafts").fetchone()[0] == 0
+    assert connect(drafts_path).execute("SELECT count(*) FROM sessions").fetchone()[0] == 0
 
 
 def test_begin_immediate_serialises_writers(drafts_path: Path) -> None:
@@ -232,7 +303,7 @@ def test_begin_immediate_serialises_writers(drafts_path: Path) -> None:
         release.set()
         t.join()
     with transaction(other):  # lock released
-        _insert_draft(other)
+        _insert_session(other)
 
 
 # ---- review SUGGEST-2: SQLite must support RETURNING (>= 3.35) -------------------------------

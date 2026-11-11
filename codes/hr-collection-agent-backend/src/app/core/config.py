@@ -36,8 +36,6 @@ class Settings(BaseSettings):
     file_dir: Path = Path("file")
 
     model_timeout_seconds: int = Field(default=60, gt=0)
-    draft_ttl_days: int = Field(default=7, gt=0)
-    cleanup_interval_seconds: int = Field(default=3600, gt=0)
     cookie_secure: bool = False
 
     @field_validator("data_dir", "file_dir")

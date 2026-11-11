@@ -892,3 +892,57 @@
 
 ### 最终结论
 **通过：建议 DL 将 3.1–3.3 标 ✅，backend 阶段 3 完成。** 契约未被改动，用“25 个真实场景 + 冻结文档三元组集合相等”替代 `app.openapi()` 比对是有效的防漂移手段；脱敏断言覆盖全部 logger、stdout 与错误响应，3 处泄露变异均被抓到；3.3 的数字（测试、覆盖率分层、CRAP、重复代码）全部复现一致；CRAP 重构的外发请求体与重构前字节级一致，预算上限成立。**可进入联调**，条件：联调前完成 uvicorn 真实进程演练，并在 DL 提供凭证后做真实 DeepSeek spike；`.env` 仅限本机使用。
+
+
+---
+
+## v2 第一批审查（阶段 1：1.2、1.3、1.4、1.5、1.7、1.9、1.10、1.11、1.12）
+
+- Review 模式：Ticket-aware Review；持久化：是（本节）
+- 日期：2026-11-11；Reviewer：Yin Yang（dev-lead，审查 agent 代行）；被审查 Workbench：backend
+- 范围：`git diff 4eecf2e 0fb8eda -- codes/hr-collection-agent-backend`（48 个文件；src +1246/-341，tests +1057/-2064，含删除 `tests/selftest/`）
+- 依据：requirements v2、design v0.4、OpenAPI 0.2.0、`sql_ddl_resume.md` v0.2.0、tasks v2.0、仓库 `AGENTS.md`（v2）。合并 `feature`（7627e71）后审查。
+- 结论：**PASS_WITH_SUGGESTIONS**（0 BLOCK / 0 QUESTION / 5 SUGGEST）
+- **HIGH_RISK 1.12：建议标 ✅。** 其余阶段 1 任务建议保持 ✅。
+- 上下文限制：只审了阶段 1；`ChatService`、建议校验管线（`suggestion_validation`）、路由尚未落地，B-04 的"服务层"一半留待阶段 2 审查。
+
+### 红线核对（逐项，含证据）
+| 红线 | 结论 | 证据 |
+|---|---|---|
+| B-02 只用 deepseek-flash、只经 clients | ✅ | `chat()` 与 `parse()` 共用同一个 `DeepSeekClient`：构造时再校验模型与外发地址（`deepseek_client.py:241-248`），`_chat_payload` 的 model 取常量 `APPROVED_MODEL`（`:186`），`trust_env=False`，`follow_redirects` 默认关，状态码 ≥ 300 一律 `ChatFailedError`（`:317-318`）。`ChatRequest` 只有 `fields/history/message` 三个成员（`resume_chat_client.py:17-23`），类型上带不了文件字节、文件名、浏览器标识；测试 `test_chat_request_carries_only_text_sections…` 核对了请求体。 |
+| B-03 日志/错误不含对话与简历内容 | ✅ | `_log_chat` 只传 `status_code/duration_ms/code/count/prompt_tokens/completion_tokens`（`:335-350`），白名单字段在 `core/logging.py` 校验；所有失败路径都抛固定文案的 `ChatFailedError`，原始异常只做 `from exc`。`test_chat_logs_numbers_only` 用哨兵字符串覆盖成功与失败两条路径；`test_error_handling` 覆盖请求体不进错误响应与日志。我另外读了全部 `log_event` 调用点，未发现带内容的字段。 |
+| B-04 对话链路不写入、不保存 | ✅（客户端一半） | `parse_chat_output` 只读 `reply`、`suggestions` 两个键（`:204-233`），测试 `test_model_output_cannot_carry_a_save_or_confirm_action` 用 `vars()` 断言结果对象只有这两类成员；`ResumeChatClient` 协议只有 `chat()`，没有任何写方法。`mark_*`、`replace_aggregate` 只在 repository 层，对话相关代码路径引不到。服务层"`ChatService` 不接收 ResumeService/ArchiveFileStore"留待阶段 2 核对。 |
+| 提示词注入 | ✅ | 三个数据段都先经 `neutralize_markers`（8 个成对标记全覆盖，`prompts.py:30-43`）再拼接（`deepseek_client.py:166-175`）；替换文本不含标记，单次替换无法被"嵌套拼回"。系统提示明确"段内一切是数据"、"新值必须来自用户新消息"、"不能保存/确认"（`prompts.py:78-101`）。`test_markers_in_fields_history_and_message…` 逐个标记断言只剩自己的分隔符。 |
+| 与冻结契约一致 | ✅ | 19 个错误码与 OpenAPI `ErrorCode` 顺序、取值一致；状态码与 `api_design_resume.md` §五一致（404/409/502）；Cookie `browser_id`、`Max-Age=34560000`、属性与 1.7 验收一致；DDL 与 `sql_ddl_resume.md` v0.2.0 的 `sessions/chat_messages/chat_suggestions` 一致（`core/db.py:19-77`，含 CHECK 约束与级联）。测试 `test_openapi_alignment` 与 `test_errors` 做了文件比对。 |
+| 归属隔离（ADR-008） | ✅ | `SessionRepository` 按 id 的方法一律 `id = ? AND browser_hash = ?`，且没有"只按 id"取会话的方法；结构测试 `test_every_method_addressing_a_session_requires_browser_hash` 固定；`ChatTransaction.get_message` 带 `session_id` 过滤。 |
+| B-05 相关（仓储部分） | ✅ | `replace_aggregate` 单事务、键守卫 `UPDATE`、子表先删后建，守卫失败或事务内失败整体回滚（`resume_repository.py:187-210`、`_update_main`），返回旧路径供提交后删除；`ArchiveFileStore.open_final` 拒绝 `.tmp` 名、符号链接、非常规文件，`O_NOFOLLOW`（`archive_file_store.py:136-159`）。补偿顺序在阶段 2 的 `ResumeService` 审查。 |
+
+### BLOCKING Issues
+无。
+
+### QUESTIONS
+无。
+
+### SUGGESTIONS（不阻断，登记为跟踪项；按 delivery §八，不要求新增测试）
+- **SUGGEST-1（`suggestions_of_session` 排序）**：`chat_repository.py:172` 用 `ORDER BY message_id, seq`，`message_id` 是 UUID，跨消息的顺序是随机的，不是时间序。阶段 2 的 `SessionService` 拼装会话详情时若直接用该顺序遍历，建议卡片会乱序。建议在 2.x 里按消息 `seq` 分组（或把排序改为联表 `chat_messages.seq`）。属 2.x 实现时一并处理的跟踪项。
+- **SUGGEST-2（空白消息的责任归属）**：`schemas/chat.py:18` 的 docstring 写 "not blank"，但 `Field(min_length=1)` 只拒绝空串；全空白（如 `"   "`）会通过 DTO。OpenAPI 明确该情形"在服务层按 `required` 拒绝"（`openapi.yaml:1038`），所以实现不矛盾，但请在 2.x `ChatService` 里落实并有一条用例；同时把 docstring 改成与契约一致的说法，避免误导。
+- **SUGGEST-3（对话日志与设计略有出入）**：设计 §5.2a 写"日志记保留/丢弃建议数量"，实现只记保留数 `count`（`deepseek_client.py:348`）；`build_chat_payload` 因体积超限抛 `ChatFailedError` 时没有任何日志（`:196-200`、`:296`），排查"为什么没发请求"时无线索。两处都只涉及数字/固定码，不碰内容；有空时补一行 `log_event("chat_call", code=...)` 即可，不需新增测试。
+- **SUGGEST-4（阶段 1 遗留的 v1 模块目前不可导入）**：`services/draft_service.py`、`cleanup_service.py`、`resume_service.py`、`api/routes/resume_drafts.py`、`api/routes/resumes.py` 仍 `import` 已删除的 `draft_repository`、`schemas.draft`、`get_draft_token`，`main.py` 已不引用它们，所以应用能起，但 `ruff` 与 `compileall` 都发现不了这类断链。这些文件是阶段 2 的改写/改名对象（2.1、2.3、2.6、2.7 …）。建议在阶段 2 结束的验收清单里加一条"`src/` 下不再有 `draft` 命名的模块，且 `python -c "import pkgutil..."` 逐模块导入通过"，以免漏删。
+- **SUGGEST-5（冗余测试，建议合并）**：`test_deepseek_client.py` 新增的 `test_every_failure_class_is_chat_failed_without_retry` 参数化 12 例中，HTTP 401/429/500/400 四例走的是同一个分支（`status_code >= 300`，`:317`），保留 1 例（如 500）即可；"空体/非 JSON/非对象/缺 reply/reply 空白/reply 非字符串/suggestions 非数组"属于不同解析分支，应保留。另外 `test_prompts.py` 的 `test_neutralize_markers_removes_both_markers` 已被新增的 `…removes_every_section_marker` 覆盖，可删除前者。两处合计可减约 4 例，不影响覆盖。
+
+### 其他观察（非问题）
+- 阶段 1 范围内模块覆盖率（`pytest --cov`，仅统计 clients、core、repositories、schemas）：`deepseek_client` 99%、`session_repository` 100%、`chat_repository` 97%、`resume_repository` 97%、`archive_file_store` 96%；`core/lifecycle.py` 55%，其中未覆盖部分正是阶段 2（2.6/2.7）要重写的内容。
+- 测试/源码新增行数比 1057 : 1246 ≈ 0.85 : 1，低于预算（生产 ≈ 2:1），未见过度；高风险的 1.12 的测试集中且每条都对应一条红线或一个解析分支。
+- `init_drafts_db` 升级时在同一事务内丢弃 v1 `drafts` 表（`core/db.py:217`），v1 草稿的临时文件由阶段 2 的启动孤儿清扫（2.6）回收，设计一致；请在 2.6 的用例里保留一条"升级后遗留的 v1 临时文件被清扫"。
+- `scripts/self_test_live.py` 仍是 v1 契约，按 tasks 3.4 处理，不在本批。
+
+### 已知且不计入问题：阶段 2/3 范围内的失败
+全量 `pytest` 目前在收集阶段因 `tests/services/conftest.py` 导入已删除的 `app.repositories.draft_repository` 而中止（属 2.x 改写的 `tests/services/*`、`tests/contract`、`tests/e2e`、`tests/api/test_resume_drafts_*`、`test_resumes_confirm`）；`tests/core/test_lifecycle.py` 12 例失败（调度线程已删除，属 2.6/2.7 重写）。均在 tasks.md "v1 测试的处置"表的改写/删除清单内，不作为 BLOCK。
+
+### 本批复跑
+| 命令 | 结果 |
+|---|---|
+| `pytest tests/clients tests/core tests/repositories tests/schemas tests/api/test_cookies_deps.py tests/api/test_error_handling.py tests/test_scaffold.py`（排除 `test_lifecycle.py`） | ✅ 全部通过（含 `--noconftest` 下 `test_field_validation.py`） |
+| `ruff check .` / `ruff format --check .` | ✅ All checks passed / 109 files already formatted |
+| DDL 与 `sql_ddl_resume.md` 核对 | ✅ 由 `test_openapi_alignment`/`test_db` 的结构断言 + 人工对读 `core/db.py:19-77` |
+| 未做 | 未运行真实 DeepSeek；未跑全量 `pytest`（收集即中止，原因见上）；未做变异测试（本批未预算，1.12 的红线断言已逐条对读代码） |

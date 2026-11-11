@@ -64,3 +64,26 @@ def make_raw_result(**overrides: object):  # noqa: ANN201
     }
     data.update(overrides)
     return RawParseResult(data=data, prompt_tokens=10, completion_tokens=5)
+
+
+class FakeChatClient:
+    """ResumeChatClient double: returns a preset result or raises a preset error."""
+
+    def __init__(self, result: object = None, error: Exception | None = None) -> None:
+        self.result = result
+        self.error = error
+        self.requests: list[object] = []
+
+    def chat(self, request: object) -> object:
+        self.requests.append(request)
+        if self.error is not None:
+            raise self.error
+        return self.result
+
+
+def make_chat_result(reply: str = "ok", suggestions: list[tuple[str, object]] | None = None):  # noqa: ANN201
+    """A chat model result; ``suggestions`` is a list of (field, new_value) candidates."""
+    from app.schemas.chat import ChatModelOutput, RawChatResult, RawSuggestion
+
+    items = [RawSuggestion(field=f, new_value=v) for f, v in suggestions or []]
+    return RawChatResult(ChatModelOutput(reply=reply, suggestions=items), 10, 5)

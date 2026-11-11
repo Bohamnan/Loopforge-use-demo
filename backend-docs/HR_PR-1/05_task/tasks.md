@@ -111,7 +111,7 @@
 
 ---
 
-### Task 1.2：core：配置、时钟、ID 与令牌工具　↺ v2
+### Task 1.2：core：配置、时钟、ID 与令牌工具　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `src/app/core/config.py`、`.env.example`、`tests/core/test_config.py`；**同时删除 `tests/selftest/` 整个目录**（见“测试预算·v1 测试的处置”，作为 9a 的第一步，避免旧自测套件阻塞收集）。
@@ -135,7 +135,7 @@
 
 ---
 
-### Task 1.3：core：错误模型与安全日志　↺ v2
+### Task 1.3：core：错误模型与安全日志　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `core/errors.py`、`core/logging.py`、`tests/core/test_errors.py`、`tests/core/test_logging.py`。
@@ -159,7 +159,7 @@
 
 ---
 
-### Task 1.4：schemas：字段模型与 DTO　↺ v2
+### Task 1.4：schemas：字段模型与 DTO　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `schemas/session.py`（原 `draft.py`，改名）、`schemas/chat.py`（新）、`schemas/archive.py`（新）、`schemas/resume.py`、`schemas/limits.py`、`tests/schemas/test_dtos.py`、`tests/schemas/test_openapi_alignment.py`（`resume_fields.py`、`errors.py`、`parse.py` 不变）。
@@ -183,7 +183,7 @@
 
 ---
 
-### Task 1.5：core：SQLite 辅助与两库初始化　↺ v2
+### Task 1.5：core：SQLite 辅助与两库初始化　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `core/db.py`、`tests/core/test_db.py`。
@@ -221,7 +221,7 @@
 
 ---
 
-### Task 1.7：api 基础：应用工厂、中间件、异常处理、Cookie、依赖装配　↺ v2
+### Task 1.7：api 基础：应用工厂、中间件、异常处理、Cookie、依赖装配　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `api/cookies.py`、`api/deps.py`、`api/error_handlers.py`、`main.py`（版本 0.2.0；路由随各接口任务注册）、`tests/api/conftest.py`、`tests/api/test_cookies_deps.py`、`tests/api/test_error_handling.py`。
@@ -267,7 +267,7 @@
 
 ---
 
-### Task 1.9：repositories：草稿库与草稿文件存储　↺ v2
+### Task 1.9：repositories：草稿库与草稿文件存储　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `repositories/session_repository.py`（原 `draft_repository.py`，改名）、`tests/repositories/test_session_repository.py`（原 `test_draft_repository.py`）；`DraftFileStore` 与其测试不变。
@@ -290,7 +290,7 @@
 
 ---
 
-### Task 1.10：repositories：正式库与归档文件存储　↺ v2
+### Task 1.10：repositories：正式库与归档文件存储　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `repositories/resume_repository.py`、`repositories/archive_file_store.py`、`tests/repositories/test_resume_repository.py`、`tests/repositories/test_archive_file_store.py`（均为追加用例）。
@@ -311,7 +311,7 @@
 - [ ] `ArchiveFileStore`
 - [ ] 对应单元测试
 
-### Task 1.11：repositories：ChatRepository　🆕 v2
+### Task 1.11：repositories：ChatRepository　✅ v2 已完成
 - **关联：** REQ-BE-07；D§3.5（`ChatRepository`）、D§5.2a；S§2（`chat_messages`、`chat_suggestions`）
 - **涉及文件：** `repositories/chat_repository.py`、`tests/repositories/test_chat_repository.py`
 - **内容：** 消息与建议读写（同事务内取 `max(seq)+1`）；`recent_messages(session_id, n)`；`suggestions_of_message`；`mark_suggestions(message_id, status)`（条件 `pending AND applicable=1`，以 `rowcount` 表达是否生效）。仅做存储，不做业务判断。
@@ -320,7 +320,7 @@
 
 ---
 
-### Task 1.12：clients：ResumeChatClient、DeepSeekClient.chat、对话提示词与消毒　🆕 v2　**【HIGH_RISK：B-02 / B-03 / B-04】**
+### Task 1.12：clients：ResumeChatClient、DeepSeekClient.chat、对话提示词与消毒　🆕 v2　**【HIGH_RISK：B-02 / B-03 / B-04】** ✅（v2 第一批审查 PASS，DL 2026-11-11 确认）
 - **关联：** REQ-BE-07.1、07.2、07.10；D§3.4、D§1“对话客户端的形态”“对话请求体”“提示词分隔与消毒”“对话输出的信任边界”；D§7.2；ADR-007
 - **涉及文件：** `clients/resume_chat_client.py`（新）、`clients/deepseek_client.py`、`clients/prompts.py`、`tests/clients/test_deepseek_client.py`（追加）、`tests/clients/test_prompts.py`（追加）、`tests/fakes.py`（`FakeChatClient`）
 - **内容：** 协议 `ResumeChatClient.chat(request) -> RawChatResult`，`DeepSeekClient` 同时实现，复用同一 `httpx.Client`、超时、外发地址 / 模型锁定与状态映射；任何失败统一映射 `ChatFailedError`（不重试）；请求体只含系统提示 + 一条 user 消息（字段 JSON、最近历史、本条消息三个分隔段），**不含原文件、原文件名、浏览器标识**，体积沿用 `MAX_REQUEST_BYTES`，超出从最旧历史丢弃，仍超出则不外发并抛 `ChatFailedError`；`neutralize_markers` 泛化为处理全部成对标记（含 `DOC_*`）；输出解析：顶层结构不符 / `reply` 缺失或为空 → `ChatFailedError`，`reply` 超 4000 截断，`suggestions` 单项不合规丢弃、同字段保留第一项、忽略其他键。

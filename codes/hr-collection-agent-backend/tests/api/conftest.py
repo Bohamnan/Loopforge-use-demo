@@ -3,21 +3,24 @@
 import logging
 
 import pytest
-from fastapi import APIRouter, Depends, FastAPI, Response
+from fastapi import APIRouter, Depends, FastAPI, Response, UploadFile
 from fastapi.testclient import TestClient
 
 from app.api import cookies
-from app.api.deps import get_draft_token, get_settings
+from app.api.deps import get_browser_id, get_settings
 from app.core.config import Settings
 from app.core.errors import (
-    DraftNotFoundError,
     FieldIssue,
     IssueReason,
+    SessionNotFoundError,
     ValidationFailedError,
 )
 from app.main import create_app
-from app.schemas.draft import DraftUpdateRequest
-from app.schemas.resume import CreateResumeRequest
+from app.schemas.chat import SendMessageRequest
+from app.schemas.resume import CreateResumeRequest, UpdateResumeRequest
+from app.schemas.session import SessionFieldsUpdateRequest
+
+BROWSER_ID = "A" * 43  # same shape as secrets.token_urlsafe(32)
 
 
 def build_probe_router() -> APIRouter:
@@ -25,7 +28,7 @@ def build_probe_router() -> APIRouter:
 
     @router.get("/t/app-error")
     def app_error() -> None:
-        raise DraftNotFoundError()
+        raise SessionNotFoundError()
 
     @router.get("/t/validation-error")
     def validation_error() -> None:
@@ -35,31 +38,39 @@ def build_probe_router() -> APIRouter:
     def crash() -> None:
         raise RuntimeError("ZZ-secret-user-data")
 
-    @router.patch("/t/model")
-    def model(body: DraftUpdateRequest) -> dict:
+    # Probes registered under the real route templates (error mapping is per template).
+    @router.post("/api/v1/sessions")
+    def upload(file: UploadFile) -> dict:
         return {"ok": True}
 
-    @router.post("/api/v1/resumes")
-    def confirm(body: CreateResumeRequest) -> dict:
+    @router.patch("/api/v1/sessions/{session_id}/fields")
+    def patch_fields(session_id: str, body: SessionFieldsUpdateRequest) -> dict:
         return {"ok": True}
 
-    @router.get("/t/token")
-    def token(tok: str | None = Depends(get_draft_token)) -> dict:
-        return {"token": tok}
+    @router.post("/api/v1/sessions/{session_id}/messages")
+    def send(session_id: str, body: SendMessageRequest) -> dict:
+        return {"ok": True}
 
-    @router.get("/t/set-cookie")
-    def set_cookie(response: Response, settings: Settings = Depends(get_settings)) -> dict:
-        cookies.set_token(response, "tok123", settings)
+    @router.post("/api/v1/sessions/{session_id}/resume")
+    def confirm(session_id: str, body: CreateResumeRequest) -> dict:
+        return {"ok": True}
+
+    @router.put("/api/v1/sessions/{session_id}/resume")
+    def confirm_update(session_id: str, body: UpdateResumeRequest) -> dict:
+        return {"ok": True}
+
+    @router.get("/t/browser-id")
+    def browser_id(value: str | None = Depends(get_browser_id)) -> dict:
+        return {"browser_id": value}
+
+    @router.get("/t/issue-cookie")
+    def issue_cookie(response: Response, settings: Settings = Depends(get_settings)) -> dict:
+        cookies.issue(response, BROWSER_ID, settings)
         return {}
 
     @router.get("/t/renew-cookie")
     def renew_cookie(response: Response, settings: Settings = Depends(get_settings)) -> dict:
-        cookies.renew(response, "tok123", settings)
-        return {}
-
-    @router.get("/t/clear-cookie")
-    def clear_cookie(response: Response, settings: Settings = Depends(get_settings)) -> dict:
-        cookies.clear(response, settings)
+        cookies.renew(response, BROWSER_ID, settings)
         return {}
 
     return router

@@ -540,3 +540,58 @@
 
 ### 最终结论
 **通过。建议关闭 frontend 全部任务，frontend 阶段无阻断。** 3.1 的存储与 console 断言真实有效（含监视器自检，6 处变异全被杀）；追溯矩阵 33 条与测试文件真实对应；三条 SUGGEST 修复合理，仅作用于 ≤599px 与固定输入区，不改变桌面布局与 F-03 行为；`vite.config.ts` 的测试期配置不影响生产构建（已用构建产物核对）；联调脚本不含个人信息、不读 `.env`、只访问本机；全仓与历史新增内容未发现样品简历或真实手机号邮箱。关闭前请 DL 知悉：窄屏三项修复的浏览器实机复测与联调报告脱敏（SUGGEST-1/2）为非阻断的收尾事项。
+
+
+---
+
+## v2 第一批审查（阶段 1：1.3、1.4、1.6、1.7、1.8、1.9、1.10）
+
+- Review 模式：Ticket-aware Review；持久化：是（本节）
+- 日期：2026-11-11；Reviewer：Yin Yang（dev-lead，审查 agent 代行）；被审查 Workbench：frontend
+- 范围：`git diff 0fb8eda b97961a -- codes/hr-collection-agent-frontend`（39 个文件；src +1158，测试与夹具 +1177）。合并 `feature`（7627e71）后审查。
+- 依据：requirements v2、design v2.0、`interface_spec_resume.md` v0.3、OpenAPI 0.2.0、tasks v2.0、仓库 `AGENTS.md`（v2）。
+- 结论：**PASS_WITH_SUGGESTIONS**（0 BLOCK / 0 QUESTION / 4 SUGGEST）
+- **HIGH_RISK 1.8 Verify（F-03）：建议标 ✅。HIGH_RISK 1.9 UpdateDiff（清空字段必列）：建议标 ✅。** 1.3、1.4、1.6、1.7、1.10 建议保持 ✅。
+- 上下文限制：本批没有页面、组件和 `useResumeSession`，F-03 只能在"纯逻辑 + 状态机"层核对；界面是否在确认前出现"已保存"提示，等阶段 2（2.6、2.13）与 3.1 审查时核对。
+
+### 红线核对
+| 红线 | 结论 | 证据 |
+|---|---|---|
+| F-03 "已保存/已更新"只由成功事件或核对事件置位 | ✅（状态机层） | `notice: 'updated'` 只在 `UPDATE_SUCCEEDED`（`SessionReducer.ts:683-695`）与 `UPDATE_VERIFIED` 的 `applied` 分支（`:711-718`）出现；`phase: 'saved'` + `savedSummary` 只在 `CONFIRM_SUCCEEDED`（`:587-612`）与 `CONFIRM_VERIFIED` 的 `saved` 分支（`:638-667`）出现。2xx 的形状校验失败 = `unknown_error`，不进成功分支（`ApiClient.ts:97-99`，`ResponseShapes.ts` 全部响应）。结果未知（超时/网络/`unknown_error`）与 `session_read_only`/`update_not_available` 一律先重读再判断（`:628-633`、`:702`）；读取失败或读到仍是 `reviewing`/`pending` 时回落为"未确认"并保留错误（`:641-644`、`:720`）。 |
+| `Verify` 回落 | ✅ | `decideAfterConfirmRead` 仅 `status==='saved'` 才给 `saved`，其余 `still_reviewing`（`Verify.ts:25-28`）；`decideAfterUpdateRead` 仅 `update_state==='applied'` 给 `applied`（`:33-37`）；`matchSentMessage` 要求尾部两条同时满足角色、文本、且 `message_id` 都不在已知集合（`:9-20`），不匹配即视为"未送达"，不会误认为已发送。 |
+| 差异必列清空字段 | ✅ | `buildUpdateDiff` 对 22 个键逐一比较，任何归一后不相等的键都进入 `changed`，"候选为空而已有值非空"另标 `clears`（`UpdateDiff.ts:64-75`）；归一只做 trim / 丢弃空列表项 / 经历子项缺键 = `null`，不会把"有值 → 空"归一成相同；空白串视为空，因此清空不会被 `'  '` 掩盖（测试已覆盖）。 |
+| F-02 不在浏览器持久化敏感数据 | ✅ | `src` 下无 `localStorage/sessionStorage/indexedDB/document.cookie`（非测试文件检索）；Cookie 由 backend 的 `HttpOnly` 设置；`editBuffer`、会话详情只在 reducer 内存。ESLint 红线测试 `EslintRules.test.ts` 24 项通过。 |
+| B-03 / 控制台 | ✅ | `ApiClient.logFailure` 只输出 `request_id/code/status`（`ApiClient.ts:30-33`）；`quietCodes` 仅用于 `DELETE session_not_found`；全部 `src` 非测试文件仅两处 `console.error`（另一处只打印 `error.name`）。 |
+| F-01 / 分层 | ✅ | `fetch` 只在 `ApiClient.ts:62`；`SessionApi/ConversationApi/ResumeApi/ArchiveApi` 只固定 URL/方法/超时/校验器，路径参数一律 `encodeURIComponent`；请求体恒为 `{confirmed:true}` / `{confirm_update:true}`（`ResumeApi.ts`）。 |
+| 与冻结契约一致 | ✅ | 13 个接口的路径/方法与 OpenAPI 0.2.0 对读一致；`ErrorCode` 19 值、`SuggestionField` 19 值由 `Contract.test.ts`/`ContractDrift.test.ts` 与契约文件比对；`isSessionDetail` 对 `status`/`update_state`/`fields`/`resume`/`update_candidate` 互斥一致性做了校验。 |
+
+### BLOCKING Issues
+无。
+
+### QUESTIONS
+无。
+
+### SUGGESTIONS（不阻断，登记为跟踪项；按 delivery §八，不要求新增测试）
+- **SUGGEST-1（`UpdateDiff` 的"空"对经历区块不完整）**：`isEmpty`（`UpdateDiff.ts:62`）对 `objectList` 只判断数组长度。若候选的经历数组里是若干"全部子项为空"的条目，而已有记录有实际内容，该字段仍会进入 `changed`（红线成立，不会漏列），但 `clears` 为 `false`，卡片上不会按"将被清空"强调。后端候选是否可能出现全空条目要看 2.x 的 `merge_update`，建议实现 2.x 差异卡片时让 `isEmpty` 对 `objectList` 认"所有条目全空"，或确认后端已拒绝全空条目。
+- **SUGGEST-2（消息文本与后端存储需一致）**：`matchSentMessage` 用 `user.content !== text` 严格比较（`Verify.ts:17`），而 `SEND_REQUESTED` 保存的是未 trim 的原文（`SessionReducer.ts:480`）。如果 backend `ChatService` 存储前对内容做了 trim 或规范化，则"请求其实已送达"会被判为未送达，用户重发会产生重复消息（不违反 F-03，也不丢数据）。请在阶段 2 审查 backend `ChatService` 时确认"按原文存储"，或把比较改为两侧 trim 后比较。
+- **SUGGEST-3（`valuesAsFields` 的占位状态）**：`SectionView.ts:212` 把已保存值适配为 `status: 'confirmed'` 的 `ResumeFields`，注释已写"仅渲染、不上送、`showStatus=false`"，但类型上无法阻止它被误用到 PATCH 或 `coreReady/unconfirmedCount` 之类的判断里（它们会把一切当作已确认）。建议 2.x 在页面层只经 `ReadOnlySection` 使用，或给它一个不可赋给 `ResumeFields` 的品牌类型；不要求本批修改。
+- **SUGGEST-4（冗余测试，建议合并）**：`SessionReducer.test.ts` 31 例总体与 §5.3 状态转移一一对应，未见过度；`ApiClient.test.ts`/`ResponseShapes.test.ts` 中 v1 保留的 json 模式用例与 v2 新增的 `none/blob` 用例不重复。唯一建议：`ConversationApi.test.ts`（4 例）里 `applySuggestions` 与 `cancelSuggestions` 仅路径末段不同，可合并为一个参数化用例；`Contract.test.ts` 与 `ContractDrift.test.ts` 各 12 例中"键集合镜像"部分与 `ResponseShapes` 使用的常量重叠，可在阶段 3 汇总时去重。合计可减约 3 例，不影响覆盖。
+
+### 其他观察（非问题）
+- 测试（含夹具）新增 1177 行 / 源码新增 1158 行 ≈ 1.0 : 1，低于预算，未见过度。
+- `FakeBackend`（299 行）支持按请求注入延迟与失败，满足 1.3 的验收（供 F-03 与核对测试复用）；其自测 `FakeBackend.test.ts` 仅 2 例，规模合理。
+- `SavedResultCard.formatSavedAt` 保留为 `formatDateTime` 的别名，避免页面层过渡期断链，阶段 2 收口时可删除别名。
+
+### 已知且不计入问题：阶段 2/3 范围内的失败
+- `npx vitest run`：10 个文件失败（`App.test.tsx` 与 9 个 `ResumeCollectionPage.*.test.tsx`）为收集/类型阶段失败，已通过的 483 条用例全部通过；阶段 1 范围内的 `src/api`、`src/hooks/model`、`src/types`、`src/test` 共 21 个文件 319 条全部通过。
+- `tsc --noEmit` 的报错全部落在 `useResumeSession.ts`（14）、`pages/ResumeCollectionPage*.tsx`（含 9 个页面测试，共 45）、`App.test.tsx`（1，仍引用 `draft_not_found`）、`NoticeBanner.tsx`/`NoticeBanner.test.tsx`（5，仍用 `restored/maybe_saved/draft_expired`）、`useChatScroll.test.ts`（1，仍引用 `bootstrapping/bootstrap_failed` 的 `Phase`）。后三类 tasks.md 已列为阶段 2 的删除/改写对象（见"v1 测试的处置"表及 `NoticeBanner`、`useChatScroll` 相关任务），属阶段 2，不作为 BLOCK。
+- `eslint . --max-warnings 0`：通过。
+
+### 本批复跑
+| 命令 | 结果 |
+|---|---|
+| `npx vitest run src/api src/hooks/model src/types src/test` | ✅ 21 文件 / 319 用例通过 |
+| `npx vitest run`（全量） | 483 用例通过；10 个文件按上文属阶段 2/3 的失败 |
+| `npx tsc --noEmit` | 报错全部归属阶段 2/3（见上） |
+| `npx eslint . --max-warnings 0` | ✅ |
+| 未做 | 未跑 `npm run build`（`tsc` 阶段已知失败）；未做浏览器实测；未做变异测试（本批未预算） |

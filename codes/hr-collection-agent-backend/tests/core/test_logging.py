@@ -15,12 +15,12 @@ def test_outputs_json_with_request_id(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.INFO, logger="app")
     token = request_id_var.set("req_abc")
     try:
-        log_event("draft_created", draft_id="d1", status_code=201, duration_ms=12)
+        log_event("session_created", session_id="d1", status_code=201, duration_ms=12)
     finally:
         request_id_var.reset(token)
     data = _last(caplog)
     assert data == {
-        "event": "draft_created", "request_id": "req_abc", "draft_id": "d1",
+        "event": "session_created", "request_id": "req_abc", "session_id": "d1",
         "status_code": 201, "duration_ms": 12,
     }  # fmt: skip
 
@@ -31,7 +31,10 @@ def test_request_id_defaults_to_none(caplog: pytest.LogCaptureFixture) -> None:
     assert _last(caplog)["request_id"] is None
 
 
-@pytest.mark.parametrize("field", ["name", "phone", "email", "filename", "token", "body"])
+@pytest.mark.parametrize(
+    "field",
+    ["name", "phone", "email", "filename", "token", "body", "content", "browser_id", "draft_id"],
+)
 def test_non_whitelisted_field_rejected(field: str) -> None:
     with pytest.raises(ValueError, match="not allowed"):
         log_event("x", **{field: "ZZ-synthetic"})
@@ -39,7 +42,7 @@ def test_non_whitelisted_field_rejected(field: str) -> None:
 
 def test_non_scalar_value_rejected() -> None:
     with pytest.raises(ValueError, match="scalar"):
-        log_event("x", draft_id={"a": 1})  # type: ignore[arg-type]
+        log_event("x", session_id={"a": 1})  # type: ignore[arg-type]
 
 
 def test_exception_logs_class_and_stack_not_message(caplog: pytest.LogCaptureFixture) -> None:
