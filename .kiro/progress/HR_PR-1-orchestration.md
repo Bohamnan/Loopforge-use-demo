@@ -21,13 +21,13 @@
 | worktree | 分支 | 路径 | role | 最近 dispatch | 状态（2026-11-11） |
 |---|---|---|---|---|---|
 | backend | feature-backend | `/Users/yanyin/orca/workspaces/workspce-coding/feature-backend` | backend | `ctx_994edd9e620a` | 空闲（7a、G2 描述修订已交付） |
-| frontend | feature-frontend | `/Users/yanyin/orca/workspaces/workspce-coding/feature-frontend` | frontend | 7b（`ctx_0989cb9bda4a` 的后续） | 执行 7b 中 |
+| frontend | feature-frontend | `/Users/yanyin/orca/workspaces/workspce-coding/feature-frontend` | frontend | `ctx_aab03a18d492` | 空闲（7b 已交付） |
 | QA | feature-qa | `/Users/yanyin/orca/workspaces/workspce-coding/feature-qa` | qa（`code_roots: {}`，不读代码） | `ctx_e7bd268b345e` | 空闲（5q 已完成，11q 待开发自测后） |
 | 审查 agent | review-batch1 | `/Users/yanyin/orca/workspaces/workspce-coding/review-batch1` | dev-lead（只读审查） | — | v1 用过，v2 第 10 项审查时再启用（需先同步 feature） |
 
 ## 二、启动 / 下发 worker 的做法（已踩过的坑）
 
-0. **worker 管理**：DL 原规则为"可能复用的 agent 不关闭，同 worktree 空闲时 send 复用"；上下文控制的调整提议见第六节（待 DL 确认）。
+0. **worker 管理**：可能复用的 agent 不关闭，同 worktree 空闲时 send 复用；上下文压缩见第六节。
 1. kiro 的 trust-all 确认已全局关闭（`chat.disableTrustAllConfirmation = true`）。
 2. **新 worktree** 首次启动会卡在"Trust this workspace?"：`orca terminal create --worktree path:<路径> --command "kiro-cli chat --tui --trust-all-tools"`，`orca terminal send --terminal <h> --text "" --enter`（回车即 Trust），再 `--text "/quit" --enter`，然后 `orca terminal close`。上表四个 worktree 都已信任。
 3. 模型 auto：worktree 内 `kiro-cli settings --workspace chat.defaultModel auto`；`.kiro/settings/` 已加入 `.git/info/exclude`。
@@ -44,7 +44,7 @@
 | 1 PRD、2 HLD（含 v2.1）、3a/3b 影响分析、4 跨 Workbench 审视、5 需求汇总、5q QA 用例（86 条） | ✅ |
 | 6a backend Schema + OpenAPI 0.2.0（冻结）、6b frontend 接口消费规范 v0.3 | ✅ |
 | 7a backend 技术设计（`design.md` v0.4，8368919） | ⏸ 待 DL 确认；5 个待确认点已按授权采纳（见贡献记录） |
-| 7b frontend 技术设计 | 🔄 |
+| 7b frontend 技术设计（`design.md` v2.0，34ff8f7） | ⏸ 待 DL 确认；Q-TD-01..03 已按授权采纳 |
 | 8a/8b 任务拆分 + `AGENTS.md` 更新 | 待 7a/7b 确认；tasks.md 写测试预算（POC ≈ 1:1） |
 | 9a/9b 实现 → 10 审查 → 11a/11b 自测 → 11q QA 执行（AT/E2E/UAT）→ 12 DL 最终 Review | 未开始 |
 
@@ -65,8 +65,8 @@
 - 本机部署：后端只监听 127.0.0.1:8000（ADR-009 的访问边界），前端 dev proxy 指向 `http://127.0.0.1:8000`。
 - 裁决位置：`cross-workbench-review.md`（v1：C/D/O/G/F/CR；v2：X-01..X-10a、Y-01/02、O2-01..05、G2-02..04）；`requirements_plan.md`（TQ-v2-*）；ADR-001..009（project-memory）。
 
-## 六、上下文控制（主 agent 提议，待 DL 确认）
+## 六、上下文控制（DL 2026-11-11：尽量不关 worker，但要控制 token 成本）
 
-- 主 agent：长会话时新开会话接手（读本文件即可），或在 Kiro 中使用 `/compact`。主 agent 不整篇读设计文档，复核用抽查或子 agent。
-- worker：一个阶段一个新 worker（同一 worktree `worker-start`），旧 worker 交付后释放；状态全部在文件里，spec 自包含。
-- worker_done 控制在 10 行内：提交哈希、产出、门控所需的结论、需澄清点。
+- worker：**不关闭、继续复用**；每次交付后、worker 空闲时，主 agent 向其终端发送 `/compact`（`orca terminal send --terminal <h> --text "/compact" --enter`），压缩后会话摘要会显示在屏幕上（`orca terminal read --terminal <h> --screen`）。只在 worker 空闲（state=succeeded）时发，不在执行中发。
+- worker_done 控制在 10 行内：提交哈希、产出、门控所需结论、需澄清点。
+- 主 agent：不整篇读设计文档，复核用抽查；会话过长时由 DL 执行 `/compact`，或新开会话读本文件接手。
