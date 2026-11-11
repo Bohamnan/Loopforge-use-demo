@@ -25,6 +25,8 @@
 | SV-09 | 执行偏离 | 全局 git 规则 | 主 agent 在用户未明确要求时做了本地提交 `76fa43e`（为让 worker 同步文档） | 编排需要同步，但没先征得同意 | 向 DL 说明；后续需要提交前先说明并征得同意，或由 DL 一次性授权"编排同步所需的本地提交" | 已裁决：DL 2026-11-11 一次性授权编排同步所需的本地提交（不推送） |
 | SV-10 | 执行偏离 | impact-analyzer | frontend 影响分析（0ee2330）的“修改”项大多只写文件名、未引用 `文件:行号`（全文仅 5 处），不满足验证回路“来源检查”的硬性要求 | worker 未执行验证回路自检；skill 没有要求在交付前输出自检结果 | 已发后续任务补行号并附验证回路 6 项自检结论；建议 skill 在 Step 3 末尾增加“验证回路自检表”作为必填输出 | 纠正中 |
 | SV-11 | Skill 缺陷 | `doc-templates/00_progress_template.md`、requirement-change-router | qa-test-case 在 v1 从未执行。它的前置条件（两侧 requirements.md ✅）在 2026-11-10 就已满足，但进度模板的流程表没有 QA 用例这一行，router 的重跑清单模板也没有；qa-test-case 自己要求"完成后更新 QA 用例阶段状态"，模板里却没有这个阶段可更新 | 进度模板与 qa-test-case 没有对齐；流程只靠模板驱动，模板缺行就没人触发 | 进度模板在"需求汇总"之后加一行"QA 测试用例 \| qa-test-case \| QA/Dev Lead"，并在人类门控表加"QA 用例评审"；router 清单模板加对应行 | 已修复（2026-11-11）：进度模板和 router 重跑清单已补 qa-test-case，见 changelog 2026-11-11-进度模板补入qa-test-case；在途票据 HR_PR-1 已手工补流程行与 5q，两个 QA 门控行待补 |
+| SV-12 | Skill 缺陷 | requirement-change-router | router 只规定"同一 ticket 编码完成之后"的变更走本 skill，没有"本票变更还是新需求"的判定标准；本次新增 3 个用户故事、PRD 从 4 条扩到 7 条，DL 与主 agent 对是否另开票反复讨论两轮才定 | skill 缺少边界条件 | Step 1 增加判定项并要求输出结论：是否新增用户故事、是否命中已有 ADR/HLD 中"另立需求"的条款、前一版本是否已交付验收；命中任一项时请 DL 明确"同票变更 / 另开新票"并记录理由 | 待裁决 |
+| SV-13 | 执行偏离 | requirement-change-router（Step 1 影响分析） | 主 agent 在 Step 1 列受影响产物时没有检索 ADR 的"需跟进"条目，漏掉 ADR-004"支持更新已确认简历需另立需求"，直到 DL 质疑才发现 | 只按文件类别列失效产物，没有扫已接受 ADR 的约束性跟进项 | 已在 ADR-004 补注 DL 显式裁决；建议 router Step 1 增加"扫描已 ACCEPTED ADR 的需跟进/限制条款" | 已纠正 |
 
 ## 观察（不一定是缺陷，持续跟踪）
 
