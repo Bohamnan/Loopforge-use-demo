@@ -61,25 +61,25 @@ class SuggestionActionResponse(BaseModel):
 
 
 @dataclass(frozen=True)
-class RawChatResult:
-    """Untrusted parsed JSON from the chat model; interpreted by the client parser."""
-
-    data: dict[str, Any]
-    prompt_tokens: int | None = None  # provider usage, cost monitoring only
-    completion_tokens: int | None = None
-
-
-@dataclass(frozen=True)
 class RawSuggestion:
     """A leniently parsed suggestion candidate, not yet validated against the whitelist."""
 
     field: str
-    new_value: Any
+    new_value: Any  # untrusted: any JSON value
 
 
 @dataclass(frozen=True)
 class ChatModelOutput:
-    """Reply text (already truncated) and suggestion candidates, in model order."""
+    """Reply text (already truncated) and suggestion candidates in model order."""
 
     reply: str
     suggestions: list[RawSuggestion] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class RawChatResult:
+    """Structurally checked chat model output plus provider usage (cost monitoring only)."""
+
+    output: ChatModelOutput
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
