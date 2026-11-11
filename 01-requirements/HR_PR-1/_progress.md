@@ -23,7 +23,7 @@
 | Workbench | 负责人 | 状态 | 产出文件 | 待澄清问题数 | 完成时间 |
 |---|-------|------|---------|:-----------:|---------|
 | backend | Yin Yang | ✅ v2 影响分析完成（924a75b；v1 同为 ✅） | `backend-docs/HR_PR-1/00_impact_analysis.md` | 6（v2：Q-backend-01..06） | 2026-11-11 |
-| frontend | Yin Yang | ✅ 影响分析完成 | `frontend-docs/HR_PR-1/01_requirements/requirements_plan.md`；`frontend-docs/HR_PR-1/00_impact_analysis.md` | 9 | 2026-11-10 |
+| frontend | Yin Yang | ✅ v2 影响分析完成（delta 覆盖版，1476ce6） | `frontend-docs/HR_PR-1/00_impact_analysis.md`（v1 另有 `frontend-docs/HR_PR-1/01_requirements/requirements_plan.md`） | 10（v2，Q-frontend-v2-01..10；v1 的 9 条已裁决） | 2026-11-11 |
 
 **阻断条件**：
 - `requirements-analyst（汇总）`：所有参与 Workbench 状态必须为 ✅。
@@ -46,7 +46,7 @@
 | 需求启动（Workbench 检测+业务澄清+派活） | requirement-kickoff | Dev Lead | ✅ | 2026-11-10 | `01-requirements/HR_PR-1/` |
 | 解决方案设计 HLD（大型新需求） | solution-designer | Dev Lead | ✅ v2 已批准（门控 1、门控 2；ADR-007/008/009） | 2026-11-11 | `01-requirements/HR_PR-1/solution-design.md` |
 | 仓库约定初稿与确认（仅新项目 Workbench） | solution-designer（Step 7） | Dev Lead | ✅ 已确认；未推送（代码目录尚未初始化 Git） | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
-| Workbench 影响分析（各 Workbench 并行） | impact-analyzer | 各 Workbench 工程师 | ⚠️ 待重审（v2）：backend v2 ✅（924a75b，6 条待澄清）；frontend 待更新；v1：backend ✅ / frontend ✅ | 2026-11-10 | `backend-docs/HR_PR-1/00_impact_analysis.md`；`frontend-docs/HR_PR-1/00_impact_analysis.md` |
+| Workbench 影响分析（各 Workbench 并行） | impact-analyzer | 各 Workbench 工程师 | ✅ v2 DL review 通过（2026-11-11）：backend 924a75b（6 条待澄清）；frontend 0ee2330 + 1476ce6（10 条待澄清） | 2026-11-11 | `backend-docs/HR_PR-1/00_impact_analysis.md`；`frontend-docs/HR_PR-1/00_impact_analysis.md` |
 | 跨 Workbench 一致性 review（仅跨 Workbench 需求） | cross-workbench-reviewer | Dev Lead | ⚠️ 待重审（v2）；v1 已裁决（C-03、P-01、P-02 被 v2 推翻） | 2026-11-10 | `01-requirements/HR_PR-1/cross-workbench-review.md` |
 | 需求汇总（第二轮技术 Q&A + requirements.md） | requirements-analyst | Dev Lead/BA | ⚠️ 待重审（v2）；v1 已确认 | 2026-11-10 | `backend-docs/HR_PR-1/01_requirements/requirements.md`；`frontend-docs/HR_PR-1/01_requirements/requirements.md` |
 | 架构设计（Schema+接口） | architecture-advisor | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：backend（OpenAPI 0.1.0 冻结，0.1.1 待修订 G-01/G-02）/ frontend（Step 2.2 评审通过） | 2026-11-10 | `backend-docs/HR_PR-1/02_schema/`、`03_api/`；`frontend-docs/HR_PR-1/03_api/interface_spec_resume.md` |
@@ -55,6 +55,7 @@
 | 仓库约定补全与复核（仅新项目 Workbench） | architecture-advisor（Step 5） | 各 Workbench 工程师/Dev Lead | ⚠️ 待重审（v2）；v1：backend / frontend 已确认 | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
 | 代码实现 | feature-developer | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：backend 21/21（含 2.3a，pytest 1001、覆盖率 99%、CRAP 最大 9.0）/ ✅ frontend 15/15（vitest 650、lint 0、build 通过） | — | `codes/hr-collection-agent-backend/`、`codes/hr-collection-agent-frontend/` |
 | 代码审查 | code-reviewer | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：backend 第一至第十批 ✅（含 2.4/2.5 HIGH_RISK）；frontend 第一至第十一批 ✅（0 BLOCK） | — | `backend-docs/HR_PR-1/10_review/code_review.md`；`frontend-docs/HR_PR-1/10_review/code_review.md` |
+| QA 测试用例（需求确认后，可与开发并行） | qa-test-case | QA/Dev Lead | ☐ v1 未执行（进度模板缺此行，SV-11）；v2 首次执行，见重跑清单 5q | — | `01-requirements/HR_PR-1/qa_test_cases.md`（以 skill 输出目录为准） |
 | 开发自测用例 | dev-self-test | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1 未经 DL 确认，并入 v2 自测：backend 123 条全通过（AC 37/37）；frontend 108 条 0 失败 0 未执行（实测 51 + 引用单测 52 + 静态/构建 5，AC 33/33） | 2026-11-10 | `backend-docs/HR_PR-1/06_test/dev_self_test_resume.md`；`frontend-docs/HR_PR-1/06_test/dev_self_test_resume.md` |
 | 造数脚本 | test-data-script-generator | 各 Workbench 工程师/QA | — | — | — |
 
@@ -76,7 +77,8 @@
 | v2 需求变更分类确认 | requirement-change-router | ✅ | DL 确认 Type C 及受影响产物 | 2026-11-11 |
 | v2 需求修订确认（门控 1） | solution-designer | ✅ | v2 无技术约束引起的需求修订（补确认，SV-02） | 2026-11-11 |
 | v2 HLD 整体审批（门控 2） | solution-designer | ✅ | HLD v2、ADR-007/008/009 批准 | 2026-11-11 |
-| v2 影响分析 review | impact-analyzer | ⏸ | backend 924a75b、frontend 0ee2330（补正中）待 DL review | — |
+| v2.1 需求修订确认 + HLD 审批 | solution-designer | ✅ | v2.1 无技术约束引起的需求修订；HLD v2.1、ADR-004 修订批准 | 2026-11-11 |
+| v2 影响分析 review | impact-analyzer | ✅ | backend 924a75b、frontend 0ee2330 + 1476ce6，DL 认可 | 2026-11-11 |
 
 ---
 
@@ -96,7 +98,11 @@
 | 2026-11-11 | Yin Yang（Dev Lead） | solution-designer | HLD v2 批准；ADR-007/008/009 ACCEPTED；ADR-003/006 修订确认；v1 旧草稿不迁移；后续沿用 Orca worker 分派前后端 |
 | 2026-11-11 | Yin Yang（Dev Lead） | solution-designer | 补门控 1：DL 确认 v2 无技术约束引起的需求修订；DL 授权编排同步所需的本地提交（不推送） |
 | 2026-11-11 | Yin Yang（backend） | impact-analyzer | 完成 backend v2 影响分析（delta 覆盖，924a75b）：新增 11 / 修改 22 / 不变 15，待澄清 6 条；仓库无远端，未推送（SV-07） |
+| 2026-11-11 | Yin Yang（Dev Lead） | impact-analyzer | DL review 通过两侧 v2 影响分析；DL 决定加入 qa-test-case（v1 漏执行，SV-11），登记为重跑清单 5q |
+| 2026-11-11 | Yin Yang（Dev Lead） | solution-designer | v2.1 门控 1、门控 2 确认；派两端补 v2.1 影响分析小节（3a'/3b'） |
+| 2026-11-11 | Yin Yang（Dev Lead） | cross-workbench-reviewer | v2 审视 11 项裁决：10 项采纳建议；X-06 选 B 并追加"再次确认后更新已有记录"，登记为 v2.1（方案 A） |
 | 2026-11-11 | Yin Yang（Dev Lead） | requirement-change-router | DL 试用后提出需求变更 v2（Type C，DL 确认）：对话修改与问答、历史会话、已归档简历查看；受影响阶段标 ⚠️，登记重跑清单（v2） |
+| 2026-11-11 | Yin Yang（frontend） | impact-analyzer | 完成 frontend v2 影响分析（delta 覆盖，提交 1476ce6，含行号引用与验证回路自检）；登记 10 条待澄清问题；Step 4 补做；仓库无远端，未推送（SV-07） |
 
 ---
 
@@ -194,9 +200,10 @@
 | 1 | （人工）BA/Dev Lead 更新 PRD | Dev Lead | 无 | `prd.md` 增量新增用户故事 #5–#7、补充 #3/#4，表头加变更履历。**说明**：原登记为 prd-writer，但 prd-writer 的「票号冲突」Guardrail 禁止覆盖已有 PRD，不适用于变更；router 输入表亦约定 PRD 由 BA 更新。已登记 skill 问题 SV-01 | ✅ 2026-11-11 DL 确认（v1 快照 `_history/prd.v1.md`） |
 | 2 | solution-designer | Dev Lead | PRD ✅ | `solution-design.md` 增量更新（先快照 `_history/solution-design.v1.md`）；新增 ADR-007（对话修改与问答，替代 ADR-006 的"不解析自由文本"部分，ADR-006 标 SUPERSEDED/部分保留分区编辑）、ADR-008（会话持久化与浏览器标识）；ADR-003 补修订 | ✅ 门控 1（需求修订确认）2026-11-11 DL 补确认：v2 无技术约束引起的需求修订（SV-02）；门控 2：2026-11-11 DL 批准 HLD v2；ADR-007/008/009 ACCEPTED；ADR-003/006 修订确认；v1 旧草稿不迁移 |
 | 3a | impact-analyzer | backend 工程师 | HLD ✅ | `backend-docs/HR_PR-1/00_impact_analysis.md` 覆盖重写（delta 文档）+ 履历表头 | ☑ 924a75b（2026-11-11） |
-| 3b | impact-analyzer | frontend 工程师 | HLD ✅ | `frontend-docs/HR_PR-1/00_impact_analysis.md` 覆盖重写（delta 文档）+ 履历表头 | ☐ |
+| 3b | impact-analyzer | frontend 工程师 | HLD ✅ | `frontend-docs/HR_PR-1/00_impact_analysis.md` 覆盖重写（delta 文档）+ 履历表头 | ☑ 2026-11-11（1476ce6；待澄清 10 条） |
 | 4 | cross-workbench-reviewer | Dev Lead | 影响分析 ✅ | 在 `cross-workbench-review.md` 追加 v2 节：新接口契约、会话/浏览器标识 Cookie、修改建议结构、错误码；C-03、P-01、P-02 标注被 v2 替代 | ☐ |
 | 5 | requirements-analyst | Dev Lead/BA | 跨 Workbench Review ✅ | 两侧 `requirements.md` 增量更新（先快照 `_history/`），追溯矩阵覆盖新用户故事 | ☐ |
+| 5q | qa-test-case | Dev Lead（role=dev-lead） | 5 requirements ✅ | **v1 从未执行，v2 首次生成**（不是重跑）：以 PRD v2 + 两侧 requirements.md 为输入，黑盒覆盖 AT/E2E/NEG/PERM/REG/UAT；与 6a–9b 并行；REG 以两侧 v2 影响分析的"修改"类模块为依据 | ☐ |
 | 6a | architecture-advisor（Schema+接口） | backend 工程师 | requirements ✅ | `sql_ddl_resume.md` 新增会话/消息/浏览器标识存储并调整确认后草稿处理；`openapi.yaml` 0.1.1 → 0.2.0（会话、消息、建议应用、归档查看） | ☐ |
 | 6b | architecture-advisor（接口消费） | frontend 工程师 | 6a OpenAPI 冻结 ✅ | `interface_spec_resume.md` 同步 0.2.0 | ☐ |
 | 7a | architecture-advisor（技术设计） | backend 工程师 | 接口冻结 ✅ | `backend-docs/HR_PR-1/04_design/design.md` 增量更新（先快照 `_history/`）：对话提示词与输出结构、注入防护、日志白名单、会话与删除 | ☐ |
@@ -209,6 +216,23 @@
 | 11a | dev-self-test | backend 工程师 | 10 ✅ | v2 新增用例 + v1 自测回归映射（复用已有，不重写）；含真实 DeepSeek 演练 | ☐ |
 | 11b | dev-self-test | frontend 工程师 | 10 ✅ | v2 新增用例 + v1 自测回归映射（复用已有，不重写）；浏览器实测 | ☐ |
 | 12 | DL 最终 Review | Dev Lead | 自测 ✅ | 浏览器实际体验验证三项能力 | ☐ |
+
+
+### v2.1 变更（2026-11-11，DL 确认）
+
+| 版本 | 日期 | 类型 | 变更描述摘要 | 影响 Workbench |
+|-----|------|------|------------|-------|
+| v2.1 | 2026-11-11 | Type B（命中跨 Workbench 契约，DL 门控） | 跨 Workbench 审视 X-06 选 B（已保存过的会话展示已有记录内容，D-04 被替代）；DL 追加：用户在对话中要求按本次内容更新时，再次确认后覆盖已有记录（方案 A：id 与幂等键不变、不留旧版本、文件替换沿用 ADR-005）。改动 PRD #4/#6/#7、ADR-004 修订、HLD §3/§4/§5 | backend、frontend |
+
+| 优先级 | Skill | 执行者 | 前置条件 | 操作说明 | 完成 |
+|--------|-------|-------|---------|---------|:---:|
+| 1' | （人工）DL 更新 PRD | Dev Lead | 无 | PRD 履历 v2.1；#4 补 3 条、#6 补 1 条、#7 补注 | ✅ 2026-11-11 DL 选定方案 A |
+| 2' | solution-designer | Dev Lead | 1' ✅ | HLD 履历 v2.1；§3 第 5 步、§4 新增契约行、§5 Backend；ADR-004 修订 | ✅ 2026-11-11 门控 1（无技术约束引起的需求修订）、门控 2（HLD v2.1、ADR-004 修订）DL 确认 |
+| 3a' | impact-analyzer | backend 工程师 | 2' ✅ | 在 v2 影响分析中追加 v2.1 小节（只写更新路径：确认更新、文件替换与补偿、对账影响、受影响测试），不重写全文 | ☐ |
+| 3b' | impact-analyzer | frontend 工程师 | 2' ✅ | 在 v2 影响分析中追加 v2.1 小节（只写差异展示与"确认更新"卡片、已保存过视图），不重写全文 | ☐ |
+| 4' | cross-workbench-reviewer | Dev Lead | 3a'/3b' ✅ | v2 审视节追加 v2.1 比对；之后签署 v2 确认 | ☐ |
+
+深度约束（防止发散）：更新路径属红线（B-05），按 L3 深度验证失败补偿；其余按 L2。v2.1 不新增除"确认更新"以外的任何能力（归档页仍只读、无删除、无版本历史）。
 
 不受此次变更影响（无需重跑）：
 - 需求启动：Workbench 与派活不变。
