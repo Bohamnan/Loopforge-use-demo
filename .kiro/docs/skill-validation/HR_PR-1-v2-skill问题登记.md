@@ -24,6 +24,7 @@
 | SV-08 | 执行偏离 | 全局 delivery.md 第七节 | 需求变更路由要求把重跑清单登记到本次变更的 changelog 条目，主 agent 起初漏做 | 全局规则与 router 各有记录位置，主 agent 只照了 router | 已补 `.kiro/changelog/2026/11/feat/2026-11-11-HR_PR-1需求变更v2.md`，指向 `_progress.md` 重跑清单为唯一权威 | 已纠正 |
 | SV-09 | 执行偏离 | 全局 git 规则 | 主 agent 在用户未明确要求时做了本地提交 `76fa43e`（为让 worker 同步文档） | 编排需要同步，但没先征得同意 | 向 DL 说明；后续需要提交前先说明并征得同意，或由 DL 一次性授权"编排同步所需的本地提交" | 已裁决：DL 2026-11-11 一次性授权编排同步所需的本地提交（不推送） |
 | SV-10 | 执行偏离 | impact-analyzer | frontend 影响分析（0ee2330）的“修改”项大多只写文件名、未引用 `文件:行号`（全文仅 5 处），不满足验证回路“来源检查”的硬性要求 | worker 未执行验证回路自检；skill 没有要求在交付前输出自检结果 | 已发后续任务补行号并附验证回路 6 项自检结论；建议 skill 在 Step 3 末尾增加“验证回路自检表”作为必填输出 | 纠正中 |
+| SV-11 | Skill 缺陷 | `doc-templates/00_progress_template.md`、requirement-change-router | qa-test-case 在 v1 从未执行。它的前置条件（两侧 requirements.md ✅）在 2026-11-10 就已满足，但进度模板的流程表没有 QA 用例这一行，router 的重跑清单模板也没有；qa-test-case 自己要求"完成后更新 QA 用例阶段状态"，模板里却没有这个阶段可更新 | 进度模板与 qa-test-case 没有对齐；流程只靠模板驱动，模板缺行就没人触发 | 进度模板在"需求汇总"之后加一行"QA 测试用例 \| qa-test-case \| QA/Dev Lead"，并在人类门控表加"QA 用例评审"；router 清单模板加对应行 | 待裁决（本轮已手工补入 `_progress.md` 与重跑清单 5q） |
 
 ## 观察（不一定是缺陷，持续跟踪）
 
