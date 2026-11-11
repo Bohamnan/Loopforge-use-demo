@@ -52,7 +52,7 @@ export default function FinalReviewCard({
         <SectionCard key={section.key} section={section} fields={fields} buffer={buffer} active={false} />
       ))}
       {error ? <ErrorAlert error={error} timeoutMessage={TIMEOUT_TEXT} /> : null}
-      {outcomeUnknown ? <p className="value-empty">当前不能确认是否已保存。可以再试一次；如果提示草稿不存在，说明可能已经保存，请重新上传核实。</p> : null}
+      {outcomeUnknown ? <p className="value-empty">当前不能确认是否已保存。可以再试一次，系统会先核对该会话的保存状态。</p> : null}
       {!coreReady ? (
         <div className="final-block">
           <span className="field-error">请先确认姓名、手机号、邮箱后再提交。</span>

@@ -345,10 +345,10 @@
 
 #### 子任务
 
-- [ ] `FinalReviewCard`、`SavedResultCard`
-- [ ] `ConfirmDialog` 两类场景
-- [ ] `confirmResume` 及全部错误分支
-- [ ] HIGH_RISK 用例集（单独成组）
+- [x] `FinalReviewCard`、`SavedResultCard`
+- [x] `ConfirmDialog` 两类场景
+- [x] `confirmResume` 及全部错误分支
+- [x] HIGH_RISK 用例集（单独成组）
 
 ### Task 2.7：新对话（清空视图 + 离开确认，去覆盖语义） ⟳ v2 重开
 - **关联：** REQ-FE-01.5；design.md §3.4（NewChatButton）、§5.3（新对话相关行）、TD-12；P-08、C-07、Q-DL-04

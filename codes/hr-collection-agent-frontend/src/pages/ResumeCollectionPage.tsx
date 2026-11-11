@@ -1,4 +1,4 @@
-import { Spin } from 'antd';
+import { Button, Spin } from 'antd';
 import { useRef, useState } from 'react';
 import AppShell from '../components/AppShell';
 import ChatThread from '../components/ChatThread';
@@ -45,6 +45,7 @@ export default function ResumeCollectionPage() {
     backToSections,
     confirmResume,
     proceedUnconfirmed,
+    rereadSession,
     requestNewChat,
     confirmLeave,
     dismissDialog,
@@ -159,7 +160,7 @@ export default function ResumeCollectionPage() {
               buffer={state.editBuffer}
               unconfirmedCount={unconfirmedCount(state.draft.fields)}
               coreReady={coreReady(state.draft.fields, state.editBuffer)}
-              busy={state.busy === 'confirm'}
+              busy={busy}
               error={confirmError}
               onConfirm={confirmResume}
               onBack={() => backToSections()}
@@ -173,7 +174,18 @@ export default function ResumeCollectionPage() {
       break;
     case 'saved':
       content = (
-        <SavedResultCard summary={state.savedSummary} alreadySaved={state.notice === 'already_saved'} onUploadNext={requestNewChat} />
+        <>
+          <SavedResultCard
+            kind={state.notice === 'already_saved' ? 'already_saved' : 'saved'}
+            summary={state.savedSummary}
+            onUploadNext={requestNewChat}
+          />
+          {state.saved === null ? (
+            <Button onClick={rereadSession} disabled={busy}>
+              重新读取
+            </Button>
+          ) : null}
+        </>
       );
       break;
     default:

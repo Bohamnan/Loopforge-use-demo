@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useReducer, useState } from 'react';
 import { ApiError } from '../api/ApiError';
 import { applySuggestions, cancelSuggestions, sendMessage } from '../api/ConversationApi';
+import { createResume } from '../api/ResumeApi';
 import { createSession, deleteSession, getSession, updateSessionFields } from '../api/SessionApi';
+import type { SessionDetail } from '../types/Session';
 import type { ResumeFieldsUpdate } from '../types/ResumeModel';
 import type { SessionStatus } from '../types/Session';
 import { getSection, type SectionKey } from './model/SectionConfig';
@@ -72,9 +74,17 @@ function createEngine(dispatch: (action: SessionAction) => void) {
   }
 
   /** Sends a result action; the activity callback fires only when the reducer accepted it (not stale). */
-  function settle(action: SessionAction, activity = true) {
+  function settle(action: SessionAction, activity: boolean | ((after: SessionState) => boolean) = true) {
     const { before, after } = send(action);
-    if (activity && after !== before) onActivity.current?.();
+    const changed = typeof activity === 'function' ? activity(after) : activity;
+    if (changed && after !== before) onActivity.current?.();
+  }
+
+  function reread(id: string): Promise<{ detail: SessionDetail | null; readError: ApiError | null }> {
+    return getSession(id).then(
+      (detail) => ({ detail, readError: null }),
+      (error: unknown) => ({ detail: null, readError: toApiError(error) }),
+    );
   }
 
   function launch(before: SessionState, after: SessionState) {
@@ -107,6 +117,18 @@ function createEngine(dispatch: (action: SessionAction) => void) {
         void sendMessage(after.sessionId, pending.text).then(
           (response) => settle({ type: 'SEND_SUCCEEDED', response, epoch }),
           (error: unknown) => settle({ type: 'SEND_FAILED', error: toApiError(error), epoch }, false),
+        );
+        break;
+      }
+      case 'confirm': {
+        // F-03: the saved state is reported only after a well-formed 2xx answer; the session is then re-read
+        // so the view shows the formal record (TD-11 v2). A failed re-read keeps the confirmed result.
+        const id = after.sessionId;
+        if (id === null) break;
+        void createResume(id).then(
+          (response) =>
+            reread(id).then(({ detail, readError }) => settle({ type: 'CONFIRM_SUCCEEDED', response, detail, readError, epoch })),
+          (error: unknown) => settle({ type: 'CONFIRM_FAILED', error: toApiError(error), epoch }, false),
         );
         break;
       }
@@ -157,6 +179,11 @@ function createEngine(dispatch: (action: SessionAction) => void) {
         }, fail);
         break;
       }
+      case 'verify_confirm':
+        // Unknown save result (timeout / network / read-only): the server decides, nothing is resent (TD-19).
+        if (after.sessionId === null) break;
+        void getSession(after.sessionId).then((detail) => settle({ type: 'CONFIRM_VERIFIED', detail, epoch }, (a) => a.phase === 'saved'), fail);
+        break;
       case 'sync':
         if (after.sessionId === null) break;
         void getSession(after.sessionId).then((detail) => send({ type: 'SESSION_SYNCED', detail, epoch }), fail);
@@ -209,12 +236,17 @@ function createEngine(dispatch: (action: SessionAction) => void) {
         send({ type: 'BACK_TO_SECTIONS' });
         if (section) send({ type: 'SECTION_SELECTED', section });
       },
-      /** Final confirmation entry points; the request itself is launched by task 2.6. */
+      /** The explicit final confirmation ("确认提交"); the only way to start a save (B-04, F-03). */
       confirmResume() {
         send({ type: 'CONFIRM_REQUESTED' });
       },
+      /** "Continue" in the unconfirmed-fields dialog: confirm what is displayed. */
       proceedUnconfirmed() {
         send({ type: 'CONFIRM_PROCEEDED' });
+      },
+      /** Reads a saved session again after its reload failed. */
+      rereadSession() {
+        send({ type: 'REREAD_REQUESTED' });
       },
       /** "＋ 新对话" / "上传下一份": clears the view only; no session is deleted (TD-12). */
       requestNewChat() {
