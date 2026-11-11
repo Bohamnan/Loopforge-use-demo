@@ -111,7 +111,7 @@
 
 ---
 
-### Task 1.2：core：配置、时钟、ID 与令牌工具　↺ v2
+### Task 1.2：core：配置、时钟、ID 与令牌工具　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `src/app/core/config.py`、`.env.example`、`tests/core/test_config.py`；**同时删除 `tests/selftest/` 整个目录**（见“测试预算·v1 测试的处置”，作为 9a 的第一步，避免旧自测套件阻塞收集）。
