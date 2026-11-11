@@ -555,3 +555,17 @@ body {
   border-radius: 12px;
   background: #fff;
 }
+.archive-page {
+  padding: 16px;
+  overflow: auto;
+}
+.link-button {
+  padding: 0;
+  color: var(--primary, #126af3);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.app-nav {
+  margin-left: 16px;
+}

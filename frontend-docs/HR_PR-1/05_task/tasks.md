@@ -450,7 +450,7 @@
 - [x] `confirmUpdate` 及核对重读
 - [x] 红线用例集（单独成组）
 
-### Task 2.14：已归档简历页（REQ-FE-08） 🆕 v2 新增
+### Task 2.14：已归档简历页（REQ-FE-08） ✅
 - **关联：** design §3.3（useArchive）、§3.4（ArchiveList、ArchiveDetail）、§3.5（ArchivePage、App）、TD-25/26/27；REQ-FE-08.1–08.5
 - **涉及文件：** `src/hooks/useArchive.ts`、`src/pages/ArchivePage.tsx`、`ArchiveList.tsx`、`ArchiveDetail.tsx`（含 `saveBlob`）、`src/App.tsx`（`view` 状态、两页同时挂载、`Segmented` 导航）及测试。约 8 个文件。
 - **内容：** `App` 持有 `view`，两页同时挂载、非当前页 `hidden`（不引入路由库，不丢 `editBuffer` / 输入 / 当前会话）；归档页 `active` 由 false→true 时重读列表；`Table`（姓名、手机号、邮箱、求职意向，`null` 显示“未填写”，不显示 id）、空态“暂无记录”；详情 `Drawer`（9 分类只读、文件名、保存时间、最近更新）；“打开原始文件”：`file_available=false` 禁用并提示，点击走 blob + `saveBlob`（临时 `<a download>`、`revokeObjectURL`），**文件名为通用名**（`原始简历.pdf/.jpg/.png`），`file_not_available`/`resume_not_found` 页面内提示。
@@ -459,9 +459,9 @@
 
 #### 子任务
 
-- [ ] `useArchive`、`ArchivePage`、列表与详情
-- [ ] `App` 两页挂载与导航
-- [ ] 文件下载与通用文件名
+- [x] `useArchive`、`ArchivePage`、列表与详情
+- [x] `App` 两页挂载与导航
+- [x] 文件下载与通用文件名
 
 ---
 

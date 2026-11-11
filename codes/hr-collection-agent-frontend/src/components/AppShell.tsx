@@ -12,6 +12,8 @@ interface AppShellProps {
   footer?: ReactNode;
   /** View switch shown next to the title (chat / archive, 2.14). */
   nav?: ReactNode;
+  /** The archive page has no "new chat" button. */
+  showNewChat?: boolean;
   /** Content under the new-chat button (the session list). A function receives `close` for the narrow-screen drawer. */
   sidebar?: ReactNode | ((close: () => void) => ReactNode);
 }
@@ -21,12 +23,12 @@ interface AppShellProps {
  * Below 860px the side bar folds away and "new chat" moves into the title bar (TD-13).
  * There is no login or account, so no user info; the sidebar only holds the session list (v2).
  */
-export default function AppShell({ children, onNewChat, newChatDisabled, footer, nav, sidebar }: AppShellProps) {
+export default function AppShell({ children, onNewChat, newChatDisabled, footer, nav, sidebar, showNewChat = true }: AppShellProps) {
   const narrow = useNarrowScreen();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const closeDrawer = () => setDrawerOpen(false);
   const sidebarNode = typeof sidebar === 'function' ? sidebar(closeDrawer) : sidebar;
-  const newChat = <NewChatButton onClick={onNewChat} disabled={newChatDisabled} />;
+  const newChat = showNewChat ? <NewChatButton onClick={onNewChat} disabled={newChatDisabled} /> : null;
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -46,7 +48,7 @@ export default function AppShell({ children, onNewChat, newChatDisabled, footer,
         </Drawer>
       ) : null}
       <div className="app-body">
-        {narrow ? null : (
+        {narrow || (!newChat && !sidebarNode) ? null : (
           <aside className="app-sidebar" aria-label="会话操作">
             {newChat}
             {sidebarNode}

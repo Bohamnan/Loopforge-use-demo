@@ -1,5 +1,5 @@
 import { Spin } from 'antd';
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import AppShell from '../components/AppShell';
 import ChatThread from '../components/ChatThread';
 import ComposerBar, { type ComposerBarHandle } from '../components/ComposerBar';
@@ -29,8 +29,14 @@ const UPLOAD_TIMEOUT_TEXT = '识别时间过长，请重新上传。';
 // A 2xx answer of the wrong shape: the server may already have replaced the draft, so the screen cannot be trusted.
 const UPLOAD_BAD_RESPONSE_TEXT = '上传结果异常，请刷新页面后核对。';
 
+interface ResumeCollectionPageProps {
+  /** false while the archive page is shown: the page stays mounted (state kept) but accepts no input (TD-25). */
+  visible?: boolean;
+  nav?: ReactNode;
+}
+
 /** Page orchestration only: picks what to render from the session state; never calls the API itself. */
-export default function ResumeCollectionPage() {
+export default function ResumeCollectionPage({ visible = true, nav }: ResumeCollectionPageProps = {}) {
   const list = useSessionList();
   const {
     state,
@@ -234,6 +240,7 @@ export default function ResumeCollectionPage() {
 
   return (
     <AppShell
+      nav={nav}
       onNewChat={requestNewChat}
       newChatDisabled={busy}
       sidebar={(close) => (
@@ -256,7 +263,7 @@ export default function ResumeCollectionPage() {
           <ComposerBar
             ref={composerRef}
             onFiles={requestUpload}
-            disabled={busy}
+            disabled={busy || !visible}
             notice={selectionNotice}
             text={text}
             onTextChange={setText}
