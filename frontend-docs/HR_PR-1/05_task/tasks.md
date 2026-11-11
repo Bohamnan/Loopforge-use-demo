@@ -243,7 +243,7 @@
 
 > 每个切片是用户可见能力：组件 → hook → api 调用 → 测试。HIGH_RISK（受约束 F-03 约束）单独成任务。
 
-### Task 2.1：页面外壳与会话装入（REQ-FE-05 骨架，去掉启动读草稿） ⟳ v2 重开
+### Task 2.1：页面外壳与会话装入（REQ-FE-05 骨架，去掉启动读草稿） ✅
 - **关联：** REQ-FE-05.1、05.3、REQ-FE-06.1；design.md §3.3（useResumeSession）、§3.4（AppShell、NewChatButton、ChatThread、WelcomePanel、NoticeBanner、BootstrapErrorPanel）、§3.5（ResumeCollectionPage）、§5.1（启动分支）、§7.1（启动失败、无可恢复草稿）、TD-08；P-02、P-11；O-12、裁决 F-03
 - **内容：** `src/hooks/useResumeSession.ts`（`useReducer` 驱动；`bootstrap`、`retryBootstrap`；调用 `getCurrentResumeDraft`；StrictMode 下不产生重复请求副作用；`busy` 互斥；epoch 记录），`src/pages/ResumeCollectionPage.tsx`（按 `phase` 编排，不请求接口），`AppShell`（顶栏 Logo + 产品名、左窄栏仅含 `NewChatButton`，无用户信息与历史列表，< 860px 折叠为顶栏）、`NewChatButton`（本任务仅渲染，禁用逻辑与确认流程在 2.7）、`ChatThread`（基础滚动容器）、`WelcomePanel`（空态引导，无填写指南 / 隐私说明 / 示例文件按钮）、`NoticeBanner`（四类文案）、`BootstrapErrorPanel`（可重试，隐藏上传主入口）。`App` 改为挂载页面。
 - **测试：** 页面启动：GET 404 → 空态，**无错误提示、无 `console` 输出**（O-12）；GET 500 / 网络失败 / 非 JSON → 可重试错误态且不是空态、无上传主入口；点击重试后成功进入下一状态；加载态显示；外壳不含用户头像、历史会话、填写指南、隐私说明、示例文件按钮；请求带 `same-origin`；StrictMode 下仅一次有效 GET。
@@ -258,9 +258,9 @@
 
 #### 子任务
 
-- [ ] `useResumeSession`（bootstrap）
-- [ ] 外壳与空态 / 错误态组件
-- [ ] `ResumeCollectionPage` 与 `App` 接线
+- [x] `useResumeSession`（bootstrap）
+- [x] 外壳与空态 / 错误态组件
+- [x] `ResumeCollectionPage` 与 `App` 接线
 
 ### Task 2.2：上传简历（REQ-FE-01，上传即新建会话） ⟳ v2 重开
 - **关联：** REQ-FE-01.1–01.6；design.md §3.4（ComposerBar、FileCard、UploadProgressNotice、ErrorAlert、ConfirmDialog）、§5.1、§5.3（上传相关行）、§6、§7.1（上传相关）、TD-04/05/10；P-03、P-05；C-07、C-08、O-02、裁决 F-04

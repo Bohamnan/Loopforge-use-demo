@@ -1,8 +1,6 @@
 import { Spin } from 'antd';
 import { useRef } from 'react';
-import type { ApiError } from '../api/ApiError';
 import AppShell from '../components/AppShell';
-import BootstrapErrorPanel from '../components/BootstrapErrorPanel';
 import ChatThread from '../components/ChatThread';
 import ComposerBar, { type ComposerBarHandle } from '../components/ComposerBar';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -30,7 +28,6 @@ const UPLOAD_BAD_RESPONSE_TEXT = '上传结果异常，请刷新页面后核对�
 export default function ResumeCollectionPage() {
   const {
     state,
-    retryBootstrap,
     dismissNotice,
     selectSection,
     editField,
@@ -40,21 +37,17 @@ export default function ResumeCollectionPage() {
     backToSections,
     confirmResume,
     proceedUnconfirmed,
-    uploadNext,
     requestNewChat,
-    confirmNewChat,
+    confirmLeave,
     dismissDialog,
     requestUpload,
-    confirmOverwrite,
-    cancelOverwrite,
     selectionNotice,
   } = useResumeSession();
   usePreventFileDropNavigation(); // also covers phases without a composer
   const focusKey = useChatScroll({ phase: state.phase, view: state.view, activeSection: state.activeSection });
   const composerRef = useRef<ComposerBarHandle>(null);
   const busy = state.busy !== null;
-  const bannerKind = state.notice && state.notice !== 'already_saved' ? state.notice : null;
-  const hasUnsubmittedEdits = Object.keys(state.editBuffer).length > 0;
+  const bannerKind = state.notice === 'session_gone' ? state.notice : null;
   const uploading = state.busy === 'upload';
   const uploadError = state.error?.scope === 'upload' ? state.error.cause : null;
   const sectionError = state.error?.scope === 'section' ? state.error.cause : null;
@@ -71,31 +64,22 @@ export default function ResumeCollectionPage() {
 
   let content;
   switch (state.phase) {
-    case 'bootstrapping':
-      content = (
-        <div className="welcome-panel" role="status">
-          <Spin /> <span>正在读取草稿…</span>
-        </div>
-      );
-      break;
-    case 'bootstrap_failed':
-      content = state.error ? (
-        <BootstrapErrorPanel error={state.error.cause as ApiError} onRetry={retryBootstrap} />
-      ) : null;
-      break;
     case 'empty':
       content = uploading ? (
         pending
+      ) : state.busy === 'read' ? (
+        <div className="welcome-panel" role="status">
+          <Spin /> <span>正在打开会话…</span>
+        </div>
       ) : (
         <WelcomePanel onUploadClick={() => composerRef.current?.openPicker()}>
-          {bannerKind ? <NoticeBanner kind={bannerKind} /> : null}
+          {bannerKind ? <NoticeBanner kind={bannerKind} onClose={dismissNotice} /> : null}
         </WelcomePanel>
       );
       break;
     case 'reviewing':
       content = (
         <>
-          {bannerKind ? <NoticeBanner kind={bannerKind} onClose={dismissNotice} /> : null}
           {state.draft ? (
             <FileCard name={state.draft.original_file.filename} sizeBytes={state.draft.original_file.size_bytes} />
           ) : null}
@@ -141,7 +125,7 @@ export default function ResumeCollectionPage() {
       break;
     case 'saved':
       content = (
-        <SavedResultCard summary={state.savedSummary} alreadySaved={state.notice === 'already_saved'} onUploadNext={uploadNext} />
+        <SavedResultCard summary={state.savedSummary} alreadySaved={state.notice === 'already_saved'} onUploadNext={requestNewChat} />
       );
       break;
     default:
@@ -168,7 +152,7 @@ export default function ResumeCollectionPage() {
   return (
     <AppShell
       onNewChat={requestNewChat}
-      newChatDisabled={busy || state.phase === 'bootstrapping' || state.phase === 'bootstrap_failed'}
+      newChatDisabled={busy}
       footer={
         showComposer ? (
           <ComposerBar
@@ -190,24 +174,12 @@ export default function ResumeCollectionPage() {
         {content}
       </ChatThread>
       <ConfirmDialog
-        open={state.dialog === 'overwrite'}
-        title="覆盖当前草稿"
-        content="将用新文件覆盖当前未确认的简历内容（含未提交的修改），是否继续？"
-        okText="继续上传"
-        onOk={confirmOverwrite}
-        onCancel={cancelOverwrite}
-      />
-      <ConfirmDialog
-        open={state.dialog === 'new_chat'}
-        title="开始新对话"
-        content={
-          <>
-            <p>界面将清空。未确认的简历草稿仍会保留，刷新页面会恢复它；再次上传新简历会覆盖它。</p>
-            {hasUnsubmittedEdits ? <p>未提交的修改将丢失。</p> : null}
-          </>
-        }
-        okText="清空并开始"
-        onOk={confirmNewChat}
+        open={state.dialog === 'leave'}
+        title="存在未提交的修改"
+        content="有未提交的修改，继续将放弃这些修改。是否继续？"
+        okText="放弃修改并继续"
+        cancelText="返回"
+        onOk={confirmLeave}
         onCancel={dismissDialog}
       />
       <ConfirmDialog

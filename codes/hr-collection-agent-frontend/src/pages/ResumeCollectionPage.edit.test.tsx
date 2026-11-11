@@ -3,8 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { ConfigProvider } from 'antd';
 import { StrictMode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { applyPatch, errorResponse, jsonResponse, sampleDraft, stubFetch } from '../test/ApiMocks';
-import type { DraftResponse } from '../types/Draft';
+import { applyPatch, errorResponse, stubFetch } from '../test/ApiMocks';
+import { SECTIONS_READY, fieldsResponse, sampleDraft, sessionStub, uploadResume, type FieldsPatch } from '../test/PageHarness';
 import { RESUME_FIELD_KEYS } from '../types/ResumeModel';
 import ResumeCollectionPage from './ResumeCollectionPage';
 
@@ -23,28 +23,19 @@ function renderPage() {
   );
 }
 
-type Patch = { fields: Record<string, unknown> };
+type Patch = FieldsPatch;
 
-/** Fake backend: GET returns the draft, PATCH applies the body (or a custom responder). */
-function backend(draft: DraftResponse, onPatch?: (body: Patch) => Response | Promise<Response>) {
-  let current = draft;
-  const mock = stubFetch((_url, init) => {
-    if (init.method === 'GET') return jsonResponse(200, current);
-    const body = JSON.parse(init.body as string) as Patch;
-    if (onPatch) return onPatch(body) as Response;
-    current = applyPatch(current, body.fields);
-    return jsonResponse(200, current);
-  });
-  return mock;
-}
+/** Fake backend: upload creates the session, PATCH applies the body (or a custom responder). */
+const backend = sessionStub;
 const patches = (mock: ReturnType<typeof stubFetch>) => mock.mock.calls.filter(([, init]) => init.method === 'PATCH');
 const patchBody = (mock: ReturnType<typeof stubFetch>, n = 0) => JSON.parse(patches(mock)[n]![1].body as string) as Patch;
 const confirmButton = () => screen.getByRole('button', { name: /确认本区|确认修改|已确认/ });
 
 async function open(draft = sampleDraft(), onPatch?: Parameters<typeof backend>[1]) {
   const mock = backend(draft, onPatch);
-  renderPage();
-  await screen.findByText('已为你恢复未完成的简历');
+  const { container } = renderPage();
+  await uploadResume(container);
+  await SECTIONS_READY();
   return mock;
 }
 
@@ -145,7 +136,7 @@ describe('section review: confirming a section (REQ-FE-03.2)', () => {
     expect(screen.getByLabelText('姓名')).toBeDisabled();
     fireEvent.click(confirmButton());
     expect(patches(mock)).toHaveLength(1);
-    await act(async () => release(jsonResponse(200, applyPatch(sampleDraft(), { name: '测试用户甲' }))));
+    await act(async () => release(fieldsResponse(applyPatch(sampleDraft().fields, { name: '测试用户甲' }))));
     await waitFor(() => expect(patches(mock)).toHaveLength(1));
   });
 });
@@ -171,7 +162,7 @@ describe('section review: errors (REQ-FE-03.6)', () => {
     let calls = 0;
     const mock = await open(sampleDraft(), (body) => {
       calls += 1;
-      return calls === 1 ? errorResponse(500, { code: 'internal_error', message: '服务内部错误' }) : jsonResponse(200, applyPatch(sampleDraft(), body.fields));
+      return calls === 1 ? errorResponse(500, { code: 'internal_error', message: '服务内部错误' }) : fieldsResponse(applyPatch(sampleDraft().fields, body.fields));
     });
     await userEvent.click(screen.getByRole('button', { name: /求职意向/ }));
     await userEvent.type(screen.getByLabelText('期望城市'), '上海');
@@ -184,11 +175,11 @@ describe('section review: errors (REQ-FE-03.6)', () => {
     expect(patchBody(mock, 1).fields.expected_city).toBe('上海');
   });
 
-  it('returns to the empty state with "草稿已失效" when the draft no longer exists (O-10)', async () => {
+  it('returns to the empty state with "该会话已不存在" when the session no longer exists (REQ-FE-04.7)', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    await open(sampleDraft(), () => errorResponse(404, { code: 'draft_not_found' }));
+    await open(sampleDraft(), () => errorResponse(404, { code: 'session_not_found' }));
     await userEvent.click(confirmButton());
-    expect(await screen.findByText('草稿已失效，请重新上传简历')).toBeInTheDocument();
+    expect(await screen.findByText('该会话已不存在')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /基本信息/ })).not.toBeInTheDocument();
   });
 });

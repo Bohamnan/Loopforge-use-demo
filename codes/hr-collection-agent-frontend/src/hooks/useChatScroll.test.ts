@@ -12,7 +12,7 @@ describe('focusKeyOf: which block should get scroll + focus', () => {
   it('is the result card once saved', () => {
     expect(focusKeyOf({ phase: 'saved', view: 'sections', activeSection: 'basic' })).toBe('saved');
   });
-  it.each(['bootstrapping', 'bootstrap_failed', 'empty'] as const)('is nothing in %s', (phase) => {
+  it.each(['empty'] as const)('is nothing in %s', (phase) => {
     expect(focusKeyOf({ phase, view: 'sections', activeSection: 'basic' })).toBeNull();
   });
 });
