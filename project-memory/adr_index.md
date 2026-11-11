@@ -39,7 +39,7 @@ type: reference
 | [ADR-001](adrs/ADR-001-approved-deepseek-vision.md) | 获批 DeepSeek Flash 直接理解简历 | ACCEPTED | 2026-11-10 | 仅使用获批模型直接解析；能力不满足时阻断，不切换 OCR/其他模型。 |
 | [ADR-002](adrs/ADR-002-synchronous-resume-processing.md) | 首期采用同步简历解析 | ACCEPTED | 2026-11-10 | 首期约 5 人并发，采用同步 REST；时延和超时由测试验证。 |
 | [ADR-003](adrs/ADR-003-local-draft-retention.md) | 未确认草稿本地暂存与过期清理 | ACCEPTED | 2026-11-10 | 服务端临时本地存储 7 天、HttpOnly Cookie 恢复，确认后再归档。**v2：7 天清理与单草稿令牌被 ADR-008 替代，其余有效。** |
-| [ADR-004](adrs/ADR-004-identity-key-idempotent-confirmation.md) | 以规范化“姓名+手机号+邮箱”作为幂等键，确认保存幂等并返回 already_saved | ACCEPTED | 2026-11-10 | 正式库联合唯一约束 + 先查后写 + 冲突回查；201 新增 / 200 already_saved；不覆盖已有记录。 |
+| [ADR-004](adrs/ADR-004-identity-key-idempotent-confirmation.md) | 以规范化“姓名+手机号+邮箱”作为幂等键，确认保存幂等并返回 already_saved | ACCEPTED | 2026-11-10 | 正式库联合唯一约束 + 先查后写 + 冲突回查；201 新增 / 200 already_saved；不覆盖已有记录。**v2.1：already_saved 后经用户再次确认可覆盖更新（id、幂等键不变）。** |
 | [ADR-005](adrs/ADR-005-archive-save-order-and-reconciliation.md) | 简历归档的保存顺序、文件命名与启动对账 | ACCEPTED | 2026-11-10 | 复制 tmp → 事务写库 → 原子重命名；文件名 {resume_id}{ext}；启动对账 roll-forward/清除。 |
 | [ADR-006](adrs/ADR-006-structured-section-review.md) | 简历校对采用结构化分区就地编辑，不解析自由文本 | ACCEPTED | 2026-11-10 | 11 个分区整区核对、整区一次 PATCH；输入区仅上传与快捷指令，不设文本框（P-01 选 A、P-04）。**v2：不设文本框/不解析自由文本被 ADR-007 替代，分区编辑保留。** |
 | [ADR-007](adrs/ADR-007-conversational-edit-and-qa.md) | 对话修改与问答由获批模型理解，修改以"建议 + 用户应用"生效 | ACCEPTED | 2026-11-11 | 模型返回回复 + 结构化修改建议；backend 确定性校验（字段白名单、字段规则、三项必填须出现在用户消息中）；用户点"应用"后写入。 |
