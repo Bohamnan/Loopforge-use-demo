@@ -1,7 +1,7 @@
 # HR_PR-1 跨 Workbench 一致性 Review 报告
 
 **Review 人**：Yin Yang（来自 local_profile.yaml，role: dev-lead）
-**生成日期**：2026-11-10（AI 草稿；Dev Lead 已于 2026-11-10 完成裁决）；v2 增量 2026-11-11（AI 草稿，待 Dev Lead 裁决）
+**生成日期**：2026-11-10（AI 草稿；Dev Lead 已于 2026-11-10 完成裁决）；v2/v2.1 增量 2026-11-11（Dev Lead 已于 2026-11-11 完成裁决）
 **参与 Workbench**：backend, frontend
 
 > 比对依据：`backend-docs/HR_PR-1/00_impact_analysis.md`、`frontend-docs/HR_PR-1/00_impact_analysis.md`、PRD、HLD §4/§5/§8、`project_glossary.md`、`architectural_constraints.md`、`global-info/简历模板.md`。
@@ -16,6 +16,8 @@
 | 2026-11-10 | 新增「契约审视（第二轮）：frontend 接口消费设计」节（G-01、F-01..F-05） | frontend Step 2.2 提出契约缺口与待确认点 |
 | 2026-11-10 | 新增「契约变更：OpenAPI 0.1.1」节（G-01、G-02、CR-01） | backend 技术设计提出 CR-01，与 G-01/G-02 合并为一次兼容修订 |
 | 2026-11-10 | C-01 补充：任务 1.8 实测 deepseek-flash 不接受 PDF，PDF 改为本地转换后提交（见 ADR-001 修订 1） | 实测证据推翻原结论 |
+| 2026-11-11 | 新增「契约审视：OpenAPI 0.2.0 草稿」节（裁决落实 12 项、O2-01..05） | C-13：v2 契约变更冻结前审视 |
+| 2026-11-11 | v2 审视节追加「v2.1 增量比对」（Y-01、Y-02）；X-06 选 B | HR_PR-1-CRv2.1：两侧 v2.1 影响分析补充（4f02d13、5582374） |
 | 2026-11-11 | 新增「v2 增量审视」节（X-01..X-10、X-10a）；就地标注被 v2 替代的 v1 裁决（C-03、C-06、C-07、C-11、D-01、D-05、O-01、O-03、O-12）；汇总状态补 v2 分析 | HR_PR-1-CRv2：两侧 v2 影响分析（backend 924a75b、frontend 0ee2330 + 1476ce6）完成，按 requirement-change-router 重跑清单第 4 项增量审视 |
 
 ---
@@ -424,17 +426,80 @@
 
 **需求汇总（requirements-analyst）启动条件**：以上 ⚠ 项均已裁决（或明确标注"接受风险"），且无未分配责任的事项。两侧 16 条待澄清问题随后在 requirements-analyst 第二轮 Q&A 处理。
 
+### v2.1 增量比对（HR_PR-1-CRv2.1，2026-11-11）
+
+> 依据：backend 第十一节（4f02d13）、frontend 第 11 节（5582374）。只比对 v2.1 范围；两侧待澄清问题 Q-backend-07..10、Q-frontend-v2-11..14 不在此裁决，仅引用造成口径不一致的部分。
+
+| 数据/动作 | frontend | backend | 状态 |
+|---|---|---|---|
+| 已保存过会话的状态与本次内容 | 需要后端保留本次内容以备更新（Q-frontend-v2-11） | 会话 `saved` + 关联已有记录 + "更新候选"状态，冻结保留本次字段与临时文件 | ✅ 一致（backend 已回答 Q-frontend-v2-11） |
+| 已有记录内容展示 | 与归档详情共用"只有值"结构（X-07） | 与归档详情同一查询 | ✅ 一致 |
+| 更新意图的识别 | 用户说的是自由文本，前端不得自行解析，需后端回复带"展示更新差异"信号 | chat 只服务"校对中"会话，已保存会话的 chat 一律拒绝；建议前端提供"按本次内容更新"入口，不经模型 | ⚠ 见 Y-01 |
+| 已保存过会话是否开放文本输入 | 开放，仅用于要求更新 | 拒绝对话（Q-backend-10 建议拒绝） | ⚠ 随 Y-01 一并裁决 |
+| 新旧差异由谁算 | 建议后端算好返回（避免规范化不一致误报） | 后端返回两份完整值，不算 diff，由前端比对 | ⚠ 见 Y-02 |
+| 确认更新动作 | 卡片按钮触发，对话文字不触发 | 独立入口 + 显式 `confirm_update: true` | ✅ 一致 |
+| 更新成功响应 | 记录 id（内部用）+ 更新时间，成功后重读或用响应内容 | 记录 id + 更新时间 | ✅ 一致（前端重读会话） |
+| 超时后重试 | 是否安全待定（Q-frontend-v2-14） | 更新候选状态已应用时幂等返回 | ✅ 一致（backend 已回答） |
+| 覆盖语义 | 差异卡片只列有差异的字段 | 覆盖不是合并：本次为空的字段会清空已有值 | ✅ 一致，但前端差异必须把"将被清空"的字段列出（见风险） |
+
+**⚠ 不一致项（待 Dev Lead 裁决）**：
+
+| # | 事项 | 冲突描述 | AI 建议 | 裁决（Dev Lead 填写） |
+|---|---|---|---|---|
+| Y-01 | 更新意图识别与已保存过会话的输入 | 前端设想用户打字说"要更新"、由后端识别；后端设计已保存会话不进 chat，建议前端给入口 | 在对话流中，"已保存过"提示下方给一个快捷回复"按本次内容更新"（仍在对话框内，符合"在对话中灵活处理"），点击即展示差异卡片，不经模型；已保存过的会话不开放自由文本输入。自然语言识别留作后续 | ✅ DL 采纳建议（2026-11-11） |
+| Y-02 | 新旧差异计算 | 前端希望后端算，后端打算只返回两份完整值 | 后端返回两份完整值，前端按显示值逐字段比较，"将被清空"的字段必须列为差异；三项必填的幂等键本就相同，不存在规范化误报 | ✅ DL 采纳建议（2026-11-11） |
+
+**风险合并**：覆盖为不可逆写，无版本历史——frontend 评"高"，backend 以"唯一版本名先提升、后事务"使任何时刻记录都指向存在的文件。合并评级维持**高**，原因是"本次为空的字段会清空已有值"只能靠差异卡片让用户看见，前后端必须同时满足 Y-02 的"清空字段列为差异"。
+
+**术语**：backend "更新候选"（`update_state=pending`）与 frontend "待更新的本次内容"指同一概念，建议统一为"更新候选"，并入 X-10a 一并写入 glossary。
+
+**引用但不在此裁决**：Q-backend-08（更新路径用"唯一版本文件名 + 先提升后提交"，与 ADR-005 字面顺序不同，需补 ADR-005 修订）属 backend 内部方案，不影响前端契约，交 requirements-analyst 第二轮 Q&A 回呈 DL。
+
 ### v2 Dev Lead 确认
 
-- [ ] 所有 API 契约不一致已处理（X-01..X-06）
-- [ ] 数据模型不一致已处理（X-07、X-08）
-- [ ] 责任边界无真空（X-09、X-10 已分配）
-- [ ] 技术风险合并评估已完成
-- [ ] 术语问题已标注处理方向（X-10a）
+- [x] 所有 API 契约不一致已处理（X-01..X-06）
+- [x] 数据模型不一致已处理（X-07、X-08）
+- [x] 责任边界无真空（X-09、X-10 已分配）
+- [x] 技术风险合并评估已完成
+- [x] 术语问题已标注处理方向（X-10a）
+- [x] v2.1 不一致项已处理（Y-01、Y-02）
 
-**确认人**：👉 _待填写_  **确认日期**：👉 _待填写_
+**确认人**：Yin Yang（Dev Lead，对话中确认"接受建议"、X-06 选 B、v2.1 方案 A、Y-01/Y-02"采纳"）  **确认日期**：2026-11-11
 
 ---
+
+## 契约审视：OpenAPI 0.2.0 草稿（v2，2026-11-11）
+
+> 依据 C-13：契约变更须经本 Review。审视对象：`backend-docs/HR_PR-1/03_api/openapi.yaml` 0.2.0（21e0e4f）、`api_design_resume.md` §八（frontend 数据需求对照）。主 agent 复验：openapi-spec-validator 0.7.1 校验通过；10 个路径 / 13 个操作；ErrorCode 19 个。
+
+### 裁决落实检查
+
+| 裁决 | 契约落点 | 结论 |
+|---|---|---|
+| X-01 对话超时 | 后端模型超时不变；前端 75s 属 frontend 实现 | ✅（frontend 6b/7b 落实） |
+| X-02 不加确认信号 | `SendMessageResponse` 只含用户消息与助手消息，无确认类字段 | ✅ |
+| X-03 删除 204 | `DELETE /sessions/{id}` → 204 / 404 | ✅ |
+| X-04 后端生成名称 | `SessionSummary.name`、`SessionDetail.name` | ✅ |
+| X-05 文件可用性 | `ArchivedResume.file_available` + `file_not_available` 错误码 | ✅ |
+| X-07 已保存内容只含值 | `ResumeValues`（无 status），用于 `ArchivedResume.fields`、`SessionDetail.resume`、`UpdateCandidate.fields` | ✅ |
+| X-08 会话命名 | 全部路径与 DTO 使用 `session`；`draft_not_found` 由 `session_not_found` 取代 | ✅ |
+| Y-01 快捷回复触发更新 | 已保存会话不开放对话（`session_read_only`）；更新只经 `PUT /sessions/{id}/resume` | ✅ |
+| Y-02 前端比较差异 | `SessionDetail` 同时返回 `resume` 与 `update_candidate` | ✅ |
+| TQ-v2-06 消息长度 | `SendMessageRequest.content` 1–2000 | ✅ |
+| TQ-v2-09 保存时间 | `saved_at`（首次）与 `updated_at`（最近更新）分开 | ✅ |
+| ADR-008 浏览器标识 | Cookie `browser_id`，`HttpOnly; SameSite=Lax; Path=/; Max-Age=34560000`；`expires_at` 已删除 | ✅ |
+
+### backend 提出的待确认点（DL 长期授权，采纳建议）
+
+| # | 事项 | 结论 |
+|---|---|---|
+| O2-01 | 建议以助手消息为应用单位（整卡应用/取消）；不可应用的建议状态保持 `pending`、不参与动作，不新增第 4 个状态值 | ✅ 采纳（与 REQ-BE-07 AC7"整卡全部成功或全部不生效"一致） |
+| O2-02 | apply/cancel 响应返回完整字段，而非整个会话 | ✅ 采纳（frontend 用其替换当前字段即可） |
+| O2-03 | 原始文件下载使用 `attachment` + `nosniff`，不内联 | ✅ 采纳（frontend 走 blob 并用通用文件名，REQ-FE-06 AC3） |
+| O2-04 | 确认更新用 `PUT /sessions/{id}/resume`，首次保存用 `POST` | ✅ 采纳 |
+| O2-05 | v1 契约测试（tests/contract、schemas 对齐、api/e2e/selftest）会因 openapi 替换整体失效 | ✅ 采纳：在 7a/8a 任务拆分中处理，6a 不改代码 |
+
+**不一致项**：0 条。**结论**：经 DL 确认后冻结 OpenAPI 0.2.0，frontend 进入 6b（接口消费规范同步）。
 
 ## Dev Lead 确认（v1）
 
