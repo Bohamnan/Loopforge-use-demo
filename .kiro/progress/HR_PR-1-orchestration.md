@@ -3,7 +3,7 @@
 | 项 | 内容 |
 |---|---|
 | 当前级别 | v2 需求变更（Type C）：整体 L2，红线功能点（B-03 日志、B-04 建议校验、B-05 更新补偿）按 L3 深度验证 |
-| 状态 | 🔄 v2 重跑清单执行到第 9 项：编码第 2 批（阶段 2）进行中 |
+| 状态 | 🔄 v2 重跑清单：编码与审查（第 1–3 批）✅，11a/11b 自测已交付并合并，等 DL 确认（待决 M-9、M-10）→ 下一步 11q |
 | 最后更新 | 2026-11-11，feature `8afff0b` |
 | 权威进度 | `01-requirements/HR_PR-1/_progress.md`（流程表、人类门控、「需求变更记录 → 重跑清单（v2）/ v2.1 小表」、贡献记录、关键决策） |
 
@@ -22,7 +22,7 @@
 |---|---|---|---|---|---|
 | backend | feature-backend | `/Users/yanyin/orca/workspaces/workspce-coding/feature-backend` | backend | `ctx_4cc071af025c` | 空闲（阶段 1 已交付） |
 | frontend | feature-frontend | `/Users/yanyin/orca/workspaces/workspce-coding/feature-frontend` | frontend | `ctx_0788935e6ecd` | 空闲（阶段 1 已交付） |
-| QA | feature-qa | `/Users/yanyin/orca/workspaces/workspce-coding/feature-qa` | qa（`code_roots: {}`，不读代码） | `ctx_e7bd268b345e` | 空闲（5q 已完成，11q 待开发自测后） |
+| QA | feature-qa | `/Users/yanyin/orca/workspaces/workspce-coding/feature-qa` | qa（`code_roots: {}`，不读代码） | `ctx_e7bd268b345e` | 空闲（5q 已完成，11q 待 11a/11b 确认后；AC-07.10 范围外拒答 1–2 条抽查并入 11q 语义用例） |
 | 审查 agent | review-batch1 | `/Users/yanyin/orca/workspaces/workspce-coding/review-batch1` | dev-lead（只读审查） | `ctx_d01f5e56ce74` | 空闲（第 1 批已交付，已 /compact） |
 
 ## 二、启动 / 下发 worker 的做法（已踩过的坑）
@@ -49,9 +49,9 @@
 | 8a/8b 任务拆分 + `AGENTS.md` 更新 | ✅ DL 确认（tasks.md v2.0；AGENTS.md 已确认；同意删除 backend `tests/selftest/`） |
 | 9a/9b 编码 | 🔄 第 3 批（阶段 3）已合并（daf882d），审查中 `ctx_300e190ecf86`（review-batch1，backend+frontend 一并）；第 2 批两侧均 ✅（backend 25bbe7b、frontend 772ffc1）。第 1 批（阶段 1）✅ 审查通过（be3f7be）；第 2 批（阶段 2，含第一批 9 条 SUGGEST）进行中：backend 已审查通过（a5ec07e，25bbe7b）；frontend 已合并（8c43072，主工作区复验 lint 0、vitest 611 通过 1 todo、build 通过），审查中 `ctx_7eb1a67cf4fe`（review-batch1）。每阶段一批审查，共 ≤ 3 批 |
 | 10 审查（每批）✅（第 1–3 批；第 3 批 827e23e） | ✅ |
-| 11a/11b 自测 | 🔄 进行中：backend `ctx_a95674a4523f`（含真实 DeepSeek 演练，DL 已授权，仅合成数据）、frontend `ctx_618289ba4557`（需真实后端/浏览器的用例标“待 11q”） |
+| 11a/11b 自测 | ⏸ 已交付并合并（backend 0e76606：170 条、真实演练 14/14 OK；frontend cef78e0：143 条、AC 54/54、待 11q 13 条），等 DL 确认。DL 已裁决 11a 遗留（7011db9）；frontend 缺口 M-9（5 错误码界面断言/大写扩展名，建议不补）、M-10（字段纯文本 XSS 单测，建议补 1 条）待 DL 决定 |
 | 11q QA 执行（AT/E2E/UAT）→ 12 DL 最终 Review | 未开始。**11a/11b 交付并确认后，必须提醒 DL 进入 11q（DL 2026-11-11 要求）**；11q 的 5 条 UAT 由 DL 亲自执行 |
-| 待决 | frontend 第 3 批 S-1（F-02 未监听 `document.cookie` getter，变异存活）：DL 尚未决定补 / 只跟踪 |
+| 待决 | ①frontend 缺口 M-9、M-10；②TC-RES-002-EH-04 按跟踪处理（假设待确认）；③frontend 第 3 批 S-1（F-02 未监听 `document.cookie` getter，变异存活）：DL 尚未决定补 / 只跟踪 |
 
 ## 四、DL 的长期决定（易忘）
 
