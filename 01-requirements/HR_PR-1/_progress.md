@@ -84,6 +84,7 @@
 | v2 跨 Workbench 一致性确认 | cross-workbench-reviewer | ✅ | X-01..X-10a、Y-01、Y-02 全部裁决，无待填写 | 2026-11-11 |
 | v2 第二轮技术 Q&A 裁决（质量关卡 1） | requirements-analyst | ✅ | 23 条全部为填空型，7 条待答 DL 采纳建议 | 2026-11-11 |
 | v2 requirements.md 确认 | requirements-analyst | ✅ | 两侧 requirements.md DL 确认 | 2026-11-11 |
+| v2 Schema + 接口评审（backend） | architecture-advisor | ✅ | sql_ddl v0.2.0、OpenAPI 0.2.0 冻结；契约审视 0 不一致 | 2026-11-11 |
 | v2.1 需求修订确认 + HLD 审批 | solution-designer | ✅ | v2.1 无技术约束引起的需求修订；HLD v2.1、ADR-004 修订批准 | 2026-11-11 |
 | v2 影响分析 review | impact-analyzer | ✅ | backend 924a75b、frontend 0ee2330 + 1476ce6，DL 认可 | 2026-11-11 |
 
@@ -106,6 +107,7 @@
 | 2026-11-11 | Yin Yang（Dev Lead） | solution-designer | 补门控 1：DL 确认 v2 无技术约束引起的需求修订；DL 授权编排同步所需的本地提交（不推送） |
 | 2026-11-11 | Yin Yang（backend） | impact-analyzer | 完成 backend v2 影响分析（delta 覆盖，924a75b）：新增 11 / 修改 22 / 不变 15，待澄清 6 条；仓库无远端，未推送（SV-07） |
 | 2026-11-11 | Yin Yang（Dev Lead） | impact-analyzer | DL review 通过两侧 v2 影响分析；DL 决定加入 qa-test-case（v1 漏执行，SV-11），登记为重跑清单 5q |
+| 2026-11-11 | Yin Yang（Dev Lead） | architecture-advisor | DL 确认 backend Schema+接口评审，OpenAPI 0.2.0 冻结；派出 7a（backend 技术设计）、6b（frontend 接口消费同步）、QA 接口路径补充 |
 | 2026-11-11 | Yin Yang（Dev Lead） | cross-workbench-reviewer | 合并 backend 6a（21e0e4f、a7fedb8）；主 agent 复验 OpenAPI 0.2.0 校验通过；契约审视 0 不一致，backend 5 个待确认点（O2-01..05）按 DL 授权采纳；待 DL 确认 Schema+接口评审门控并冻结 0.2.0 |
 | 2026-11-11 | Yin Yang（Dev Lead） | qa-test-case | 合并 QA 用例更新（7ea92b3，86 条，AC 67/67）；DL 确认"QA 用例设计确认""QA UAT 场景确认"两个门控 |
 | 2026-11-11 | Yin Yang（Dev Lead） | qa-test-case | 合并 QA 用例（0f0cb71、0b05114，85 条，v2 AC 66/66）。QA 待澄清 6 条按 DL 长期授权采纳建议：①对话类用例以模型桩判定，11q 另用真实模型做语义抽查；②超 2000 字符前端阻止输入、后端拒绝（业务码 6a 定）；③下载用不含姓名的通用文件名；④REQ-FE-04 AC 顺序修正并补 AC10（frontend requirements v2.0.1 澄清）；⑤接口类用例的路径清单在 OpenAPI 0.2.0 冻结后提供；⑥11q 执行 AT/E2E/UAT，NEG/PERM/REG 只生成不执行 |
@@ -226,7 +228,7 @@
 | 4 | cross-workbench-reviewer | Dev Lead | 影响分析 ✅ | 在 `cross-workbench-review.md` 追加 v2 节：新接口契约、会话/浏览器标识 Cookie、修改建议结构、错误码；C-03、P-01、P-02 标注被 v2 替代 || ☑ 2026-11-11（a408e07、4d2be8f；DL 签署） |
 | 5 | requirements-analyst | Dev Lead/BA | 跨 Workbench Review ✅ | 两侧 `requirements.md` 增量更新（先快照 `_history/`），追溯矩阵覆盖新用户故事 || ☑ 2026-11-11（9f2b4e0、1043564；DL 确认） |
 | 5q | qa-test-case | QA（新建 Orca worktree，`local_profile.yaml` role=qa） | 5 requirements ✅ | **只生成用例，不执行**。范围：v2/v2.1 变更（PRD #3、#4 的 v2/v2.1 条目、#5、#6、#7）的 AT/E2E/NEG/PERM/REG/UAT；v1 已完成部分不补做（DL 2026-11-11），只在 REG 中覆盖 v2 影响分析"修改"类模块对 v1 行为的回归。产出 `01-requirements/HR_PR-1/qa/qa_test_cases.md`；与 6a–9b 并行 | ☑ 2026-11-11（0f0cb71） |
-| 6a | architecture-advisor（Schema+接口） | backend 工程师 | requirements ✅ | `sql_ddl_resume.md` 新增会话/消息/浏览器标识存储并调整确认后草稿处理；`openapi.yaml` 0.1.1 → 0.2.0（会话、消息、建议应用、归档查看） | ☐ |
+| 6a | architecture-advisor（Schema+接口） | backend 工程师 | requirements ✅ | `sql_ddl_resume.md` 新增会话/消息/浏览器标识存储并调整确认后草稿处理；`openapi.yaml` 0.1.1 → 0.2.0（会话、消息、建议应用、归档查看） || ☑ 2026-11-11（21e0e4f；DL 确认评审门控，OpenAPI 0.2.0 冻结） |
 | 6b | architecture-advisor（接口消费） | frontend 工程师 | 6a OpenAPI 冻结 ✅ | `interface_spec_resume.md` 同步 0.2.0 | ☐ |
 | 7a | architecture-advisor（技术设计） | backend 工程师 | 接口冻结 ✅ | `backend-docs/HR_PR-1/04_design/design.md` 增量更新（先快照 `_history/`）：对话提示词与输出结构、注入防护、日志白名单、会话与删除 | ☐ |
 | 7b | architecture-advisor（技术设计） | frontend 工程师 | 接口冻结 ✅ | `frontend-docs/HR_PR-1/04_design/design.md` 增量更新（先快照 `_history/`）：输入框、对话流与修改卡片、会话栏、归档页 | ☐ |
