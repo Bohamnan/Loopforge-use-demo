@@ -563,7 +563,7 @@
 
 > 仅放跨任务的契约/端到端测试与质量实测；单元测试已在各任务内完成，不在此重复。
 
-### Task 3.1：契约测试（对照冻结的 OpenAPI 0.2.0）　↺ v2
+### Task 3.1：契约测试（对照冻结的 OpenAPI 0.2.0）　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `tests/contract/test_openapi_conformance.py`、`tests/openapi_support.py`（整体改写，复用 v1 的辅助）。
