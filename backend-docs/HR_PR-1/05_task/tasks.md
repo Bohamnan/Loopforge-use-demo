@@ -333,7 +333,7 @@
 
 > 每个任务覆盖一个功能点从 api 到存储的完整实现，完成后可用一次构建 + 测试验证。HIGH_RISK 单独成任务。
 
-### Task 2.1：接口：上传简历创建会话、会话列表　↺ v2
+### Task 2.1：接口：上传简历创建会话、会话列表　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `services/session_service.py`（原 `draft_service.py` 的 create / 列表）、`api/routes/sessions.py`（原 `resume_drafts.py`，`POST/GET /api/v1/sessions`）、`api/deps.py`、`tests/services/test_session_service_create.py`、`tests/api/test_sessions_upload.py`（均为改名后按 0.2.0 缩减）。
@@ -357,11 +357,11 @@
 
 ---
 
-### Task 2.2：接口：读取会话（三种形态）　↺ v2
+### Task 2.2：接口：读取会话（三种形态）　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `services/session_service.py`（get）、`api/routes/sessions.py`（`GET /sessions/{id}`）、`tests/services/test_session_service_get.py`、`tests/api/test_sessions_get.py`。
-- **内容：** 三种形态：`reviewing`（`fields_json` + 对话消息 / 建议）、`saved`（内容读 `ResumeReader`，`fields_json='{}'`，带 `original_file` 信息）、`pending`（冻结 `fields_json` + `update_candidate`）；每次读取刷新 `last_active_at` 并续期 Cookie；不存在 / 非本人统一 `session_not_found`。
+- **内容：** 三种形态：`reviewing`（`fields_json` + 对话消息 / 建议）、`saved`（内容读 `ResumeReader`，`fields_json='{}'`，带 `original_file` 信息）、`pending`（冻结 `fields_json` + `update_candidate`）；读取不刷新 `last_active_at`（TQ-v2-05，以 design 为准），仅续期 Cookie；不存在 / 非本人统一 `session_not_found`。
 - **验收：** 三形态各一例，响应通过 0.2.0 对应 schema；saved 会话的内容来自 `resumes`；404 不区分原因且不含简历内容。
 - **HIGH_RISK：** 否。
 - **v2 预估：** 3h（v1 3h）　**v2 前置依赖：** 2.1、1.10
@@ -379,7 +379,7 @@
 
 ---
 
-### Task 2.3：接口：分区更新 + `field_merge` 抽出　↺ v2
+### Task 2.3：接口：分区更新 + `field_merge` 抽出　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `services/field_merge.py`（新，纯函数 `merge_update`，自原 `draft_service` 抽出）、`services/session_service.py`（update）、`api/routes/sessions.py`（`PATCH /sessions/{id}/fields`）、`tests/services/test_field_merge.py`、`tests/services/test_session_service_update.py`、`tests/api/test_sessions_patch.py`。
@@ -462,7 +462,7 @@
 
 ---
 
-### Task 2.6：OrphanSweepService（取代草稿清理）　↺ v2
+### Task 2.6：OrphanSweepService（取代草稿清理）　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `services/orphan_sweep_service.py`（原 `cleanup_service.py`，改名）、`tests/services/test_orphan_sweep_service.py`（原 `test_cleanup_service.py`，删除过期草稿用例后缩减）。
@@ -484,7 +484,7 @@
 
 ---
 
-### Task 2.7：启动编排：对账 → 孤儿清扫，无调度线程　↺ v2
+### Task 2.7：启动编排：对账 → 孤儿清扫，无调度线程　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `core/lifecycle.py`、`main.py`、`tests/core/test_lifecycle.py`（删除调度线程相关用例）。
@@ -505,7 +505,7 @@
 - [ ] 接入 `create_app()`
 - [ ] 对应测试
 
-### Task 2.8：接口：手动删除会话（两种情形）　🆕 v2
+### Task 2.8：接口：手动删除会话（两种情形）　✅ v2 已完成
 - **关联：** REQ-BE-05.6；D§5.6；A `DELETE /sessions/{id}`；ADR-008
 - **涉及文件：** `services/session_service.py`（delete）、`api/routes/sessions.py`、`tests/services/test_session_service_delete.py`
 - **内容：** 删除属于本浏览器的会话（204，重复 / 非本人 404）：`reviewing` 会话删除会话行（级联消息 / 建议）与临时文件；`saved` 会话只删会话，**不触及 `resumes`、子表与 `file/` 文件**；`pending` 会话同时删除其临时文件。`SessionService` 只持有 `ResumeReader`，类型上拿不到写接口。
@@ -550,7 +550,7 @@
 
 ---
 
-### Task 2.13：接口：归档只读（列表 / 详情 / 文件下载）　🆕 v2
+### Task 2.13：接口：归档只读（列表 / 详情 / 文件下载）　✅ v2 已完成
 - **关联：** REQ-BE-08；D§3.6（`ArchiveQueryService`）、D§5.7；A `GET /resumes`、`/resumes/{id}`、`/resumes/{id}/file`；ADR-009
 - **涉及文件：** `services/archive_query_service.py`、`api/routes/archive.py`、`api/deps.py`、`tests/services/test_archive_query_service.py`、`tests/api/test_archive.py`
 - **内容：** 列表（按首次保存时间倒序，`ResumeSummary`）、详情（`ResumeValues` + `file_available`）、文件流式下载（经 `ArchiveFileStore.open_final`，安全响应头 `Content-Disposition`、`X-Content-Type-Options` 等按 `api_design_resume.md`）；全程只依赖 `ResumeReader` 与只读文件接口；不存在 → `resume_not_found`，记录在而文件缺失 → `file_not_available`。
