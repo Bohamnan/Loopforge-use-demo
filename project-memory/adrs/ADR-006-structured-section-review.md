@@ -36,3 +36,4 @@ date: 2026-11-10
 ## 状态记录
 
 - 2026-11-10：Dev Lead 在 frontend 技术设计确认关卡接受（PROPOSED → ACCEPTED）。
+- 2026-11-11（v2，HR_PR-1-CRv2，DL 2026-11-11 随 HLD v2 批准）：**"不设文本框、不解析自由文本"被 [ADR-007](ADR-007-conversational-edit-and-qa.md) 替代**——输入区增加文本输入，自由文本由获批模型理解并以修改建议形式经用户"应用"后生效。本 ADR 的分区就地编辑与整区 PATCH 继续有效，两种方式并存。

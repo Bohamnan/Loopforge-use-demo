@@ -9,10 +9,10 @@
 | 字段 | 内容 |
 |------|------|
 | **PRD** | `01-requirements/HR_PR-1/prd.md` |
-| **当前 Skill** | feature-developer |
-| **当前阶段** | 🔄 代码实现已全部完成（backend 21/21 含 2.3a、frontend 15/15）；审查全部通过（backend 十批、frontend 十一批）；DL 要求（2026-11-10）：流程完整执行。开发自测：backend 完成（123 条全通过，AC 37/37）；frontend 部分完成（108 条，已有结果 76/77，31 条未执行）；暂停中，恢复后补做 frontend 未执行项 → 造数脚本 → 最终 Review |
-| **状态** | ⏸ 等待 DL 确认开发自测（后续按 L2，见 `.kiro/decisions/design/2026-11-10-HR_PR-1降级L2防止过度.md`） |
-| **最后更新** | 2026-11-10 |
+| **当前 Skill** | requirement-change-router（v2，Type C） |
+| **当前阶段** | 🔄 需求变更 v2 已路由（DL 2026-11-11 确认）：新增对话修改与问答、历史会话、已归档简历查看。v1 产物中受影响阶段已标 ⚠️，按下方「重跑清单（v2）」从 PRD 开始增量重跑。v1 的开发自测与造数脚本收尾不再单独推进，并入 v2 自测 |
+| **状态** | 🔄 v2 重跑中（PRD、HLD 已确认；下一步：两侧 impact-analyzer）；执行深度按 L2，红线功能点按 L3 深度验证（见 `.kiro/decisions/design/2026-11-11-HR_PR-1需求变更v2.md`） |
+| **最后更新** | 2026-11-11 |
 
 **状态图例**：`🔄 进行中` / `⏸️ 等待人类确认` / `✅ 已完成` / `❌ 阻断`
 
@@ -44,18 +44,18 @@
 | 阶段 | Skill | 执行者 | 状态 | 完成时间 | 产出文件路径 |
 |------|-------|-------|------|---------|------------|
 | 需求启动（Workbench 检测+业务澄清+派活） | requirement-kickoff | Dev Lead | ✅ | 2026-11-10 | `01-requirements/HR_PR-1/` |
-| 解决方案设计 HLD（大型新需求） | solution-designer | Dev Lead | ✅ 已批准 | 2026-11-10 | `01-requirements/HR_PR-1/solution-design.md` |
+| 解决方案设计 HLD（大型新需求） | solution-designer | Dev Lead | ✅ v2 已批准（ADR-007/008/009） | 2026-11-11 | `01-requirements/HR_PR-1/solution-design.md` |
 | 仓库约定初稿与确认（仅新项目 Workbench） | solution-designer（Step 7） | Dev Lead | ✅ 已确认；未推送（代码目录尚未初始化 Git） | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
-| Workbench 影响分析（各 Workbench 并行） | impact-analyzer | 各 Workbench 工程师 | ✅ backend ✅ / frontend ✅ | 2026-11-10 | `backend-docs/HR_PR-1/00_impact_analysis.md`；`frontend-docs/HR_PR-1/00_impact_analysis.md` |
-| 跨 Workbench 一致性 review（仅跨 Workbench 需求） | cross-workbench-reviewer | Dev Lead | ✅ 已裁决 | 2026-11-10 | `01-requirements/HR_PR-1/cross-workbench-review.md` |
-| 需求汇总（第二轮技术 Q&A + requirements.md） | requirements-analyst | Dev Lead/BA | ✅ 已确认 | 2026-11-10 | `backend-docs/HR_PR-1/01_requirements/requirements.md`；`frontend-docs/HR_PR-1/01_requirements/requirements.md` |
-| 架构设计（Schema+接口） | architecture-advisor | 各 Workbench 工程师 | ✅ backend（OpenAPI 0.1.0 冻结，0.1.1 待修订 G-01/G-02）/ frontend（Step 2.2 评审通过） | 2026-11-10 | `backend-docs/HR_PR-1/02_schema/`、`03_api/`；`frontend-docs/HR_PR-1/03_api/interface_spec_resume.md` |
-| 技术设计 | architecture-advisor | 各 Workbench 工程师 | ✅ backend / ✅ frontend（2026-11-10） | 2026-11-10 | `backend-docs/HR_PR-1/04_design/design.md`；`frontend-docs/HR_PR-1/04_design/design.md` |
-| 任务拆分 | architecture-advisor | 各 Workbench 工程师 | ✅ backend（20 任务 / 91h）/ ✅ frontend（15 任务 / 79h） | 2026-11-10 | `backend-docs/HR_PR-1/05_task/tasks.md`；`frontend-docs/HR_PR-1/05_task/tasks.md` |
-| 仓库约定补全与复核（仅新项目 Workbench） | architecture-advisor（Step 5） | 各 Workbench 工程师/Dev Lead | ✅ backend / ✅ frontend（已确认） | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
-| 代码实现 | feature-developer | 各 Workbench 工程师 | ✅ backend 21/21（含 2.3a，pytest 1001、覆盖率 99%、CRAP 最大 9.0）/ ✅ frontend 15/15（vitest 650、lint 0、build 通过） | — | `codes/hr-collection-agent-backend/`、`codes/hr-collection-agent-frontend/` |
-| 代码审查 | code-reviewer | 各 Workbench 工程师 | 🔄 backend 第一至第十批 ✅（含 2.4/2.5 HIGH_RISK）；frontend 第一至第十一批 ✅（0 BLOCK） | — | `backend-docs/HR_PR-1/10_review/code_review.md`；`frontend-docs/HR_PR-1/10_review/code_review.md` |
-| 开发自测用例 | dev-self-test | 各 Workbench 工程师 | ⏸ 待 DL 确认：backend 123 条全通过（AC 37/37）；frontend 108 条 0 失败 0 未执行（实测 51 + 引用单测 52 + 静态/构建 5，AC 33/33） | 2026-11-10 | `backend-docs/HR_PR-1/06_test/dev_self_test_resume.md`；`frontend-docs/HR_PR-1/06_test/dev_self_test_resume.md` |
+| Workbench 影响分析（各 Workbench 并行） | impact-analyzer | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：backend ✅ / frontend ✅ | 2026-11-10 | `backend-docs/HR_PR-1/00_impact_analysis.md`；`frontend-docs/HR_PR-1/00_impact_analysis.md` |
+| 跨 Workbench 一致性 review（仅跨 Workbench 需求） | cross-workbench-reviewer | Dev Lead | ⚠️ 待重审（v2）；v1 已裁决（C-03、P-01、P-02 被 v2 推翻） | 2026-11-10 | `01-requirements/HR_PR-1/cross-workbench-review.md` |
+| 需求汇总（第二轮技术 Q&A + requirements.md） | requirements-analyst | Dev Lead/BA | ⚠️ 待重审（v2）；v1 已确认 | 2026-11-10 | `backend-docs/HR_PR-1/01_requirements/requirements.md`；`frontend-docs/HR_PR-1/01_requirements/requirements.md` |
+| 架构设计（Schema+接口） | architecture-advisor | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：backend（OpenAPI 0.1.0 冻结，0.1.1 待修订 G-01/G-02）/ frontend（Step 2.2 评审通过） | 2026-11-10 | `backend-docs/HR_PR-1/02_schema/`、`03_api/`；`frontend-docs/HR_PR-1/03_api/interface_spec_resume.md` |
+| 技术设计 | architecture-advisor | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：backend ✅ / frontend ✅（ADR-006 将被替代） | 2026-11-10 | `backend-docs/HR_PR-1/04_design/design.md`；`frontend-docs/HR_PR-1/04_design/design.md` |
+| 任务拆分 | architecture-advisor | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：backend（20 任务 / 91h）/ frontend（15 任务 / 79h） | 2026-11-10 | `backend-docs/HR_PR-1/05_task/tasks.md`；`frontend-docs/HR_PR-1/05_task/tasks.md` |
+| 仓库约定补全与复核（仅新项目 Workbench） | architecture-advisor（Step 5） | 各 Workbench 工程师/Dev Lead | ⚠️ 待重审（v2）；v1：backend / frontend 已确认 | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
+| 代码实现 | feature-developer | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：backend 21/21（含 2.3a，pytest 1001、覆盖率 99%、CRAP 最大 9.0）/ ✅ frontend 15/15（vitest 650、lint 0、build 通过） | — | `codes/hr-collection-agent-backend/`、`codes/hr-collection-agent-frontend/` |
+| 代码审查 | code-reviewer | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：backend 第一至第十批 ✅（含 2.4/2.5 HIGH_RISK）；frontend 第一至第十一批 ✅（0 BLOCK） | — | `backend-docs/HR_PR-1/10_review/code_review.md`；`frontend-docs/HR_PR-1/10_review/code_review.md` |
+| 开发自测用例 | dev-self-test | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1 未经 DL 确认，并入 v2 自测：backend 123 条全通过（AC 37/37）；frontend 108 条 0 失败 0 未执行（实测 51 + 引用单测 52 + 静态/构建 5，AC 33/33） | 2026-11-10 | `backend-docs/HR_PR-1/06_test/dev_self_test_resume.md`；`frontend-docs/HR_PR-1/06_test/dev_self_test_resume.md` |
 | 造数脚本 | test-data-script-generator | 各 Workbench 工程师/QA | — | — | — |
 
 ---
@@ -88,6 +88,9 @@
 | 2026-11-10 | Yin Yang（frontend） | impact-analyzer | 完成 frontend 影响分析（新项目，全部为新增）；登记 9 条待澄清问题 |
 | 2026-11-10 | Yin Yang（Dev Lead） | 主 agent 合并 | 合并 feature-backend、feature-frontend 到 feature，解决 `_progress.md` 冲突，两 Workbench 影响分析均 ✅ |
 | 2026-11-10 | Yin Yang（Dev Lead） | cross-workbench-reviewer | 完成五维比对与待核实问题合并（C-01..C-15）；DL 裁决：PDF 已实测支持维持 ADR-001；幂等键=姓名+手机号+邮箱；其余采纳建议 |
+| 2026-11-11 | Yin Yang（Dev Lead） | prd-writer | PRD v2 确认：#3 补对话修改，新增 #5 问答、#6 历史会话、#7 已归档简历 |
+| 2026-11-11 | Yin Yang（Dev Lead） | solution-designer | HLD v2 批准；ADR-007/008/009 ACCEPTED；ADR-003/006 修订确认；v1 旧草稿不迁移；后续沿用 Orca worker 分派前后端 |
+| 2026-11-11 | Yin Yang（Dev Lead） | requirement-change-router | DL 试用后提出需求变更 v2（Type C，DL 确认）：对话修改与问答、历史会话、已归档简历查看；受影响阶段标 ⚠️，登记重跑清单（v2） |
 
 ---
 
@@ -161,6 +164,43 @@
 | 版本 | 日期 | 类型 | 变更描述摘要 | 影响 Workbench |
 |-----|------|------|------------|-------|
 | v1.0 | 2026-11-10 | — | 初始版本 | backend、frontend |
+| v2 | 2026-11-11 | Type C | DL 试用后提出：① 对话中通过自由文本修改简历字段、并对简历内容和填写流程提问回答；② 历史会话（浏览器 Cookie 标识，内容存服务端）；③ 已归档简历的全局列表、详情与原始文件下载。推翻 ADR-006、C-03、P-01、P-02、Q-DL-01、Q-DL-06；OpenAPI 0.1.1 需新增接口 | backend、frontend |
+
+### v2 变更内容（DL 2026-11-11 确认）
+
+| # | 决策点 | DL 结论 |
+|---|---|---|
+| 1 | 对话修改的生效方式 | 保留现有分区就地编辑，在此基础上**增加对话**：用户用自然语言提出修改，模型给出结构化修改建议，经现有字段校验后，以卡片展示"将 X 改为 Y"，用户点"应用"后才生效（守 B-04，不猜测补全） |
+| 2 | 已确认会话的保留 | 一直保存（本地项目，不考虑存储成本）；已确认会话在历史中只读查看 |
+| 3 | 归档列表可见范围 | 全局可见，不做权限控制（无账号体系，展示能力为目标）；作为已知风险登记 |
+| 4 | 归档页搜索 | 不做；简单列表 + 详情 + 原始文件下载 |
+| 5 | 对话输出方式 | 同步接口，不流式；前端显示"思考中" |
+| — | 历史会话的实现边界 | Cookie 只存随机浏览器标识（HttpOnly），会话与对话内容存服务端；浏览器不存简历内容，F-02 保持有效 |
+| — | 问答范围 | 只回答与本份简历内容、填写流程相关的问题；简历评价、岗位匹配等范围外请求礼貌拒绝（business-brief 范围外） |
+| — | 执行深度 | 整体 L2（POC，防止过度第八节）；红线功能点按 L3 深度验证：对话内容不进日志（B-03）、模型修改建议不能绕过字段校验、不以模型猜测值补全三项必填（B-04）、对话仍只发往 deepseek-flash（B-02） |
+| 6 | 会话清理方式 | DL 2026-11-11 确认：**不自动清理任何会话**（含未确认草稿，取消 7 天 TTL）；清理改为用户在历史会话中**手动删除**。ADR-003 补修订，清理调度停用。删除已确认会话只删对话记录，不删已归档简历与原始文件（归档删除仍不在范围内） |
+
+### 重跑清单（v2，Type C）
+
+| 优先级 | Skill | 执行者 | 前置条件 | 操作说明 | 完成 |
+|--------|-------|-------|---------|---------|:---:|
+| 0 | requirement-kickoff | — | — | 不重跑：Workbench 仍为 backend、frontend，无新增派活 | — |
+| 1 | prd-writer | BA/Dev Lead | 无 | `prd.md` 增量新增用户故事：对话修改与问答、历史会话、查看已归档简历；表头加变更履历 | ✅ 2026-11-11 DL 确认（v1 快照 `_history/prd.v1.md`） |
+| 2 | solution-designer | Dev Lead | PRD ✅ | `solution-design.md` 增量更新（先快照 `_history/solution-design.v1.md`）；新增 ADR-007（对话修改与问答，替代 ADR-006 的"不解析自由文本"部分，ADR-006 标 SUPERSEDED/部分保留分区编辑）、ADR-008（会话持久化与浏览器标识）；ADR-003 补修订 | ✅ 2026-11-11 DL 批准 HLD v2；ADR-007/008/009 ACCEPTED；ADR-003/006 修订确认；v1 旧草稿不迁移 |
+| 3 | impact-analyzer | backend、frontend 工程师 | HLD ✅ | 两侧 `00_impact_analysis.md` 针对现有代码重新推导（覆盖 + 履历表头） | ☐ |
+| 4 | cross-workbench-reviewer | Dev Lead | 影响分析 ✅ | 在 `cross-workbench-review.md` 追加 v2 节：新接口契约、会话/浏览器标识 Cookie、修改建议结构、错误码；C-03、P-01、P-02 标注被 v2 替代 | ☐ |
+| 5 | requirements-analyst | Dev Lead/BA | 跨 Workbench Review ✅ | 两侧 `requirements.md` 增量更新（先快照 `_history/`），追溯矩阵覆盖新用户故事 | ☐ |
+| 6 | architecture-advisor（Schema+接口） | backend 工程师；frontend 工程师 | requirements ✅ | `sql_ddl_resume.md` 新增会话/消息/浏览器标识表并调整"确认后删除草稿"；`openapi.yaml` 0.1.1 → 0.2.0（会话列表、发送消息、应用修改建议、归档列表/详情/文件下载）；frontend `interface_spec_resume.md` 同步 | ☐ |
+| 7 | architecture-advisor（技术设计） | 两侧工程师 | 接口冻结 ✅ | 两侧 `design.md` 增量更新（先快照）：对话提示词与输出结构、注入防护、日志白名单；前端输入框、会话栏、归档页 | ☐ |
+| 8 | architecture-advisor（任务拆分 + Step 5） | 两侧工程师/Dev Lead | 技术设计 ✅ | 两侧 `tasks.md` 追加 v2 任务（写测试预算：POC ≈ 1:1）；两侧仓库 `AGENTS.md` 更新红线、日志字段、运行说明 | ☐ |
+| 9 | feature-developer | 两侧工程师 | 任务清单 ✅ | 在现有代码上增量实现 | ☐ |
+| 10 | code-reviewer | 审查 agent | 代码 ✅ | 只审 v2 变更面；红线点重点审 | ☐ |
+| 11 | dev-self-test | 两侧工程师 | 审查 ✅ | v2 新增用例 + v1 自测回归映射（复用已有，不重写）；含真实 DeepSeek 的端到端演练 | ☐ |
+| 12 | DL 最终 Review | Dev Lead | 自测 ✅ | 浏览器实际体验验证三项能力 | ☐ |
+
+不受此次变更影响（无需重跑）：
+- 需求启动：Workbench 与派活不变。
+- 上传解析链路（ADR-001、ADR-002）、保存顺序与启动对账（ADR-005）、幂等键（ADR-004）：沿用，只在对应文档引用处做一致性扫描。
 
 ---
 
