@@ -6,7 +6,13 @@ import pytest
 
 from app.core.db import connect, init_resumes_db
 from app.core.errors import DuplicateIdentityError
-from app.repositories.resume_repository import NewResume, ResumeRef, ResumeRepository
+from app.repositories.resume_repository import (
+    NewResume,
+    ResumeConflictError,
+    ResumeReader,
+    ResumeRef,
+    ResumeRepository,
+)
 from app.schemas.resume_fields import Education, ProjectExperience, WorkExperience
 
 T0 = "2026-11-10T08:00:00Z"
@@ -228,3 +234,93 @@ def test_list_refs(repo: ResumeRepository) -> None:
         make_resume(1).file_path,
         make_resume(2).file_path,
     }
+
+
+# ---- v2: read side and in-place replace ------------------------------------------------------
+
+T1 = "2026-11-12T09:00:00Z"
+
+
+def test_reader_protocol_exposes_no_write_method() -> None:
+    hints = ResumeReader.__dict__
+    public = {n for n in hints if not n.startswith("_")}
+    assert public == {"find_by_identity_key", "list_summaries", "get_detail", "get_names"}
+
+
+def test_list_summaries_newest_first_and_get_names(repo: ResumeRepository) -> None:
+    repo.create_aggregate(make_resume(1, created_at="2026-11-10T08:00:00Z"))
+    repo.create_aggregate(make_resume(2, created_at="2026-11-11T08:00:00Z", name="乙"))
+    assert [r.id for r in repo.list_summaries()] == [make_resume(2).id, make_resume(1).id]
+    assert repo.list_summaries()[0].email == "zz@example.com"
+    names = repo.get_names([make_resume(1).id, make_resume(2).id, "missing"])
+    assert names == {make_resume(1).id: "ZZ合成姓名", make_resume(2).id: "乙"}
+    assert repo.get_names([]) == {}
+
+
+def test_get_detail_round_trips_values_without_statuses(repo: ResumeRepository) -> None:
+    repo.create_aggregate(full_resume())
+    detail = repo.get_detail(make_resume().id)
+    assert detail is not None
+    v = detail.values
+    assert (v.name, v.job_title, v.gender) == ("ZZ合成姓名", "后端工程师", None)
+    assert v.skills == ["Python", "SQL"] and v.languages == ["英语"] and v.certificates_honors == []
+    assert [w.company for w in v.work_experiences] == ["甲公司", "乙公司"]
+    assert v.work_experiences[0].responsibilities == ["开发"]
+    assert [e.school for e in v.educations] == ["示例大学", "示例学院", None]
+    assert (detail.created_at, detail.updated_at, detail.content_type) == (
+        T0,
+        T0,
+        "application/pdf",
+    )
+    assert repo.get_detail("missing") is None
+
+
+def test_replace_aggregate_updates_in_place_and_returns_old_path(
+    repo: ResumeRepository, db_path: Path
+) -> None:
+    repo.create_aggregate(full_resume())
+    new = make_resume(
+        job_title="架构师", file_path="new-version.png", content_type="image/png",
+        skills=["Go"], work_experiences=[WorkExperience(company="丙公司")],
+        project_experiences=[], educations=[Education(school="新大学")],
+    )  # fmt: skip
+    assert repo.replace_aggregate(new, T1) == full_resume().file_path
+    main = rows(db_path, "SELECT * FROM resumes")[0]
+    assert (main["job_title"], main["file_path"], main["content_type"]) == (
+        "架构师", "new-version.png", "image/png",
+    )  # fmt: skip
+    assert (main["created_at"], main["updated_at"]) == (T0, T1)
+    assert main["skills_json"] == '["Go"]'
+    assert [r["company"] for r in rows(db_path, "SELECT company FROM resume_work_experiences")] == [
+        "丙公司"
+    ]
+    assert count(db_path, "resume_project_experiences") == 0
+    edu = rows(db_path, "SELECT school, created_at, updated_at FROM resume_educations")
+    assert [(e["school"], e["created_at"], e["updated_at"]) for e in edu] == [("新大学", T1, T1)]
+    assert count(db_path, "resumes") == 1
+
+
+def test_replace_aggregate_guard_failure_changes_nothing(
+    repo: ResumeRepository, db_path: Path
+) -> None:
+    repo.create_aggregate(full_resume())
+    before = [tuple(r) for r in rows(db_path, "SELECT * FROM resumes")]
+    with pytest.raises(ResumeConflictError):
+        repo.replace_aggregate(make_resume(name_key="changed", job_title="X"), T1)
+    with pytest.raises(ResumeConflictError):
+        repo.replace_aggregate(make_resume(9), T1)  # no such record
+    assert [tuple(r) for r in rows(db_path, "SELECT * FROM resumes")] == before
+    assert count(db_path, "resume_work_experiences") == 2
+
+
+def test_replace_aggregate_failure_inside_transaction_rolls_back_everything(
+    repo: ResumeRepository, db_path: Path
+) -> None:
+    repo.create_aggregate(full_resume())
+    repo.create_aggregate(make_resume(2, file_path="other.pdf"))
+    before = [tuple(r) for r in rows(db_path, "SELECT * FROM resumes ORDER BY id")]
+    sub_before = count(db_path, "resume_work_experiences")
+    with pytest.raises(sqlite3.IntegrityError):  # file_path already used by another record
+        repo.replace_aggregate(make_resume(1, file_path="other.pdf", job_title="X"), T1)
+    assert [tuple(r) for r in rows(db_path, "SELECT * FROM resumes ORDER BY id")] == before
+    assert count(db_path, "resume_work_experiences") == sub_before

@@ -59,8 +59,6 @@ def test_env_example_has_only_placeholders() -> None:
         "DATA_DIR",
         "FILE_DIR",
         "MODEL_TIMEOUT_SECONDS",
-        "DRAFT_TTL_DAYS",
-        "CLEANUP_INTERVAL_SECONDS",
         "COOKIE_SECURE",
     }
     for line in text.splitlines():

@@ -1,5 +1,6 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import type { DraftResponse, OriginalFileInfo } from './Draft';
+import type { ArchivedResume } from './Archive';
+import { CHAT_ROLES, SUGGESTION_REASONS, SUGGESTION_STATUSES, type SuggestionValue } from './Conversation';
 import {
   ERROR_CODES,
   ERROR_REASONS,
@@ -9,24 +10,27 @@ import {
   type ErrorDetail,
   type ErrorResponse,
 } from './Errors';
-import type { CreateResumeRequest, CreateResumeResponse } from './Resume';
+import type { CreateResumeRequest, CreateResumeResponse, UpdateResumeRequest } from './Resume';
+import { SESSION_STATUSES, UPDATE_STATES, type OriginalFileInfo, type SessionDetail } from './Session';
 import {
   FIELD_STATUSES,
   OPENAPI_VERSION,
   RESUME_FIELD_KEYS,
+  SUGGESTION_FIELDS,
   type FieldStatus,
   type ResumeFields,
   type ResumeFieldsUpdate,
+  type ResumeValues,
   type StringField,
   type StringListField,
   type WorkExperienceListField,
 } from './ResumeModel';
 
-// Expected values are copied from backend-docs/HR_PR-1/03_api/openapi.yaml (0.1.1) on purpose:
+// Expected values are copied from backend-docs/HR_PR-1/03_api/openapi.yaml (0.2.0) on purpose:
 // this test fails when the hand-written types drift from the contract (F-02).
-describe('OpenAPI 0.1.1 contract mirror', () => {
+describe('OpenAPI 0.2.0 contract mirror', () => {
   it('declares the contract version', () => {
-    expect(OPENAPI_VERSION).toBe('0.1.1');
+    expect(OPENAPI_VERSION).toBe('0.2.0');
   });
 
   it('has the 22 resume field keys in contract order', () => {
@@ -61,7 +65,7 @@ describe('OpenAPI 0.1.1 contract mirror', () => {
     expect([...FIELD_STATUSES]).toEqual(['recognized', 'uncertain', 'missing', 'confirmed']);
   });
 
-  it('has the 13 backend error codes', () => {
+  it('has the 19 backend error codes', () => {
     expect([...ERROR_CODES]).toEqual([
       'file_missing',
       'file_empty',
@@ -71,9 +75,15 @@ describe('OpenAPI 0.1.1 contract mirror', () => {
       'parse_failed',
       'parse_unavailable',
       'parse_timeout',
-      'draft_not_found',
+      'session_not_found',
+      'session_read_only',
       'validation_failed',
       'confirmation_required',
+      'chat_failed',
+      'suggestion_unavailable',
+      'update_not_available',
+      'resume_not_found',
+      'file_not_available',
       'save_failed',
       'internal_error',
     ]);
@@ -110,9 +120,28 @@ describe('OpenAPI 0.1.1 contract mirror', () => {
 
   it('models the response shapes', () => {
     expectTypeOf<OriginalFileInfo['content_type']>().toEqualTypeOf<'application/pdf' | 'image/jpeg' | 'image/png'>();
-    expectTypeOf<DraftResponse>().toHaveProperty('expires_at');
     expectTypeOf<CreateResumeRequest>().toEqualTypeOf<{ confirmed: boolean }>();
     expectTypeOf<CreateResumeResponse['already_saved']>().toEqualTypeOf<boolean>();
     expectTypeOf<ErrorResponse['details']>().toEqualTypeOf<ErrorDetail[] | undefined>();
+  });
+
+  it('has the v2 session, suggestion and chat enums', () => {
+    expect([...SESSION_STATUSES]).toEqual(['reviewing', 'saved']);
+    expect([...UPDATE_STATES]).toEqual(['none', 'pending', 'applied']);
+    expect([...SUGGESTION_STATUSES]).toEqual(['pending', 'applied', 'cancelled']);
+    expect([...SUGGESTION_REASONS]).toEqual(['required', 'invalid_format', 'invalid_type', 'too_long']);
+    expect([...CHAT_ROLES]).toEqual(['user', 'assistant']);
+    expect(SUGGESTION_FIELDS).toHaveLength(19);
+    // Whitelist = the 22 fields minus the three experience lists.
+    const lists = ['work_experiences', 'project_experiences', 'educations'];
+    expect([...SUGGESTION_FIELDS].sort()).toEqual(RESUME_FIELD_KEYS.filter((k) => !lists.includes(k)).sort());
+  });
+
+  it('models the v2 session shapes', () => {
+    expectTypeOf<keyof ResumeValues>().toEqualTypeOf<(typeof RESUME_FIELD_KEYS)[number]>();
+    expectTypeOf<SessionDetail['fields']>().toEqualTypeOf<ResumeFields | null>();
+    expectTypeOf<SessionDetail['resume']>().toEqualTypeOf<ArchivedResume | null>();
+    expectTypeOf<SuggestionValue>().toEqualTypeOf<string | string[] | null>();
+    expectTypeOf<UpdateResumeRequest>().toEqualTypeOf<{ confirm_update: boolean }>();
   });
 });

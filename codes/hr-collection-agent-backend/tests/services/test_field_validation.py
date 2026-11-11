@@ -2,8 +2,8 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.errors import FieldIssue
-from app.schemas.draft import DraftUpdateRequest
 from app.schemas.resume_fields import ResumeFieldsUpdate
+from app.schemas.session import SessionFieldsUpdateRequest as DraftUpdateRequest
 from app.services.field_validation import (
     issues_from_pydantic,
     strip_phone,

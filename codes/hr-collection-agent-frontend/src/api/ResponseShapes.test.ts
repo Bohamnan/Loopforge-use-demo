@@ -1,7 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { sampleCreateResumeResponse, sampleDraft } from '../test/ApiMocks';
-import { RESUME_FIELD_KEYS } from '../types/ResumeModel';
-import { isCreateResumeResponse, isDraftResponse } from './ResponseShapes';
+import {
+  sampleArchivedResume,
+  sampleCreateResumeResponse,
+  sampleSendMessageResponse,
+  sampleSessionDetail,
+  sampleSessionSummary,
+  sampleSuggestion,
+} from '../test/ApiMocks';
+import {
+  isArchivedResume,
+  isCreateResumeResponse,
+  isResumeList,
+  isSendMessageResponse,
+  isSessionDetail,
+  isSessionList,
+  isSuggestionActionResponse,
+  isUpdateResumeResponse,
+} from './ResponseShapes';
 
 describe('isCreateResumeResponse (F-03: only a well-formed save response may count as success)', () => {
   it('accepts the contract shape, with already_saved true or false', () => {
@@ -30,85 +45,42 @@ describe('isCreateResumeResponse (F-03: only a well-formed save response may cou
   });
 });
 
-describe('isDraftResponse (the UI reads every field, so an incomplete draft must not get in)', () => {
-  it('accepts the contract shape', () => {
-    expect(isDraftResponse(sampleDraft())).toBe(true);
+describe('isSessionDetail (status, update_state and fields / resume / update_candidate must agree)', () => {
+  it.each(['reviewing', 'saved', 'pending', 'applied'] as const)('accepts the %s sample', (kind) => {
+    expect(isSessionDetail(sampleSessionDetail(kind))).toBe(true);
   });
 
   it.each([
-    ['empty object', {}],
-    ['null', null],
-    ['array', []],
-    ['missing fields', { ...sampleDraft(), fields: undefined }],
-    ['fields is empty', { ...sampleDraft(), fields: {} }],
-    ['missing original_file', { ...sampleDraft(), original_file: undefined }],
-    ['original_file without filename', { ...sampleDraft(), original_file: { size_bytes: 1 } }],
-    ['missing draft_id', { ...sampleDraft(), draft_id: undefined }],
-    ['missing expires_at', { ...sampleDraft(), expires_at: undefined }],
+    ['not an object', null],
+    ['reviewing without fields', { ...sampleSessionDetail('reviewing'), fields: null }],
+    ['reviewing with a resume', { ...sampleSessionDetail('reviewing'), resume: sampleArchivedResume() }],
+    ['reviewing with update_state pending', { ...sampleSessionDetail('reviewing'), update_state: 'pending' }],
+    ['saved without resume', { ...sampleSessionDetail('saved'), resume: null }],
+    ['saved that still carries fields', { ...sampleSessionDetail('saved'), fields: sampleSessionDetail('reviewing').fields }],
+    ['pending without a candidate', { ...sampleSessionDetail('pending'), update_candidate: null }],
+    ['applied that keeps a candidate', { ...sampleSessionDetail('applied'), update_candidate: sampleSessionDetail('pending').update_candidate }],
+    ['unknown status', { ...sampleSessionDetail('saved'), status: 'draft' }],
+    ['a suggestion outside the whitelist', { ...sampleSessionDetail('reviewing'), messages: [{ ...sampleSendMessageResponse().assistant_message, suggestions: [{ ...sampleSuggestion(), field: 'educations' }] }] }],
   ])('rejects %s', (_name, payload) => {
-    expect(isDraftResponse(payload)).toBe(false);
-  });
-
-  it.each(RESUME_FIELD_KEYS)('rejects a draft that lacks the field %s', (key) => {
-    const draft = sampleDraft() as unknown as { fields: Record<string, unknown> };
-    delete draft.fields[key];
-    expect(isDraftResponse(draft)).toBe(false);
-  });
-
-  it('rejects a field with an unknown status or without a value', () => {
-    const bad = sampleDraft() as unknown as { fields: Record<string, unknown> };
-    bad.fields.name = { value: 'x', status: 'saved' };
-    expect(isDraftResponse(bad)).toBe(false);
-    const noValue = sampleDraft() as unknown as { fields: Record<string, unknown> };
-    noValue.fields.name = { status: 'confirmed' };
-    expect(isDraftResponse(noValue)).toBe(false);
-  });
-
-  it('rejects list fields whose value is not an array and scalar fields whose value is an object', () => {
-    const a = sampleDraft() as unknown as { fields: Record<string, unknown> };
-    a.fields.skills = { value: 'Excel', status: 'recognized' };
-    expect(isDraftResponse(a)).toBe(false);
-    const b = sampleDraft() as unknown as { fields: Record<string, unknown> };
-    b.fields.name = { value: { x: 1 }, status: 'recognized' };
-    expect(isDraftResponse(b)).toBe(false);
+    expect(isSessionDetail(payload)).toBe(false);
   });
 });
 
-describe('isDraftResponse: list elements and file info (review batch 5 S1)', () => {
-  const withField = (key: string, value: unknown) => {
-    const d = sampleDraft() as unknown as { fields: Record<string, { value: unknown; status: string }> };
-    d.fields[key] = { value, status: 'recognized' };
-    return d;
-  };
-
-  it.each(['strengths', 'skills', 'certificates_honors', 'languages'])('rejects non-string elements in the text list %s', (key) => {
-    expect(isDraftResponse(withField(key, ['ok', null]))).toBe(false);
-    expect(isDraftResponse(withField(key, [1]))).toBe(false);
-    expect(isDraftResponse(withField(key, ['ok', 'fine']))).toBe(true);
-    expect(isDraftResponse(withField(key, []))).toBe(true);
+describe('other v2 response shapes', () => {
+  it('accepts well-formed answers', () => {
+    expect(isSessionList({ items: [sampleSessionSummary()] })).toBe(true);
+    expect(isSendMessageResponse(sampleSendMessageResponse())).toBe(true);
+    expect(isSuggestionActionResponse({ message_id: 'm1', suggestions: [sampleSuggestion({ status: 'applied', old_value: null })], fields: sampleSessionDetail('reviewing').fields, updated_at: '2026-11-10T09:00:00Z' })).toBe(true);
+    expect(isUpdateResumeResponse({ resume_id: 'r1', updated_at: '2026-11-10T09:00:00Z' })).toBe(true);
+    expect(isArchivedResume(sampleArchivedResume())).toBe(true);
+    expect(isResumeList({ items: [{ resume_id: 'r1', name: 'n', phone: 'p', email: 'e', job_title: null, saved_at: '2026-11-10T09:00:00Z' }] })).toBe(true);
   });
 
-  it.each(['work_experiences', 'project_experiences', 'educations'])('rejects non-object elements in the experience list %s', (key) => {
-    expect(isDraftResponse(withField(key, [null]))).toBe(false);
-    expect(isDraftResponse(withField(key, ['text']))).toBe(false);
-    expect(isDraftResponse(withField(key, [[]]))).toBe(false);
-    expect(isDraftResponse(withField(key, [{}]))).toBe(true);
-  });
-
-  it('checks the typed members of an experience item (null / string for text, string arrays for responsibilities and achievements)', () => {
-    expect(isDraftResponse(withField('work_experiences', [{ company: null, position: '主管', responsibilities: ['a'], achievements: [] }]))).toBe(true);
-    expect(isDraftResponse(withField('work_experiences', [{ company: 5 }]))).toBe(false);
-    expect(isDraftResponse(withField('work_experiences', [{ responsibilities: 'a' }]))).toBe(false);
-    expect(isDraftResponse(withField('work_experiences', [{ responsibilities: [null] }]))).toBe(false);
-    expect(isDraftResponse(withField('educations', [{ school: { x: 1 } }]))).toBe(false);
-  });
-
-  it('checks original_file.size_bytes and content_type', () => {
-    const base = sampleDraft();
-    expect(isDraftResponse({ ...base, original_file: { ...base.original_file, size_bytes: '1024' } })).toBe(false);
-    expect(isDraftResponse({ ...base, original_file: { ...base.original_file, size_bytes: undefined } })).toBe(false);
-    expect(isDraftResponse({ ...base, original_file: { ...base.original_file, size_bytes: -1 } })).toBe(false);
-    expect(isDraftResponse({ ...base, original_file: { ...base.original_file, content_type: 'text/plain' } })).toBe(false);
-    expect(isDraftResponse({ ...base, original_file: { ...base.original_file, content_type: 'image/png' } })).toBe(true);
+  it('rejects a send response with swapped roles, an update answer without a time, and a list without items', () => {
+    const ok = sampleSendMessageResponse();
+    expect(isSendMessageResponse({ user_message: ok.assistant_message, assistant_message: ok.user_message })).toBe(false);
+    expect(isUpdateResumeResponse({ resume_id: 'r1' })).toBe(false);
+    expect(isSessionList({})).toBe(false);
+    expect(isArchivedResume({ ...sampleArchivedResume(), fields: { name: 'x' } })).toBe(false);
   });
 });

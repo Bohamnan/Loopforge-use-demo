@@ -1,4 +1,4 @@
-import type { ResumeFieldKey } from '../../types/ResumeModel';
+import { SUGGESTION_FIELDS, type ResumeFieldKey, type SuggestionField } from '../../types/ResumeModel';
 
 // Section layout of the review page: the 22 ResumeFields keys grouped into 11 sections (design §4.2, P-04).
 // Pure data, no DOM. Labels follow global-info/简历模板.md.
@@ -151,4 +151,14 @@ export function sectionKeyOfField(field: ResumeFieldKey): SectionKey {
     throw new Error(`Field not in any section: ${field}`);
   }
   return found.key;
+}
+
+/** Label of a suggestion / diff field. Throws for a field outside the 19-field whitelist (the shape check rejects such responses first). */
+export function labelOfField(key: string): string {
+  if (!(SUGGESTION_FIELDS as readonly string[]).includes(key)) {
+    throw new Error(`Not a suggestion field: ${key}`);
+  }
+  const found = SECTIONS.flatMap((s) => s.fields).find((f) => f.key === (key as SuggestionField));
+  if (!found) throw new Error(`No label for field: ${key}`);
+  return found.label;
 }

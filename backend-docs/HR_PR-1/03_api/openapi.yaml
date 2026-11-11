@@ -1,40 +1,49 @@
 openapi: 3.1.0
 info:
   title: HR 简历信息收集 API（hr-collection-agent）
-  version: 0.1.1
+  version: 0.2.0
   description: |
-    HR_PR-1 backend OpenAPI。**已冻结（2026-11-10，0.1.1：G-01/G-02/CR-01 兼容修订）**；0.1.0 经 cross-workbench-review O-01..O-13 冻结。
-    后续变更须经 cross-workbench-reviewer 审视（C-13）；v1 内只做向后兼容的新增。
+    HR_PR-1 backend OpenAPI。**0.2.0 已冻结（2026-11-11，v2/v2.1：HR_PR-1-CRv2、CRv2.1）**。
+    0.1.1 的 `/resume-drafts*` 与 `POST /resumes` 随会话化被替换（v1 未交付，不保留兼容路由，TQ-v2-02）。
 
     约定：
     - 路径前缀 `/api/v1`；JSON 字段 snake_case；时间为 ISO 8601 UTC。
-    - 无账号体系。未确认草稿由 HttpOnly Cookie `draft_token` 定位（`HttpOnly; SameSite=Lax; Path=/`，7 天）。前端不读取、不存储该令牌。
+    - **会话**（`session`）是一次简历提交过程：上传时创建，含草稿、对话记录与修改建议，状态 `reviewing`（校对中）/ `saved`（已保存）；只能手动删除（X-08）。
+    - 无账号体系。会话由 HttpOnly Cookie `browser_id`（浏览器标识）归属：`HttpOnly; SameSite=Lax; Path=/; Max-Age=34560000`（400 天，浏览器上限），**随每次带有效标识的成功响应续期**；前端不读取、不存储。上传时请求没有有效标识则先签发。
+    - 按会话 id 访问的接口都会校验该会话属于当前浏览器标识；**不存在与不属于本浏览器返回同一个 404 `session_not_found`**，不区分两种情形。路径参数格式不合法同样按 404 处理。
     - 错误统一为 `{code, message, request_id}`，可选 `details: [{field, reason}]`（D-06）；`details` 只含字段名与原因，不回显用户填写的值。
-    - 错误响应不得包含简历原文、模型原始返回或内部细节（B-03）。
+    - 错误响应不得包含简历原文、对话内容、模型原始返回或内部细节（B-03）。
     - 同源部署（localhost，Vite dev proxy 转发 `/api`）：不需要 CORS。
     - 已知风险（O-13）：本期接口**不做限流**（POC，localhost，约 5 人并发）；上线前须另立需求处理。
+    - 已知风险（ADR-009）：已归档简历接口（`/resumes*`）**不做权限控制**，服务只监听本机地址；对外监听前必须先补访问控制。
+    - 超时：上传解析与对话各同步调用一次 `deepseek-flash`，后端模型读超时 60 秒；前端请求超时建议 75 秒（X-01）。服务端不自动重试模型调用。
+    - 最近活动时间：上传、分区编辑、发送消息、应用/取消建议、保存、确认更新会刷新；**仅读取不刷新**（TQ-v2-05）。
 servers:
   - url: http://localhost:8000
     description: 本地 POC（同源，经前端 dev proxy 转发 /api）
 tags:
-  - name: resume-drafts
-    description: 未确认草稿：上传解析、读取、校对更新
+  - name: sessions
+    description: 会话：上传解析、列表、读取、删除、分区更新
+  - name: messages
+    description: 对话消息与修改建议（仅 reviewing 会话）
+  - name: session-resume
+    description: 会话内的确认保存与已保存过后的确认更新
   - name: resumes
-    description: 已确认简历：确认并保存
+    description: 已归档简历：只读列表、详情、原始文件
 
 paths:
-  /api/v1/resume-drafts:
+  /api/v1/sessions:
     post:
-      tags: [resume-drafts]
-      operationId: createResumeDraft
-      summary: 上传简历文件并同步解析，创建未确认草稿
+      tags: [sessions]
+      operationId: createSession
+      summary: 上传简历文件并同步解析，创建新会话
       description: |
         关联 REQ-BE-01、REQ-BE-02、REQ-BE-05.2。
-        - 每次调用都**新建**草稿和新令牌（非幂等，D-05）；Cookie 以最新一次成功响应为准。
-        - 当前浏览器已有草稿时，视为“重新上传覆盖”（C-07）；不提供丢弃草稿接口。请求带**有效旧令牌**且本次成功时，立即删除旧草稿（O-03）；无法定位的旧草稿（令牌缺失/失效）由 7 天清理兜底。
-        - 同步等待模型：后端调用模型超时 60 秒（C-08）；前端请求超时建议 75 秒。
-        - **失败时不创建草稿，不改变浏览器已有的 Cookie 与草稿**（O-02）。
-        - 不自动重试模型调用。
+        - 每次调用都**新建会话**（`reviewing`），**不删除、不修改**本浏览器的其他会话（REQ-BE-01.6）；非幂等。
+        - 请求没有有效浏览器标识时先签发 Cookie `browser_id`；已有则续期。
+        - 同步等待模型：后端调用模型超时 60 秒；前端请求超时建议 75 秒。不自动重试。
+        - **失败时不创建会话，也不改变浏览器已有的会话与 Cookie**（O-02）。
+        - 响应为完整会话（`messages` 为空，`fields` 含每个字段的值与状态）。
       requestBody:
         required: true
         content:
@@ -49,14 +58,13 @@ paths:
                   description: 简历文件。仅 PDF / JPG / JPEG / PNG，单个，≤ 10 MB（10485760 字节）。类型以文件头魔数为准，不以扩展名为准。
       responses:
         '201':
-          description: 草稿已创建，已解析
+          description: 会话已创建，已解析
           headers:
             Set-Cookie:
-              description: 草稿访问令牌，`draft_token=<随机值>; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`
-              schema: { type: string }
+              $ref: '#/components/headers/BrowserCookie'
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/DraftResponse' }
+              schema: { $ref: '#/components/schemas/SessionDetail' }
         '400':
           description: file_missing / file_empty / file_content_mismatch
           content:
@@ -103,53 +111,104 @@ paths:
                 parse_timeout: { $ref: '#/components/examples/ParseTimeout' }
         '500':
           $ref: '#/components/responses/InternalError'
-
-  /api/v1/resume-drafts/current:
     get:
-      tags: [resume-drafts]
-      operationId: getCurrentResumeDraft
-      summary: 读取当前浏览器的未确认草稿（页面启动/恢复）
+      tags: [sessions]
+      operationId: listSessions
+      summary: 列出本浏览器的全部会话
       description: |
-        关联 REQ-BE-03.1、REQ-BE-03.5、REQ-BE-05.3/05.4。
-        - 草稿由 Cookie `draft_token` 定位，路径不含草稿 id。
-        - 返回所有字段的值与状态；**不**返回“下一个待确认字段”或提问文案（C-03）。
-        - 成功时刷新草稿最近活动时间，并滑动续期 Cookie（Max-Age 重置为 7 天，O-01）。
-        - 令牌缺失、无效、已作废或草稿已过期 → 404 `draft_not_found`，不含任何简历内容。**页面打开时没有草稿属于正常情况**：前端须把该 404 当作“空态”处理，不作为错误提示、不记错误日志（O-12）。
+        关联 REQ-BE-05.3。
+        - 返回当前浏览器标识下的全部会话，按最近活动时间倒序；不分页。
+        - 会话名称由后端读取时生成（X-04）：`reviewing` 取当前姓名字段值，`saved` 取正式记录的姓名；有姓名为"简历 · 姓名"，否则"未命名简历"。
+        - **没有有效浏览器标识时返回 200 与空列表，且不签发 Cookie**（首次访问是正常情况，不是错误）；有有效标识则续期 Cookie。
+        - 仅读取，不刷新任何会话的最近活动时间（TQ-v2-05）。
       security:
-        - draftCookie: []
+        - browserCookie: []
       responses:
         '200':
-          description: 当前草稿
+          description: 会话列表（可为空）
           headers:
             Set-Cookie:
-              description: 续期的草稿访问令牌（同值，Max-Age 重置为 604800）
-              schema: { type: string }
+              $ref: '#/components/headers/BrowserCookie'
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/DraftResponse' }
-        '404':
-          $ref: '#/components/responses/DraftNotFound'
+              schema: { $ref: '#/components/schemas/SessionListResponse' }
         '500':
           $ref: '#/components/responses/InternalError'
-    patch:
-      tags: [resume-drafts]
-      operationId: updateCurrentResumeDraft
-      summary: 提交校对结果（修正/补充/确认字段）
+
+  /api/v1/sessions/{session_id}:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    get:
+      tags: [sessions]
+      operationId: getSession
+      summary: 读取一个会话（字段、对话记录、更新候选）
       description: |
-        关联 REQ-BE-03.2/03.3/03.4/03.5。
-        - 只提交有变化或被确认的字段（部分更新）；**出现在请求中的字段一律置为 `confirmed`**，未出现的字段保持原值与原状态。
-        - 标量字段提交 `null`、列表字段提交 `[]` 表示“确认留空”，状态为 `confirmed`；核心三项（name/phone/email）不允许留空。
-        - 列表区块（工作经历、项目经历、教育背景及文本列表）为**整体替换**：多条子项的新增、修改、删除通过提交完整的新列表实现；区块只有**一个整体状态**，不对每条子项单独确认（O-11，POC 接受；前端逐条展示、整块确认）。
-        - 幂等：同一请求重复提交结果相同。
-        - 手机号：11 位大陆号，或以 `+` 开头的国际号；**校验前先去除空格与连字符**。规则以 `ResumeFieldsUpdate.phone` 的 `pattern` 为唯一来源，前端即时校验使用同一规则（O-05）；`pattern` 针对提交值，客户端先去空格与连字符，服务端校验前同样去除作为兜底（G-02）。邮箱：以 `ResumeFieldsUpdate.email` 的 `pattern` 校验（G-01）。字段长度/条数超限（`maxLength`/`maxItems`，CR-01）→ `details.reason = too_long`。name/phone/email 不可为空字符串（`minLength: 1`），全空白在服务层按 `required` 拒绝（O-09）。不合法 → 422 `validation_failed`，`details` 给出字段名与原因，**不回显值**（C-09、D-06）。
-        - 此接口只更新草稿，不写正式库、不代表“用户确认保存”（B-04）。
+        关联 REQ-BE-03.1、REQ-BE-05.4、REQ-BE-09.1。仅读取，不刷新最近活动时间。
+        - `status = reviewing`：`fields` 返回 22 个字段的值与状态（沿用 v1 语义）；`resume` 为 null。
+        - `status = saved`：`fields` 为 null；`resume` 为**正式库中的简历内容，只含值**（X-07），与归档详情同一结构。命中幂等键的会话（`update_state = pending`）展示的是**已有记录**的内容（X-06）。
+        - `update_state = pending` 时 `update_candidate` 返回冻结的"本次内容"（只含值）与本次文件信息，前端据此逐字段比较并展示差异（Y-02）；候选为空的字段确认更新后会清空已有值，差异中必须列出。
+        - `messages` 按时间序返回全部对话（含助手消息的修改建议及其状态）；`saved` 会话保留对话记录。
+        - 会话不存在或不属于当前浏览器 → 404 `session_not_found`。
       security:
-        - draftCookie: []
+        - browserCookie: []
+      responses:
+        '200':
+          description: 会话
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/BrowserCookie'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionDetail' }
+        '404':
+          $ref: '#/components/responses/SessionNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [sessions]
+      operationId: deleteSession
+      summary: 手动删除会话
+      description: |
+        关联 REQ-BE-05.6（X-03）。会话只能手动删除，系统不自动清理。
+        - `reviewing`：删除会话、对话记录、修改建议及临时文件。
+        - `saved`：只删除会话、对话记录与修改建议（有更新候选时一并删除其临时文件）；**已保存的简历记录与原始文件不受影响**，不访问正式库与 file 目录。
+        - 成功返回 **204 无正文**。会话不存在或不属于当前浏览器 → 404 `session_not_found`（重复删除得到 404，前端按"已不存在"处理）。
+      security:
+        - browserCookie: []
+      responses:
+        '204':
+          description: 已删除
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/BrowserCookie'
+        '404':
+          $ref: '#/components/responses/SessionNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/sessions/{session_id}/fields:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    patch:
+      tags: [sessions]
+      operationId: updateSessionFields
+      summary: 提交分区校对结果（修正/补充/确认字段）
+      description: |
+        关联 REQ-BE-03.2/03.3/03.4/03.5/03.6。语义同 0.1.1 的草稿更新，改为按会话定位。
+        - 只提交有变化或被确认的字段（部分更新）；**出现在请求中的字段一律置为 `confirmed`**，未出现的字段保持原值与原状态。
+        - 标量字段提交 `null`、列表字段提交 `[]` 表示"确认留空"，状态为 `confirmed`；核心三项（name/phone/email）不允许留空。
+        - 列表区块（工作经历、项目经历、教育背景及文本列表）为**整体替换**，区块只有一个整体状态（O-11）。
+        - 手机号、邮箱、长度上限的规则以 `ResumeFieldsUpdate` 的 `pattern` / `maxLength` 为唯一来源（O-05、G-01、G-02、CR-01）；不合法 → 422 `validation_failed`，`details` 只含字段名与原因。
+        - 对话建议"应用"与本接口写入同一份会话字段，走同一条更新路径。
+        - 只更新会话草稿，不写正式库（B-04）。`saved` 会话拒绝修改 → 409 `session_read_only`。
+        - 成功时刷新最近活动时间。
+      security:
+        - browserCookie: []
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/DraftUpdateRequest' }
+            schema: { $ref: '#/components/schemas/SessionFieldsUpdateRequest' }
             example:
               fields:
                 name: 张三
@@ -157,38 +216,163 @@ paths:
                 skills: [Python, SQL]
       responses:
         '200':
-          description: 更新后的草稿
+          description: 更新后的字段
           headers:
             Set-Cookie:
-              description: 续期的草稿访问令牌（同值，Max-Age 重置为 604800）
-              schema: { type: string }
+              $ref: '#/components/headers/BrowserCookie'
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/DraftResponse' }
+              schema: { $ref: '#/components/schemas/SessionFieldsResponse' }
         '404':
-          $ref: '#/components/responses/DraftNotFound'
+          $ref: '#/components/responses/SessionNotFound'
+        '409':
+          $ref: '#/components/responses/SessionReadOnly'
         '422':
           $ref: '#/components/responses/ValidationFailed'
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/resumes:
+  /api/v1/sessions/{session_id}/messages:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
     post:
-      tags: [resumes]
-      operationId: createResume
-      summary: 用户明确确认后，保存简历记录及原始文件（幂等）
+      tags: [messages]
+      operationId: sendMessage
+      summary: 发送一条对话消息，得到回复与修改建议
       description: |
-        关联 REQ-BE-04。草稿由 Cookie 定位。
-        - 请求体 `confirmed` 必须为 `true`，表示用户明确确认（B-04）。缺失或 false → 422 `confirmation_required`。
-        - 保存前置条件：姓名、手机号、邮箱齐全且格式合法；其余字段可为空，未被确认的字段按草稿当前值保存（用户点击最终确认即视为确认当前显示的全部内容，D-03）。
-        - **幂等键** = 规范化后的 姓名 + 手机号 + 邮箱（C-10、D-02）。同键已存在（含并发确认）→ **不新增、不覆盖**，返回已有记录 id，`already_saved = true`，HTTP 200；本次内容与临时文件被丢弃，不回显已有记录内容（D-04）。
-        - 首次保存成功 → HTTP 201，`already_saved = false`；已保存过 → HTTP 200，`already_saved = true`（O-08，前端只依赖 `already_saved`）。
-        - 两种成功情形下均：删除该草稿与临时文件，并通过 `Set-Cookie` 使令牌过期（C-11）。
-        - 草稿不存在 / 令牌无效（含“首次已成功但响应丢失后的重试”）→ 404 `draft_not_found`（D-01）；本接口下前端提示“可能已保存，请重新上传核实”（O-10）。
-        - 保存过程任一步失败 → 500 `save_failed`，已补偿，不留孤立文件或记录（B-05）；草稿保留，可重试。
-        - 已确认记录不可修改/删除，本期不提供相应接口（C-11）。
+        关联 REQ-BE-07.1–07.6、07.8–07.10。仅 `reviewing` 会话；`saved` 会话（含更新候选期间）拒绝 → 409 `session_read_only`（TQ-v2-10）。
+        - `content` 1–2000 字符（TQ-v2-06）；空或全空白 → 422 `required`，超长 → 422 `too_long`（`details.field = content`）。
+        - 后端仅经 `clients` 层调用 `deepseek-flash`：发送当前字段的值与状态、最近 20 条对话和本条消息，**不发送原始文件**（B-02）；同步等待，不流式。
+        - 回复可同时含文本与修改建议（问答与修改同条消息，PRD #5）。建议只来自字段白名单（标量字段与 `strengths/skills/certificates_honors/languages`，不含三类经历，TQ-v2-01）；姓名、手机号、邮箱的新值若未出现在本条用户消息中，该建议被丢弃；与当前值相同的建议被丢弃（B-04）。
+        - 不通过字段规则的建议以 `applicable = false` 与 `reason` 返回，没有"应用"。
+        - **本接口不提供任何保存/确认动作**；用户在对话中说"确认提交"只得到文本回复，前端按 F-03 引导用户点现有确认入口（X-02）。
+        - **成功才落库**：用户消息与助手回复在同一事务内写入；调用失败/超时/结构不合法 → 502 `chat_failed`，不写入任何消息、建议或字段（X-01）。前端重试前先重读会话核对，不设幂等键。
+        - 成功时刷新最近活动时间。
       security:
-        - draftCookie: []
+        - browserCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SendMessageRequest' }
+            example: { content: 工作年限改成 7 年，另外我的手机号是 13900139000 }
+      responses:
+        '201':
+          description: 已生成回复
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/BrowserCookie'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SendMessageResponse' }
+        '404':
+          $ref: '#/components/responses/SessionNotFound'
+        '409':
+          $ref: '#/components/responses/SessionReadOnly'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '502':
+          description: chat_failed（模型调用失败/超时/输出结构不合法；未写入任何内容，可稍后重试）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              examples:
+                chat_failed: { $ref: '#/components/examples/ChatFailed' }
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/sessions/{session_id}/messages/{message_id}/apply:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+      - $ref: '#/components/parameters/MessageId'
+    post:
+      tags: [messages]
+      operationId: applySuggestions
+      summary: 应用一条助手消息（一张卡片）下的全部修改建议
+      description: |
+        关联 REQ-BE-07.7。**卡片 = 一条助手消息下的全部建议**，应用/取消以卡片为单位。
+        - 在一个事务内重新读取该卡片下 `applicable = true` 且 `status = pending` 的建议，**重新做字段校验**（建议保存后字段可能已被分区编辑改动），全部通过才通过与分区编辑相同的更新路径写入并置 `confirmed`、建议置 `applied`；任一不通过则全部不生效（409 `suggestion_unavailable`）。
+        - `applicable = false` 的建议不参与，状态保持 `pending`。
+        - 卡片已应用/已取消，或没有可应用的建议 → 409 `suggestion_unavailable`。`saved` 会话 → 409 `session_read_only`。
+        - 响应返回该卡片的建议最新状态与更新后的**完整字段**（前端无需重读）。成功时刷新最近活动时间。
+      security:
+        - browserCookie: []
+      responses:
+        '200':
+          description: 已应用
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/BrowserCookie'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuggestionActionResponse' }
+        '404':
+          $ref: '#/components/responses/SessionNotFound'
+        '409':
+          description: session_read_only（会话已保存）或 suggestion_unavailable（建议已处理/已失效/不可应用）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              examples:
+                session_read_only: { $ref: '#/components/examples/SessionReadOnly' }
+                suggestion_unavailable: { $ref: '#/components/examples/SuggestionUnavailable' }
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/sessions/{session_id}/messages/{message_id}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+      - $ref: '#/components/parameters/MessageId'
+    post:
+      tags: [messages]
+      operationId: cancelSuggestions
+      summary: 取消一条助手消息（一张卡片）下的全部修改建议
+      description: |
+        关联 REQ-BE-07.7。把该卡片下 `applicable = true` 且 `status = pending` 的建议置为 `cancelled`，字段保持原值不变。
+        卡片已应用/已取消或没有可取消的建议 → 409 `suggestion_unavailable`；`saved` 会话 → 409 `session_read_only`。响应同 `applySuggestions`（字段为当前值）。成功时刷新最近活动时间。
+      security:
+        - browserCookie: []
+      responses:
+        '200':
+          description: 已取消
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/BrowserCookie'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuggestionActionResponse' }
+        '404':
+          $ref: '#/components/responses/SessionNotFound'
+        '409':
+          description: session_read_only 或 suggestion_unavailable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              examples:
+                session_read_only: { $ref: '#/components/examples/SessionReadOnly' }
+                suggestion_unavailable: { $ref: '#/components/examples/SuggestionUnavailable' }
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/sessions/{session_id}/resume:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    post:
+      tags: [session-resume]
+      operationId: createResume
+      summary: 用户明确确认后，保存会话为简历记录及原始文件（幂等）
+      description: |
+        关联 REQ-BE-04。由原 `POST /resumes` 改为按会话定位；请求体与响应结构不变。
+        - `confirmed` 必须为 `true`；缺失或非 true → 422 `confirmation_required`（B-04）。对话中的"确认提交"不触发保存。
+        - 前置条件：会话 `reviewing`；姓名、手机号、邮箱齐全且格式合法；其余字段可为空，未确认的字段按草稿当前值保存（D-03）。
+        - **幂等键** = 规范化后的 姓名 + 手机号 + 邮箱（C-10、D-02）。
+        - 首次保存成功 → 201，`already_saved = false`：会话置 `saved` 并关联新记录，保留会话与对话记录，删除临时文件；**不清除浏览器标识 Cookie**。
+        - 命中幂等键（含并发） → 200，`already_saved = true`：不新增、不覆盖已有记录；会话置 `saved` 并关联**已有**记录，**本次内容与文件冻结保留为更新候选**（`update_state = pending`），可经 `PUT` 同路径确认更新；前端重读会话即可展示已有记录内容（X-06）。
+        - 会话已为 `saved` → 409 `session_read_only`（更新走 `PUT`）；会话不存在/不属于本浏览器 → 404 `session_not_found`。
+        - 保存任一步失败 → 500 `save_failed`，已补偿，无孤立文件/记录（B-05），会话保持 `reviewing` 可重试。
+        - 成功时刷新最近活动时间。
+      security:
+        - browserCookie: []
       requestBody:
         required: true
         content:
@@ -200,8 +384,7 @@ paths:
           description: 保存成功（新增记录）
           headers:
             Set-Cookie:
-              description: 令牌作废：`draft_token=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`
-              schema: { type: string }
+              $ref: '#/components/headers/BrowserCookie'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/CreateResumeResponse' }
@@ -210,11 +393,10 @@ paths:
                 already_saved: false
                 saved_at: '2026-11-10T08:30:00Z'
         '200':
-          description: 已保存过（幂等命中，未新增、未覆盖）
+          description: 已保存过（幂等命中，未新增、未覆盖；本次内容保留为更新候选）
           headers:
             Set-Cookie:
-              description: 令牌作废：`draft_token=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`
-              schema: { type: string }
+              $ref: '#/components/headers/BrowserCookie'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/CreateResumeResponse' }
@@ -223,7 +405,9 @@ paths:
                 already_saved: true
                 saved_at: '2026-11-09T03:12:00Z'
         '404':
-          $ref: '#/components/responses/DraftNotFound'
+          $ref: '#/components/responses/SessionNotFound'
+        '409':
+          $ref: '#/components/responses/SessionReadOnly'
         '422':
           description: confirmation_required（缺少明确确认），或 validation_failed（核心三项缺失/格式不合法，带 details）
           content:
@@ -239,27 +423,200 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
               examples:
                 save_failed: { $ref: '#/components/examples/SaveFailed' }
+    put:
+      tags: [session-resume]
+      operationId: updateResume
+      summary: 已保存过后，用户再次确认，用本次内容覆盖已有简历记录
+      description: |
+        关联 REQ-BE-09（ADR-004/005 v2.1 修订，Y-01、Y-02）。仅适用于 `saved` 且 `update_state = pending` 的会话。
+        - 触发入口在前端（对话流中的快捷回复"按本次内容更新"，不经模型）；**对话内容本身不能触发更新**，只有本接口带显式 `confirm_update = true` 才会写入；缺失或非 true → 422 `confirmation_required`。
+        - 校验：会话归属、存在待应用的更新候选、核心三项合法且幂等键与已有记录一致。不满足（会话为 `reviewing`、没有候选、候选对应记录已不一致）→ 409 `update_not_available`。
+        - **覆盖而非合并**：用候选的全部字段（候选为空的字段会清空已有值）与原始文件覆盖已有记录；记录 id、幂等键、首次保存时间不变，记录最近更新时间；不保留旧版本。
+        - 文件替换：新文件以唯一版本名暂存并提升 → 单事务覆盖记录 → 提交后删除旧文件；**提交前任一步失败，已有记录与文件保持不变**，返回 500 `save_failed`，会话仍为 `pending` 可重试（B-05）。
+        - 幂等：同一会话候选已应用（`update_state = applied`）再次请求，返回同一记录 id 与当前更新时间，不再写入。
+        - 成功后会话 `update_state = applied`，候选内容与临时文件被清除；前端重读会话即得到更新后的记录内容。
+        - 成功时刷新最近活动时间。
+      security:
+        - browserCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateResumeRequest' }
+            example: { confirm_update: true }
+      responses:
+        '200':
+          description: 已更新（或已应用过，幂等返回）
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/BrowserCookie'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UpdateResumeResponse' }
+              example:
+                resume_id: 3f2b8c1e-5d4a-4e0b-9a77-0c1d2e3f4a5b
+                updated_at: '2026-11-11T09:00:00Z'
+        '404':
+          $ref: '#/components/responses/SessionNotFound'
+        '409':
+          description: update_not_available（没有可应用的更新候选）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              examples:
+                update_not_available: { $ref: '#/components/examples/UpdateNotAvailable' }
+        '422':
+          description: confirmation_required（缺少明确确认），或 validation_failed（核心三项不合法）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              examples:
+                confirmation_required: { $ref: '#/components/examples/ConfirmationRequired' }
+                validation_failed: { $ref: '#/components/examples/ValidationFailedExample' }
+        '500':
+          description: save_failed（更新失败，已补偿，已有记录未改变）或 internal_error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              examples:
+                save_failed: { $ref: '#/components/examples/SaveFailed' }
+
+  /api/v1/resumes:
+    get:
+      tags: [resumes]
+      operationId: listResumes
+      summary: 已归档简历列表（只读，全局可见）
+      description: |
+        关联 REQ-BE-08.1（ADR-009，TQ-v2-09）。返回全部简历记录，按**首次保存时间**倒序；不分页、不搜索；无记录时 `items` 为空。
+        不做权限控制，不需要浏览器标识（已知风险，见 info）。已归档简历仅供查看，没有修改与删除接口；覆盖更新只能经会话内的 `PUT /sessions/{session_id}/resume`。
+      responses:
+        '200':
+          description: 简历列表（可为空）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResumeListResponse' }
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/resumes/{resume_id}:
+    parameters:
+      - $ref: '#/components/parameters/ResumeId'
+    get:
+      tags: [resumes]
+      operationId: getResume
+      summary: 已归档简历详情（只读）
+      description: |
+        关联 REQ-BE-08.2。返回完整字段值（**只含值，不含字段状态**，X-07）、原始文件信息、首次保存时间、最近更新时间，以及原始文件是否可用的标志 `file_available`（X-05）；文件缺失不影响简历信息的查看。
+      responses:
+        '200':
+          description: 简历详情
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ArchivedResume' }
+        '404':
+          $ref: '#/components/responses/ResumeNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/resumes/{resume_id}/file:
+    parameters:
+      - $ref: '#/components/parameters/ResumeId'
+    get:
+      tags: [resumes]
+      operationId: downloadResumeFile
+      summary: 下载/打开简历的原始文件
+      description: |
+        关联 REQ-BE-08.3（ADR-009 跟进 1、2）。
+        - 只按记录中的关联路径读取，校验位于 file 目录内并拒绝符号链接；不接受用户传入的路径或文件名。
+        - `Content-Type` 取库内记录的类型（`application/pdf` / `image/jpeg` / `image/png`）；`Content-Disposition: attachment; filename*=UTF-8''<编码后的原文件名>`（RFC 5987，去除控制字符）；`X-Content-Type-Options: nosniff`。不回显内部路径。前端建议以 blob 方式获取并在页面内处理缺失。
+        - 记录不存在 → 404 `resume_not_found`；记录存在但文件缺失 → 404 `file_not_available`（X-05）。
+      responses:
+        '200':
+          description: 原始文件（二进制）
+          headers:
+            Content-Disposition:
+              description: "`attachment; filename*=UTF-8''...`"
+              schema: { type: string }
+            X-Content-Type-Options:
+              description: nosniff
+              schema: { type: string }
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+        '404':
+          description: resume_not_found（记录不存在）或 file_not_available（原始文件缺失）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              examples:
+                resume_not_found: { $ref: '#/components/examples/ResumeNotFound' }
+                file_not_available: { $ref: '#/components/examples/FileNotAvailable' }
+        '500':
+          $ref: '#/components/responses/InternalError'
 
 components:
   securitySchemes:
-    draftCookie:
+    browserCookie:
       type: apiKey
       in: cookie
-      name: draft_token
-      description: 草稿访问令牌。由上传接口经 Set-Cookie 下发；HttpOnly，前端不可读取。
+      name: browser_id
+      description: 浏览器标识。由上传接口经 Set-Cookie 下发并随访问续期；HttpOnly，前端不可读取。库内只存其 SHA-256。
+
+  headers:
+    BrowserCookie:
+      description: 浏览器标识 Cookie（签发或续期）：`browser_id=<随机值>; HttpOnly; SameSite=Lax; Path=/; Max-Age=34560000`。仅在请求带有效标识或本次签发时出现。
+      schema: { type: string }
+
+  parameters:
+    SessionId:
+      name: session_id
+      in: path
+      required: true
+      description: 会话 id（UUID 字符串）。格式不合法按"不存在"处理，返回 404 `session_not_found`。
+      schema: { type: string }
+    MessageId:
+      name: message_id
+      in: path
+      required: true
+      description: 助手消息 id（UUID 字符串），必须属于该会话；否则 404 `session_not_found`。
+      schema: { type: string }
+    ResumeId:
+      name: resume_id
+      in: path
+      required: true
+      description: 简历记录 id（UUID 字符串）。格式不合法按"不存在"处理，返回 404 `resume_not_found`。
+      schema: { type: string }
 
   responses:
-    DraftNotFound:
+    SessionNotFound:
       description: |
-        draft_not_found（令牌缺失/无效/已作废，或草稿不存在/已过期）。
-        同一个码用于多个场景，**前端按调用的接口区分文案**（O-10）：`GET /resume-drafts/current` → 空态（无可恢复草稿，引导上传）；`PATCH /resume-drafts/current` → 草稿已失效，提示重新上传；`POST /resumes` → “可能已保存，请重新上传核实”。
+        session_not_found（会话不存在，或不属于当前浏览器标识；两种情形不区分，路径参数格式不合法同样处理）。
+        浏览器标识缺失/无效时也是此码。前端按所调接口区分文案：读取 → 会话已不存在，回到列表；其余操作 → 提示刷新。
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
           examples:
-            draft_not_found: { $ref: '#/components/examples/DraftNotFound' }
+            session_not_found: { $ref: '#/components/examples/SessionNotFound' }
+    SessionReadOnly:
+      description: session_read_only（会话已保存，不能再修改、对话或再次保存；更新走 PUT /sessions/{session_id}/resume）
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          examples:
+            session_read_only: { $ref: '#/components/examples/SessionReadOnly' }
+    ResumeNotFound:
+      description: resume_not_found（简历记录不存在）
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          examples:
+            resume_not_found: { $ref: '#/components/examples/ResumeNotFound' }
     ValidationFailed:
-      description: validation_failed（字段校验不通过；details 只含字段名与原因）
+      description: validation_failed（字段/消息校验不通过；details 只含字段名与原因）
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -279,11 +636,11 @@ components:
       enum: [recognized, uncertain, missing, confirmed]
       description: |
         字段状态（C-04）。recognized=已识别待确认；uncertain=不确定；missing=缺失；confirmed=用户已确认。
-        missing 时值为 null / []；recognized 与 uncertain 时值非空。
+        missing 时值为 null / []；recognized 与 uncertain 时值非空。只出现在 `reviewing` 会话的 `fields` 中；已保存内容只含值（X-07）。
 
     ErrorCode:
       type: string
-      description: 业务码（字符串）。完整清单与 HTTP 状态见 api_design_resume.md §五。
+      description: 业务码（字符串）。完整清单与 HTTP 状态见 api_design_resume.md §五。0.2.0：`draft_not_found` 由 `session_not_found` 取代；新增 `session_read_only`、`chat_failed`、`suggestion_unavailable`、`update_not_available`、`resume_not_found`、`file_not_available`。
       enum:
         - file_missing
         - file_empty
@@ -293,9 +650,15 @@ components:
         - parse_failed
         - parse_unavailable
         - parse_timeout
-        - draft_not_found
+        - session_not_found
+        - session_read_only
         - validation_failed
         - confirmation_required
+        - chat_failed
+        - suggestion_unavailable
+        - update_not_available
+        - resume_not_found
+        - file_not_available
         - save_failed
         - internal_error
 
@@ -305,7 +668,7 @@ components:
       properties:
         field:
           type: string
-          description: 出错字段名，如 `phone`、`email`、`work_experiences[0].start_date`。仅字段名，不含值。
+          description: 出错字段名，如 `phone`、`email`、`content`、`work_experiences[0].start_date`。仅字段名，不含值。
         reason:
           type: string
           description: 原因代码。
@@ -318,7 +681,7 @@ components:
         code: { $ref: '#/components/schemas/ErrorCode' }
         message:
           type: string
-          description: 面向用户的非敏感提示（前端只展示 message）。不含简历原文、模型原始返回、内部细节。
+          description: 面向用户的非敏感提示（前端只展示 message）。不含简历原文、对话内容、模型原始返回、内部细节。
         request_id:
           type: string
           description: 请求标识，用于排查；与服务端日志中的 request_id 对应。
@@ -503,26 +866,267 @@ components:
           enum: [application/pdf, image/jpeg, image/png]
         size_bytes: { type: integer, minimum: 1, maximum: 10485760 }
 
-    DraftResponse:
+    ResumeValues:
       type: object
-      required: [draft_id, original_file, fields, created_at, updated_at, expires_at]
+      description: |
+        简历模型的 22 个字段，**只含值，不含字段状态**（X-07）。用于已保存内容：归档详情、已保存会话视图、更新候选。
+        字段含义与 `ResumeFields` 一一对应。
+      additionalProperties: false
+      required:
+        - name
+        - job_title
+        - expected_city
+        - expected_salary
+        - available_time
+        - phone
+        - email
+        - homepage
+        - gender
+        - birth_month
+        - political_status
+        - current_city
+        - work_years
+        - highest_education
+        - strengths
+        - work_experiences
+        - project_experiences
+        - educations
+        - skills
+        - certificates_honors
+        - languages
+        - self_evaluation
       properties:
-        draft_id: { type: string, format: uuid, description: 草稿标识（展示/日志用；后续接口凭 Cookie 定位，不需传入） }
-        original_file: { $ref: '#/components/schemas/OriginalFileInfo' }
-        fields: { $ref: '#/components/schemas/ResumeFields' }
-        created_at: { type: string, format: date-time }
-        updated_at: { type: string, format: date-time }
-        expires_at:
-          type: string
-          format: date-time
-          description: 若此后无活动，草稿将被清理的时间（= 最近活动时间 + 7 天）。
+        name: { type: [string, 'null'] }
+        job_title: { type: [string, 'null'] }
+        expected_city: { type: [string, 'null'] }
+        expected_salary: { type: [string, 'null'] }
+        available_time: { type: [string, 'null'] }
+        phone: { type: [string, 'null'] }
+        email: { type: [string, 'null'] }
+        homepage: { type: [string, 'null'] }
+        gender: { type: [string, 'null'] }
+        birth_month: { type: [string, 'null'] }
+        political_status: { type: [string, 'null'] }
+        current_city: { type: [string, 'null'] }
+        work_years: { type: [string, 'null'] }
+        highest_education: { type: [string, 'null'] }
+        strengths: { type: array, items: { type: string } }
+        work_experiences: { type: array, items: { $ref: '#/components/schemas/WorkExperience' } }
+        project_experiences: { type: array, items: { $ref: '#/components/schemas/ProjectExperience' } }
+        educations: { type: array, items: { $ref: '#/components/schemas/Education' } }
+        skills: { type: array, items: { type: string } }
+        certificates_honors: { type: array, items: { type: string } }
+        languages: { type: array, items: { type: string } }
+        self_evaluation: { type: [string, 'null'] }
 
-    DraftUpdateRequest:
+    SessionStatus:
+      type: string
+      enum: [reviewing, saved]
+      description: 会话状态。reviewing=校对中（可编辑/对话/保存）；saved=已保存（只读；仅可经 PUT 确认更新）。
+
+    UpdateState:
+      type: string
+      enum: [none, pending, applied]
+      description: |
+        更新候选状态（v2.1）。none=无候选；pending=保存命中幂等键（已保存过），本次内容与文件冻结保留，等待用户确认更新；applied=候选已覆盖到已有记录。
+
+    SessionSummary:
+      type: object
+      required: [session_id, name, status, last_active_at]
+      properties:
+        session_id: { type: string, format: uuid }
+        name:
+          type: string
+          description: 会话名称，后端读取时生成（X-04）：有姓名为"简历 · 姓名"，否则"未命名简历"。
+        status: { $ref: '#/components/schemas/SessionStatus' }
+        last_active_at: { type: string, format: date-time, description: 最近活动时间；列表按它倒序。仅读取不刷新。 }
+
+    SessionListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/SessionSummary' }
+          description: 本浏览器的全部会话，最近活动倒序；无会话或无浏览器标识时为空数组。
+
+    SuggestionField:
+      type: string
+      description: 修改建议允许的字段（白名单，TQ-v2-01）：标量字段与 4 个文本列表字段；不含工作经历、项目经历、教育背景（只能分区编辑）。
+      enum:
+        - name
+        - job_title
+        - expected_city
+        - expected_salary
+        - available_time
+        - phone
+        - email
+        - homepage
+        - gender
+        - birth_month
+        - political_status
+        - current_city
+        - work_years
+        - highest_education
+        - self_evaluation
+        - strengths
+        - skills
+        - certificates_honors
+        - languages
+
+    SuggestionValue:
+      type: [string, array, 'null']
+      items: { type: string }
+      description: 字段值。标量字段为字符串或 null；文本列表字段为字符串数组（列表建议展示**完整新列表**，应用即整体替换）。
+
+    SuggestionReason:
+      type: string
+      enum: [required, invalid_format, invalid_type, too_long]
+      description: 建议不可应用的原因代码（只含代码，不回显值）。
+
+    SuggestionStatus:
+      type: string
+      enum: [pending, applied, cancelled]
+      description: 建议状态。不可应用的建议（applicable=false）状态恒为 pending，不参与应用/取消。
+
+    Suggestion:
+      type: object
+      required: [suggestion_id, field, old_value, new_value, applicable, reason, status]
+      properties:
+        suggestion_id: { type: string, format: uuid }
+        field: { $ref: '#/components/schemas/SuggestionField' }
+        old_value:
+          description: |
+            原值：**读取时取会话当前字段值**，不来自模型（不存在"过期原值"）。仅 `reviewing` 会话且 `status = pending` 时返回；已应用/已取消的建议与 `saved` 会话中的建议为 null。字段当前为空时也是 null。
+          allOf:
+            - $ref: '#/components/schemas/SuggestionValue'
+        new_value: { $ref: '#/components/schemas/SuggestionValue' }
+        applicable: { type: boolean, description: 是否可应用。false 时不提供"应用"，展示 reason。 }
+        reason:
+          description: applicable=false 时的原因代码；否则为 null。
+          oneOf:
+            - $ref: '#/components/schemas/SuggestionReason'
+            - type: 'null'
+        status: { $ref: '#/components/schemas/SuggestionStatus' }
+
+    ChatRole:
+      type: string
+      enum: [user, assistant]
+
+    ChatMessage:
+      type: object
+      required: [message_id, role, content, suggestions, created_at]
+      properties:
+        message_id: { type: string, format: uuid }
+        role: { $ref: '#/components/schemas/ChatRole' }
+        content: { type: string, description: 消息文本。用户消息 ≤ 2000 字符。 }
+        suggestions:
+          type: array
+          items: { $ref: '#/components/schemas/Suggestion' }
+          description: 仅助手消息可能非空；同一条助手消息下的建议构成一张卡片，应用/取消以卡片为单位。
+        created_at: { type: string, format: date-time }
+
+    SendMessageRequest:
+      type: object
+      required: [content]
+      additionalProperties: false
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: 用户消息文本，1–2000 字符（TQ-v2-06）；全空白在服务层按 `required` 拒绝，超长按 `too_long`。
+
+    SendMessageResponse:
+      type: object
+      required: [user_message, assistant_message]
+      properties:
+        user_message: { $ref: '#/components/schemas/ChatMessage' }
+        assistant_message: { $ref: '#/components/schemas/ChatMessage' }
+
+    SessionFieldsUpdateRequest:
       type: object
       required: [fields]
+      additionalProperties: false
       properties:
         fields: { $ref: '#/components/schemas/ResumeFieldsUpdate' }
-      additionalProperties: false
+
+    SessionFieldsResponse:
+      type: object
+      required: [session_id, fields, updated_at]
+      properties:
+        session_id: { type: string, format: uuid }
+        fields: { $ref: '#/components/schemas/ResumeFields' }
+        updated_at: { type: string, format: date-time }
+
+    SuggestionActionResponse:
+      type: object
+      required: [message_id, suggestions, fields, updated_at]
+      properties:
+        message_id: { type: string, format: uuid }
+        suggestions:
+          type: array
+          items: { $ref: '#/components/schemas/Suggestion' }
+          description: 该卡片下全部建议的最新状态。
+        fields:
+          $ref: '#/components/schemas/ResumeFields'
+        updated_at: { type: string, format: date-time }
+
+    ArchivedResume:
+      type: object
+      required: [resume_id, fields, original_file, file_available, saved_at, updated_at]
+      properties:
+        resume_id: { type: string, format: uuid }
+        fields: { $ref: '#/components/schemas/ResumeValues' }
+        original_file: { $ref: '#/components/schemas/OriginalFileInfo' }
+        file_available:
+          type: boolean
+          description: 原始文件是否可读取。false 时简历信息仍可查看，下载接口返回 404 `file_not_available`（X-05）。
+        saved_at: { type: string, format: date-time, description: 首次保存时间（覆盖更新后不变）。 }
+        updated_at: { type: string, format: date-time, description: 最近更新时间；从未更新过时等于 saved_at。 }
+
+    UpdateCandidate:
+      type: object
+      required: [fields, original_file]
+      description: 更新候选：保存命中幂等键那一刻冻结的"本次内容"，与 `resume`（已有记录）比较得到差异。其 `original_file` 是本会话上传的文件（即 `SessionDetail.original_file`），确认更新后将替换已有记录的文件；已有记录当前的文件见 `resume.original_file`。
+      properties:
+        fields: { $ref: '#/components/schemas/ResumeValues' }
+        original_file: { $ref: '#/components/schemas/OriginalFileInfo' }
+
+    SessionDetail:
+      type: object
+      required: [session_id, name, status, update_state, original_file, fields, resume, update_candidate, messages, created_at, updated_at, last_active_at]
+      properties:
+        session_id: { type: string, format: uuid }
+        name: { type: string, description: 会话名称，同列表。 }
+        status: { $ref: '#/components/schemas/SessionStatus' }
+        update_state: { $ref: '#/components/schemas/UpdateState' }
+        original_file:
+          description: 本会话上传的文件的元数据（仅展示用；`saved` 且文件已清除时仍返回元数据）。已保存过（`update_state = pending`）时，它就是更新候选的文件，同 `update_candidate.original_file`；已有记录的文件见 `resume.original_file`。
+          allOf:
+            - $ref: '#/components/schemas/OriginalFileInfo'
+        fields:
+          description: reviewing 会话的当前字段（值 + 状态）；saved 会话为 null。
+          oneOf:
+            - $ref: '#/components/schemas/ResumeFields'
+            - type: 'null'
+        resume:
+          description: saved 会话关联的正式简历（只含值，与归档详情同结构）；reviewing 会话为 null。
+          oneOf:
+            - $ref: '#/components/schemas/ArchivedResume'
+            - type: 'null'
+        update_candidate:
+          description: update_state=pending 时的冻结候选；否则为 null。
+          oneOf:
+            - $ref: '#/components/schemas/UpdateCandidate'
+            - type: 'null'
+        messages:
+          type: array
+          items: { $ref: '#/components/schemas/ChatMessage' }
+          description: 全部对话，按时间序。
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        last_active_at: { type: string, format: date-time }
 
     CreateResumeRequest:
       type: object
@@ -540,11 +1144,47 @@ components:
         resume_id: { type: string, format: uuid, description: 简历记录 id }
         already_saved:
           type: boolean
-          description: true=同一个人（规范化 姓名+手机号+邮箱）此前已保存过，本次未新增、未覆盖；false=本次新增。前端据此展示“已保存过”或“已保存”。
+          description: true=同一个人（规范化 姓名+手机号+邮箱）此前已保存过，本次未新增、未覆盖，本次内容保留为更新候选；false=本次新增。
         saved_at:
           type: string
           format: date-time
-          description: 该记录的保存时间（already_saved=true 时为首次保存时间）。
+          description: 该记录的首次保存时间（already_saved=true 时为已有记录的首次保存时间）。
+
+    UpdateResumeRequest:
+      type: object
+      required: [confirm_update]
+      additionalProperties: false
+      properties:
+        confirm_update:
+          type: boolean
+          description: 用户在差异卡片上明确确认更新。必须为 true；缺失或非 true 返回 confirmation_required，不写入。
+
+    UpdateResumeResponse:
+      type: object
+      required: [resume_id, updated_at]
+      properties:
+        resume_id: { type: string, format: uuid, description: 被更新的简历记录 id（更新前后不变）。 }
+        updated_at: { type: string, format: date-time, description: 记录最近更新时间（幂等重复请求返回同一时间）。 }
+
+    ResumeSummary:
+      type: object
+      required: [resume_id, name, phone, email, job_title, saved_at]
+      properties:
+        resume_id: { type: string, format: uuid }
+        name: { type: string }
+        phone: { type: string }
+        email: { type: string }
+        job_title: { type: [string, 'null'], description: 求职意向的岗位名称；未填写为 null。 }
+        saved_at: { type: string, format: date-time, description: 首次保存时间；列表按它倒序。 }
+
+    ResumeListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ResumeSummary' }
+          description: 全部已归档简历，首次保存时间倒序；无记录时为空数组。
 
   examples:
     FileMissing:
@@ -563,10 +1203,22 @@ components:
       value: { code: parse_unavailable, message: 解析服务暂不可用，请稍后重试。, request_id: req_01 }
     ParseTimeout:
       value: { code: parse_timeout, message: 解析超时，请重新上传。, request_id: req_01 }
-    DraftNotFound:
-      value: { code: draft_not_found, message: 没有可恢复的草稿，请重新上传简历。, request_id: req_01 }
+    SessionNotFound:
+      value: { code: session_not_found, message: 该会话不存在或已被删除。, request_id: req_01 }
+    SessionReadOnly:
+      value: { code: session_read_only, message: 该会话已保存，不能再修改。, request_id: req_01 }
+    ChatFailed:
+      value: { code: chat_failed, message: 回复失败，请稍后重试。已有的简历信息与对话内容不受影响。, request_id: req_01 }
+    SuggestionUnavailable:
+      value: { code: suggestion_unavailable, message: 这条修改建议已处理或已失效，请刷新后查看。, request_id: req_01 }
+    UpdateNotAvailable:
+      value: { code: update_not_available, message: 当前没有可用于更新的内容。, request_id: req_01 }
+    ResumeNotFound:
+      value: { code: resume_not_found, message: 该简历不存在。, request_id: req_01 }
+    FileNotAvailable:
+      value: { code: file_not_available, message: 原始文件暂不可用。, request_id: req_01 }
     ConfirmationRequired:
-      value: { code: confirmation_required, message: 请先明确确认后再保存。, request_id: req_01 }
+      value: { code: confirmation_required, message: 请先明确确认后再继续。, request_id: req_01 }
     ValidationFailedExample:
       value:
         code: validation_failed
@@ -576,6 +1228,6 @@ components:
           - { field: phone, reason: invalid_format }
           - { field: email, reason: required }
     SaveFailed:
-      value: { code: save_failed, message: 保存失败，请稍后重试。, request_id: req_01 }
+      value: { code: save_failed, message: 保存失败，请稍后重试。已有数据未改变。, request_id: req_01 }
     InternalError:
       value: { code: internal_error, message: 服务异常，请稍后重试。, request_id: req_01 }

@@ -6,6 +6,7 @@ import {
   type ResumeFieldKey,
   type ResumeFields,
   type ResumeFieldsUpdate,
+  type ResumeValues,
 } from '../../types/ResumeModel';
 import {
   toSubmitScalar,
@@ -200,4 +201,14 @@ export function canConfirmSection(section: SectionConfig, fields: ResumeFields, 
   if (busy) return false;
   const state = sectionConfirmState(section, fields, buffer);
   return state.block === null && !(state.status === 'confirmed' && !state.dirty);
+}
+
+/**
+ * Adapts saved values (no statuses) to ResumeFields for read-only rendering (TD-22).
+ * The status is a placeholder and must never be shown or sent; callers render with showStatus=false.
+ */
+export function valuesAsFields(values: ResumeValues): ResumeFields {
+  const fields: Record<string, { value: unknown; status: FieldStatus }> = {};
+  for (const key of RESUME_FIELD_KEYS) fields[key] = { value: values[key], status: 'confirmed' };
+  return fields as unknown as ResumeFields;
 }

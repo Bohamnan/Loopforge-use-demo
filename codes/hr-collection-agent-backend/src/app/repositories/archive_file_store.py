@@ -7,11 +7,14 @@ This module only provides these primitives; the order and the compensation are d
 ResumeService and ReconcileService.
 """
 
+import errno
 import os
 import re
 import shutil
+import stat
 from dataclasses import dataclass
 from pathlib import Path
+from typing import BinaryIO
 
 EXTENSIONS = (".pdf", ".jpg", ".png")
 _ID_RE = re.compile(r"[A-Za-z0-9-]{1,64}")
@@ -120,6 +123,43 @@ class ArchiveFileStore:
         try:
             path.unlink()
         except FileNotFoundError:
+            return False
+        return True
+
+    def _final_path(self, name: str) -> Path:
+        """Path of a final (non-tmp) archive file; the only shape readers may ask for."""
+        if not _FINAL_RE.fullmatch(name):
+            raise ValueError("invalid file name")
+        return self._root / name
+
+    def open_final(self, name: str) -> BinaryIO:
+        """Open a final file read-only. Rejects tmp names, symlinks and anything not a file.
+
+        Raises FileNotFoundError if it is missing and ValueError if the name or file kind is
+        not acceptable; callers map both to "file not available".
+        """
+        path = self._final_path(name)
+        try:
+            if stat.S_ISLNK(os.lstat(path).st_mode):
+                raise ValueError("invalid file name")
+            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)  # a late-swapped link still fails
+        except OSError as exc:
+            if exc.errno == errno.ELOOP:
+                raise ValueError("invalid file name") from exc
+            raise
+        try:
+            if not stat.S_ISREG(os.fstat(fd).st_mode):
+                raise ValueError("invalid file name")
+        except BaseException:
+            os.close(fd)
+            raise
+        return os.fdopen(fd, "rb")
+
+    def is_available(self, name: str) -> bool:
+        """Whether ``open_final`` would succeed (cheap check for list and detail views)."""
+        try:
+            self.open_final(name).close()
+        except (OSError, ValueError):
             return False
         return True
 

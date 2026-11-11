@@ -21,11 +21,23 @@ def test_defaults() -> None:
     s = Settings(_env_file=None)
     assert s.deepseek_model == "deepseek-flash"
     assert s.model_timeout_seconds == 60
-    assert s.draft_ttl_days == 7
-    assert s.cleanup_interval_seconds == 3600
     assert s.cookie_secure is False
     assert s.data_dir == Path("data").resolve()
     assert s.file_dir == Path("file").resolve()
+
+
+def test_legacy_ttl_env_vars_are_ignored(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DRAFT_TTL_DAYS", "3")
+    monkeypatch.setenv("CLEANUP_INTERVAL_SECONDS", "10")
+    s = Settings(_env_file=None)
+    assert not hasattr(s, "draft_ttl_days")
+    assert not hasattr(s, "cleanup_interval_seconds")
+
+
+def test_env_example_has_no_legacy_vars() -> None:
+    text = (Path(__file__).parents[2] / ".env.example").read_text()
+    assert "DRAFT_TTL_DAYS" not in text
+    assert "CLEANUP_INTERVAL_SECONDS" not in text
 
 
 def test_api_key_may_be_missing() -> None:
@@ -37,15 +49,11 @@ def test_env_overrides(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "d"))
     monkeypatch.setenv("FILE_DIR", str(tmp_path / "f"))
     monkeypatch.setenv("MODEL_TIMEOUT_SECONDS", "30")
-    monkeypatch.setenv("DRAFT_TTL_DAYS", "3")
-    monkeypatch.setenv("CLEANUP_INTERVAL_SECONDS", "10")
     monkeypatch.setenv("COOKIE_SECURE", "true")
     s = Settings(_env_file=None)
     assert s.data_dir == tmp_path / "d"
     assert s.file_dir == tmp_path / "f"
     assert s.model_timeout_seconds == 30
-    assert s.draft_ttl_days == 3
-    assert s.cleanup_interval_seconds == 10
     assert s.cookie_secure is True
 
 
@@ -58,14 +66,9 @@ def test_secret_not_leaked_in_repr(monkeypatch: pytest.MonkeyPatch) -> None:
         assert "synthetic-secret-value" not in text
 
 
-@pytest.mark.parametrize(
-    "key", ["MODEL_TIMEOUT_SECONDS", "DRAFT_TTL_DAYS", "CLEANUP_INTERVAL_SECONDS"]
-)
 @pytest.mark.parametrize("value", ["0", "-1"])
-def test_non_positive_numbers_rejected(
-    monkeypatch: pytest.MonkeyPatch, key: str, value: str
-) -> None:
-    monkeypatch.setenv(key, value)
+def test_non_positive_numbers_rejected(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
+    monkeypatch.setenv("MODEL_TIMEOUT_SECONDS", value)
     with pytest.raises(ValidationError):
         Settings(_env_file=None)
 

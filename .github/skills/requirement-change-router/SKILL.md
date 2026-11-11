@@ -139,6 +139,7 @@ description: |
 | 1 | impact-analyzer | {Workbench}工程师 | 无 | 按「文档历史保留约定」更新 | ☐ |
 | 2 | cross-workbench-reviewer | Dev Lead | impact-analyzer ✅ | 仅跨 Workbench 需求执行 | ☐ |
 | 3 | requirements-analyst（汇总） | BA/Dev Lead | 跨 Workbench Review ✅ | 第二轮技术 Q&A + 汇总；核心产物需快照旧版 | ☐ |
+| 3a | qa-test-case | QA/Dev Lead | requirements-analyst ✅ | 增量更新 QA 用例（增/改/删）；可与架构设计、开发并行；该票首次执行则为首次生成 | ☐ |
 | ... | ... | ... | ... | ... | ☐ |
 
 不受此次变更影响（无需重跑）：

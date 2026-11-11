@@ -12,7 +12,8 @@ request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
 # Only these fields may be logged. User content, filenames and tokens are never allowed.
 ALLOWED_FIELDS = frozenset(
     {
-        "draft_id",
+        "session_id",
+        "message_id",
         "resume_id",
         "status_code",
         "duration_ms",

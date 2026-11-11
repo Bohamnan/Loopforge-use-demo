@@ -17,9 +17,13 @@ from app.core.logging import log_event, request_id_var
 from app.schemas.errors import ErrorDetail, ErrorResponse
 from app.services.field_validation import core_issues_from_raw, issues_from_pydantic
 
-UPLOAD_PATH = "/api/v1/resume-drafts"
-UPDATE_PATH = "/api/v1/resume-drafts/current"
-CONFIRM_PATH = "/api/v1/resumes"
+# Routes are matched by (method, route template), so session ids never matter.
+UPLOAD_ROUTE = ("POST", "/api/v1/sessions")
+FIELDS_ROUTE = ("PATCH", "/api/v1/sessions/{session_id}/fields")
+CONFIRM_ROUTES = {
+    ("POST", "/api/v1/sessions/{session_id}/resume"): "confirmed",
+    ("PUT", "/api/v1/sessions/{session_id}/resume"): "confirm_update",
+}
 
 
 def _request_id(request: Request) -> str:
@@ -57,10 +61,15 @@ async def _handle_app_error(request: Request, exc: Exception) -> JSONResponse:
     return _response(request, exc)
 
 
-def _is_missing_confirmation(errors: list) -> bool:
+def _route(request: Request) -> tuple[str, str]:
+    """(method, route template); falls back to the raw path when no route matched."""
+    template = getattr(request.scope.get("route"), "path", None)
+    return request.method, template or request.url.path
+
+
+def _is_missing_confirmation(errors: list, key: str) -> bool:
     return any(
-        e["type"] in {"missing", "bool_type"}
-        and tuple(e["loc"]) in {("body",), ("body", "confirmed")}
+        e["type"] in {"missing", "bool_type"} and tuple(e["loc"]) in {("body",), ("body", key)}
         for e in errors
     )
 
@@ -68,15 +77,15 @@ def _is_missing_confirmation(errors: list) -> bool:
 async def _handle_validation(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, RequestValidationError)
     errors = exc.errors()
-    route = (request.method, request.url.path)
+    route = _route(request)
     error: AppError
-    if route == ("POST", UPLOAD_PATH):
+    if route == UPLOAD_ROUTE:
         error = FileMissingError()
-    elif route == ("POST", CONFIRM_PATH) and _is_missing_confirmation(errors):
+    elif route in CONFIRM_ROUTES and _is_missing_confirmation(errors, CONFIRM_ROUTES[route]):
         error = ConfirmationRequiredError()
     else:
         issues = issues_from_pydantic(errors)
-        if route == ("PATCH", UPDATE_PATH) and isinstance(exc.body, dict):
+        if route == FIELDS_ROUTE and isinstance(exc.body, dict):
             # Also report core-field problems (phone/email format ...) found in the raw body,
             # so one response lists everything the user has to fix.
             issues = list(dict.fromkeys(issues + core_issues_from_raw(exc.body.get("fields"))))
@@ -87,7 +96,7 @@ async def _handle_validation(request: Request, exc: Exception) -> JSONResponse:
 
 async def _handle_http_exception(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, StarletteHTTPException)
-    if exc.status_code == 400 and (request.method, request.url.path) == ("POST", UPLOAD_PATH):
+    if exc.status_code == 400 and _route(request) == UPLOAD_ROUTE:
         error: AppError = FileMissingError()  # multipart body could not be parsed
     else:
         error = InternalError()
