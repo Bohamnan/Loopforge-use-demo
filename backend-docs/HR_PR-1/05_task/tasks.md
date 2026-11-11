@@ -462,7 +462,7 @@
 
 ---
 
-### Task 2.6：OrphanSweepService（取代草稿清理）　↺ v2
+### Task 2.6：OrphanSweepService（取代草稿清理）　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `services/orphan_sweep_service.py`（原 `cleanup_service.py`，改名）、`tests/services/test_orphan_sweep_service.py`（原 `test_cleanup_service.py`，删除过期草稿用例后缩减）。
