@@ -3,7 +3,7 @@
 | 项 | 内容 |
 |---|---|
 | 当前级别 | v2 需求变更（Type C）：整体 L2，红线功能点（B-03 日志、B-04 建议校验、B-05 更新补偿）按 L3 深度验证 |
-| 状态 | 🔄 v2 重跑清单执行到第 9 项：编码第 1 批（阶段 1）进行中 |
+| 状态 | 🔄 v2 重跑清单执行到第 9 项：编码第 2 批（阶段 2）进行中 |
 | 最后更新 | 2026-11-11，feature `8afff0b` |
 | 权威进度 | `01-requirements/HR_PR-1/_progress.md`（流程表、人类门控、「需求变更记录 → 重跑清单（v2）/ v2.1 小表」、贡献记录、关键决策） |
 
@@ -23,7 +23,7 @@
 | backend | feature-backend | `/Users/yanyin/orca/workspaces/workspce-coding/feature-backend` | backend | `ctx_4cc071af025c` | 空闲（阶段 1 已交付） |
 | frontend | feature-frontend | `/Users/yanyin/orca/workspaces/workspce-coding/feature-frontend` | frontend | `ctx_0788935e6ecd` | 空闲（阶段 1 已交付） |
 | QA | feature-qa | `/Users/yanyin/orca/workspaces/workspce-coding/feature-qa` | qa（`code_roots: {}`，不读代码） | `ctx_e7bd268b345e` | 空闲（5q 已完成，11q 待开发自测后） |
-| 审查 agent | review-batch1 | `/Users/yanyin/orca/workspaces/workspce-coding/review-batch1` | dev-lead（只读审查） | `ctx_d01f5e56ce74` | v2 审查第 1 批进行中 |
+| 审查 agent | review-batch1 | `/Users/yanyin/orca/workspaces/workspce-coding/review-batch1` | dev-lead（只读审查） | `ctx_d01f5e56ce74` | 空闲（第 1 批已交付，已 /compact） |
 
 ## 二、启动 / 下发 worker 的做法（已踩过的坑）
 
@@ -35,6 +35,7 @@
 5. 复用：`orca orchestration send --to dispatch:<最新 dispatch> --subject ... --body "$(cat /tmp/x.md)"`。回执只有 `messageId` 也表示已送达，**不要重发**。
 6. 收到 worker_done：`git merge --no-ff <分支>` 到 feature；`_progress.md` 几乎每次都有相邻行冲突（SV-06），按"各取本侧行"解决。代码阶段在主工作区自己复跑：backend `uv sync --frozen`、compileall、pytest、ruff；frontend `npm ci`、lint、test、build。
 7. spec 固定包含：先 `git merge --no-ff feature`；只改本 Workbench 在 `_progress.md` 的行与一行贡献记录；不 amend、不 push（仓库无远端，SV-07）；发现缺口用 ask，不自行扩展；停在 skill 规定的门控。
+9. 多个 worker 共用 `/tmp`，同名临时脚本会互相覆盖（backend 第 2 批报告 `/tmp/mark.py` 被覆盖）：spec 要求 worker 用 `mktemp -d` 的私有目录；主 agent 自己的 spec 文件名也带前缀。
 8. 主 agent 自己的教训：脚本修改与 `git commit` 不要用 `;` 串在一起（断言失败仍会提交）；不对自己的提交 `--amend`。
 
 ## 三、v2 当前进度与下一步
@@ -46,7 +47,7 @@
 | 7a backend 技术设计（`design.md` v0.4，8368919） | ✅ DL 确认 |
 | 7b frontend 技术设计（`design.md` v2.0，34ff8f7） | ✅ DL 确认 |
 | 8a/8b 任务拆分 + `AGENTS.md` 更新 | ✅ DL 确认（tasks.md v2.0；AGENTS.md 已确认；同意删除 backend `tests/selftest/`） |
-| 9a/9b 编码 | 🔄 第 1 批（阶段 1）已合并（backend 0fb8eda、frontend b97961a）；审查第 1 批进行中（review-batch1 `ctx_d01f5e56ce74`）；审查通过后派阶段 2。每阶段一批审查，共 ≤ 3 批 |
+| 9a/9b 编码 | 🔄 第 3 批（阶段 3）进行中：backend `ctx_1fd3814c0f99`、frontend `ctx_ed6870f148a6`（已 /compact 后派发，审查仍用 review-batch1）；第 2 批两侧均 ✅（backend 25bbe7b、frontend 772ffc1）。第 1 批（阶段 1）✅ 审查通过（be3f7be）；第 2 批（阶段 2，含第一批 9 条 SUGGEST）进行中：backend 已审查通过（a5ec07e，25bbe7b）；frontend 已合并（8c43072，主工作区复验 lint 0、vitest 611 通过 1 todo、build 通过），审查中 `ctx_7eb1a67cf4fe`（review-batch1）。每阶段一批审查，共 ≤ 3 批 |
 | 10 审查（每批）→ 11a/11b 自测 → 11q QA 执行（AT/E2E/UAT）→ 12 DL 最终 Review | 未开始 |
 
 ## 四、DL 的长期决定（易忘）
@@ -54,8 +55,10 @@
 - **授权采纳建议**：需澄清的问题只要不特殊，一律按 AI 建议采纳并注明"DL 授权采纳建议"；特殊 = 红线、推翻已确认决策、扩大范围。人类门控（审批、确认、签署）仍逐个提交 DL。
 - **严格按 skill 推进**：v2 的目的之一是验证这套 skill，问题登记在 `.kiro/docs/skill-validation/HR_PR-1-v2-skill问题登记.md`（SV-01..13，登记"会影响流程"的问题，不登记措辞）。
 - **票号**：v2 维持在 HR_PR-1（DL 已实测 v1 功能正常，变更源于体验），不另开 HR_PR-2。
-- **QA**：v1 不补做；v2 由 role=qa 的独立 worker 生成用例；11q 只执行 AT/E2E/UAT。
+- **QA**：v1 不补做；v2 由 role=qa 的独立 worker 生成用例；11q 只执行 AT/E2E/UAT（建议：AT/E2E 由 QA worker 用 Orca 浏览器 + 接口调用执行，模型桩为准、真实模型抽查 2 条；UAT 5 条由 DL 亲自执行，待 11q 时确认），报告按 `doc-templates/10_qa_test_report_template.md` 写到 `qa/qa_test_report.md`。
+- **模板同步**：开发 worker 在下一批 spec 第 0 步 `merge feature` 时带上新模板，不在任务执行中途同步。
 - **防止发散**：只做 requirements v2 已有的能力；测试深度按风险分配。
+- **不要扩散，安全第一（DL 2026-11-11 再次强调）**：每批 spec 必须带"不扩散 + 红线清单（B-01..B-05、会话归属、F-01..F-03）"；进度与安全冲突时以安全为准并请示 DL。
 - **编排同步所需的本地提交已授权**（不推送）。
 
 ## 五、关键事实与约束

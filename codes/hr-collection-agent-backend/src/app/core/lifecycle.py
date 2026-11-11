@@ -1,16 +1,16 @@
-"""Application start-up (design 5.4, ADR-005, ADR-008).
-
-Transitional state (task 1.7): the v1 cleanup step and scheduler thread are gone (v2 has no
-background thread); task 2.6/2.7 re-add the one-off orphan sweep and rewrite this module.
+"""Application start-up (design 5.4, ADR-005, ADR-008). There is no background thread.
 
 Start-up order, fixed and synchronous (everything finishes before the first request):
 
 1. create ``DATA_DIR``, ``DATA_DIR/drafts`` and ``FILE_DIR``
-2. initialise both SQLite databases (reconciliation must see the real records, never a
-   freshly created empty database)
+2. initialise both SQLite databases (``drafts.db`` is upgraded to v2; reconciliation must see
+   the real records, never a freshly created empty database)
 3. reconcile the archive directory (``ReconcileService.run``)
+4. sweep orphaned session files once (``OrphanSweepService.run_once``)
 
-Only a single process with a single worker is supported (``uvicorn --workers 1``).
+Reconciliation and sweep failures are logged and never stop the start; failing to create the
+directories or to initialise a database does. Only a single process with a single worker is
+supported (``uvicorn --workers 1``).
 """
 
 from collections.abc import AsyncIterator
@@ -23,7 +23,10 @@ from app.core.config import Settings
 from app.core.db import init_drafts_db, init_resumes_db
 from app.core.logging import log_event
 from app.repositories.archive_file_store import ArchiveFileStore
+from app.repositories.draft_file_store import DraftFileStore
 from app.repositories.resume_repository import ResumeRepository
+from app.repositories.session_repository import SessionRepository
+from app.services.orphan_sweep_service import OrphanSweepService
 from app.services.reconcile_service import ReconcileService
 
 
@@ -39,6 +42,7 @@ class Lifecycle:
         self.prepare_directories()
         self.init_databases()
         self.reconcile()
+        self.sweep_orphans()
 
     def stop(self) -> None:
         """Nothing to stop: there is no background thread."""
@@ -64,6 +68,17 @@ class Lifecycle:
             ).run()
         except Exception as exc:  # noqa: BLE001 - reconcile failure must not block start-up
             log_event("reconcile_failed", level="error", exc=exc)
+
+    def sweep_orphans(self) -> None:
+        """One sweep of unreferenced session files; a failure is logged, never stops the start."""
+        try:
+            OrphanSweepService(
+                SessionRepository(self._settings.data_dir / "drafts.db"),
+                DraftFileStore(self._settings.data_dir),
+                self._clock,
+            ).run_once()
+        except Exception as exc:  # noqa: BLE001 - sweep failure must not block start-up
+            log_event("orphan_sweep_failed", level="error", exc=exc)
 
 
 @asynccontextmanager

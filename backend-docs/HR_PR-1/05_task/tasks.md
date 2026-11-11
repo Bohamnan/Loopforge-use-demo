@@ -333,7 +333,7 @@
 
 > 每个任务覆盖一个功能点从 api 到存储的完整实现，完成后可用一次构建 + 测试验证。HIGH_RISK 单独成任务。
 
-### Task 2.1：接口：上传简历创建会话、会话列表　↺ v2
+### Task 2.1：接口：上传简历创建会话、会话列表　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `services/session_service.py`（原 `draft_service.py` 的 create / 列表）、`api/routes/sessions.py`（原 `resume_drafts.py`，`POST/GET /api/v1/sessions`）、`api/deps.py`、`tests/services/test_session_service_create.py`、`tests/api/test_sessions_upload.py`（均为改名后按 0.2.0 缩减）。
@@ -357,11 +357,11 @@
 
 ---
 
-### Task 2.2：接口：读取会话（三种形态）　↺ v2
+### Task 2.2：接口：读取会话（三种形态）　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `services/session_service.py`（get）、`api/routes/sessions.py`（`GET /sessions/{id}`）、`tests/services/test_session_service_get.py`、`tests/api/test_sessions_get.py`。
-- **内容：** 三种形态：`reviewing`（`fields_json` + 对话消息 / 建议）、`saved`（内容读 `ResumeReader`，`fields_json='{}'`，带 `original_file` 信息）、`pending`（冻结 `fields_json` + `update_candidate`）；每次读取刷新 `last_active_at` 并续期 Cookie；不存在 / 非本人统一 `session_not_found`。
+- **内容：** 三种形态：`reviewing`（`fields_json` + 对话消息 / 建议）、`saved`（内容读 `ResumeReader`，`fields_json='{}'`，带 `original_file` 信息）、`pending`（冻结 `fields_json` + `update_candidate`）；读取不刷新 `last_active_at`（TQ-v2-05，以 design 为准），仅续期 Cookie；不存在 / 非本人统一 `session_not_found`。
 - **验收：** 三形态各一例，响应通过 0.2.0 对应 schema；saved 会话的内容来自 `resumes`；404 不区分原因且不含简历内容。
 - **HIGH_RISK：** 否。
 - **v2 预估：** 3h（v1 3h）　**v2 前置依赖：** 2.1、1.10
@@ -379,7 +379,7 @@
 
 ---
 
-### Task 2.3：接口：分区更新 + `field_merge` 抽出　↺ v2
+### Task 2.3：接口：分区更新 + `field_merge` 抽出　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `services/field_merge.py`（新，纯函数 `merge_update`，自原 `draft_service` 抽出）、`services/session_service.py`（update）、`api/routes/sessions.py`（`PATCH /sessions/{id}/fields`）、`tests/services/test_field_merge.py`、`tests/services/test_session_service_update.py`、`tests/api/test_sessions_patch.py`。
@@ -407,7 +407,7 @@
 - **测试：** 大照片（接近 10 MB）、5 页扫描 PDF、文本+图片混合、压到下限仍超限四种情况，断言最终请求体字节数 ≤ 1 MB；超限时不发起外部调用（mock `httpx`）；SUGGEST-1/2 红灯→绿灯；用合成简历核对缩小后仍可读（不调真实 DeepSeek，除非另行批准）。
 - **前置依赖：** 2.3
 
-### Task 2.4：接口：首次保存（按会话；B-04 / B-05）　**【HIGH_RISK：B-04 / B-05】**　↺ v2
+### Task 2.4：接口：首次保存（按会话；B-04 / B-05）　**【HIGH_RISK：B-04 / B-05】**　↺ v2 ✅（v2 第二批审查 PASS_WITH_SUGGESTIONS，DL 2026-11-11 确认）
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `services/resume_service.py`（`confirm()` 改按会话；`_finish` → `mark_saved` / `mark_candidate_pending`；`_after_source_missing`、`_load_draft` 改读会话状态）、`api/routes/session_resume.py`（原 `resumes.py`，`POST /sessions/{id}/resume`；成功**不清 Cookie**）、`tests/services/test_resume_service.py`、`tests/services/test_resume_service_faults.py`、`tests/services/fault_injection.py`、`tests/api/test_session_resume_confirm.py`。
@@ -439,7 +439,7 @@
 
 ---
 
-### Task 2.5：启动对账：陈旧旧版文件规则（B-05）　**【HIGH_RISK：B-05】**　↺ v2
+### Task 2.5：启动对账：陈旧旧版文件规则（B-05）　**【HIGH_RISK：B-05】**　↺ v2 ✅（v2 第二批审查 PASS_WITH_SUGGESTIONS，DL 2026-11-11 确认）
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `services/reconcile_service.py`（`_remove_orphans` 增加规则）、`tests/services/test_reconcile_service.py`（追加用例，并按“记录自己文件是否存在”拆分 `:191` 一例）。
@@ -462,7 +462,7 @@
 
 ---
 
-### Task 2.6：OrphanSweepService（取代草稿清理）　↺ v2
+### Task 2.6：OrphanSweepService（取代草稿清理）　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `services/orphan_sweep_service.py`（原 `cleanup_service.py`，改名）、`tests/services/test_orphan_sweep_service.py`（原 `test_cleanup_service.py`，删除过期草稿用例后缩减）。
@@ -484,7 +484,7 @@
 
 ---
 
-### Task 2.7：启动编排：对账 → 孤儿清扫，无调度线程　↺ v2
+### Task 2.7：启动编排：对账 → 孤儿清扫，无调度线程　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `core/lifecycle.py`、`main.py`、`tests/core/test_lifecycle.py`（删除调度线程相关用例）。
@@ -505,7 +505,7 @@
 - [ ] 接入 `create_app()`
 - [ ] 对应测试
 
-### Task 2.8：接口：手动删除会话（两种情形）　🆕 v2
+### Task 2.8：接口：手动删除会话（两种情形）　✅ v2 已完成
 - **关联：** REQ-BE-05.6；D§5.6；A `DELETE /sessions/{id}`；ADR-008
 - **涉及文件：** `services/session_service.py`（delete）、`api/routes/sessions.py`、`tests/services/test_session_service_delete.py`
 - **内容：** 删除属于本浏览器的会话（204，重复 / 非本人 404）：`reviewing` 会话删除会话行（级联消息 / 建议）与临时文件；`saved` 会话只删会话，**不触及 `resumes`、子表与 `file/` 文件**；`pending` 会话同时删除其临时文件。`SessionService` 只持有 `ResumeReader`，类型上拿不到写接口。
@@ -514,7 +514,7 @@
 
 ---
 
-### Task 2.9：接口：确认更新（唯一版本名，B-04 / B-05）　🆕 v2　**【HIGH_RISK：B-04 / B-05】**
+### Task 2.9：接口：确认更新（唯一版本名，B-04 / B-05）　🆕 v2　**【HIGH_RISK：B-04 / B-05】** ✅（v2 第二批审查 PASS_WITH_SUGGESTIONS，DL 2026-11-11 确认）
 - **关联：** REQ-BE-09；D§3.6（`ResumeService.update_existing`）、D§5.3a；A `PUT /sessions/{id}/resume`；ADR-004 / ADR-005 v2.1 修订
 - **涉及文件：** `services/resume_service.py`（`update_existing()`）、`api/routes/session_resume.py`（PUT）、`tests/services/test_resume_update.py`、`tests/services/test_resume_update_faults.py`、`tests/services/fault_injection.py`（追加注入点）
 - **内容：** 要求 `confirm_update === true` 且会话为 `pending` 候选；以 `<resume_id>-<suffix8><ext>` 唯一版本名 stage → `promote`（先提升）→ `replace_aggregate` 事务覆盖（键守卫）→ 删旧文件 → `mark_update_applied`；任一时刻记录指向存在的文件；已 `applied` 的重复请求幂等（不写库、不产生新文件）；补偿集中在此（事务回滚删新终态文件；结果不明按记录 `file_path` 判定）；候选冻结，不受之后字段变化影响。
@@ -523,7 +523,7 @@
 
 ---
 
-### Task 2.10：suggestion_validation：建议校验管线（纯函数）　🆕 v2　**【HIGH_RISK：B-04】**
+### Task 2.10：suggestion_validation：建议校验管线（纯函数）　🆕 v2　**【HIGH_RISK：B-04】** ✅（v2 第二批审查 PASS_WITH_SUGGESTIONS，DL 2026-11-11 确认）
 - **关联：** REQ-BE-07.3、07.4、07.5；D§1“建议校验管线”“出现在用户消息中的比对”；D§9.5；ADR-007
 - **涉及文件：** `services/suggestion_validation.py`、`tests/services/test_suggestion_validation.py`
 - **内容：** 对每个候选项依次：① `field` 在 19 个白名单内（三类经历字段丢弃）→ ② 形态 `str|null` 或 `list[str]` → ③ 与当前值（去首尾空白）相同则丢弃 → ④ 姓名 / 手机号 / 邮箱：规范化新值不在**本条用户消息**中则丢弃（复用 `identity_key` 规范化，不新增口径）→ ⑤ 通过 `ResumeFieldsUpdate` 与 `validate_update`，失败标 `applicable=false` + 枚举 `reason`（不回显值）。若 `validate_update` 尚不覆盖“形态与字段种类不符”则在本任务内补充（`field_validation` 的既有行为不得改变，调用方为分区更新与确认保存）。
@@ -532,7 +532,7 @@
 
 ---
 
-### Task 2.11：接口：发送对话消息（ChatService.send）　🆕 v2　**【HIGH_RISK：B-03 / B-04】**
+### Task 2.11：接口：发送对话消息（ChatService.send）　🆕 v2　**【HIGH_RISK：B-03 / B-04】** ✅（v2 第二批审查 PASS_WITH_SUGGESTIONS，DL 2026-11-11 确认）
 - **关联：** REQ-BE-07.1–07.6、07.8–07.10；D§3.6（`ChatService`）、D§5.2a；A `POST /sessions/{id}/messages`
 - **涉及文件：** `services/chat_service.py`（send）、`api/routes/chat.py`（messages）、`api/deps.py`、`tests/services/test_chat_service.py`、`tests/api/test_chat_messages.py`
 - **内容：** 四步：读会话快照（字段、最近 20 条）后**关闭连接** → 调 `ResumeChatClient`（≤ 60 秒）→ 解析与建议校验（2.10）→ 单个 `BEGIN IMMEDIATE` 事务内确认会话仍 `reviewing`，写入用户消息、助手回复、建议、刷新活动时间；失败（含模型失败、输出非法、会话已非 `reviewing`）**不写任何消息 / 建议 / 字段**；`ChatService` 构造不依赖 `ResumeService` / `ResumeWriter` / `ArchiveFileStore`；非本人 / `saved` / `pending` 会话分别返回 404 / `session_read_only`。
@@ -541,7 +541,7 @@
 
 ---
 
-### Task 2.12：接口：应用 / 取消建议卡片　🆕 v2　**【HIGH_RISK：B-04】**
+### Task 2.12：接口：应用 / 取消建议卡片　🆕 v2　**【HIGH_RISK：B-04】** ✅（v2 第二批审查 PASS_WITH_SUGGESTIONS，DL 2026-11-11 确认）
 - **关联：** REQ-BE-07.7；D§5.2b；A `POST .../messages/{mid}/apply|cancel`
 - **涉及文件：** `services/chat_service.py`（apply / cancel）、`api/routes/chat.py`、`tests/services/test_chat_apply.py`、`tests/api/test_chat_apply.py`
 - **内容：** `apply`（一张卡片 = 一条助手消息）：事务内读该卡片下 `applicable=1 AND pending` 的建议 → 组装 `ResumeFieldsUpdate` → 重新 `validate_update` → `merge_update`（与 PATCH 同一函数，字段置 `confirmed`）→ 写会话 → 建议置 `applied`；任一步失败整体回滚并抛 `SuggestionUnavailableError`；`cancel` 只改建议状态；重复应用 / 取消返回 `suggestion_unavailable`。
@@ -550,7 +550,7 @@
 
 ---
 
-### Task 2.13：接口：归档只读（列表 / 详情 / 文件下载）　🆕 v2
+### Task 2.13：接口：归档只读（列表 / 详情 / 文件下载）　✅ v2 已完成
 - **关联：** REQ-BE-08；D§3.6（`ArchiveQueryService`）、D§5.7；A `GET /resumes`、`/resumes/{id}`、`/resumes/{id}/file`；ADR-009
 - **涉及文件：** `services/archive_query_service.py`、`api/routes/archive.py`、`api/deps.py`、`tests/services/test_archive_query_service.py`、`tests/api/test_archive.py`
 - **内容：** 列表（按首次保存时间倒序，`ResumeSummary`）、详情（`ResumeValues` + `file_available`）、文件流式下载（经 `ArchiveFileStore.open_final`，安全响应头 `Content-Disposition`、`X-Content-Type-Options` 等按 `api_design_resume.md`）；全程只依赖 `ResumeReader` 与只读文件接口；不存在 → `resume_not_found`，记录在而文件缺失 → `file_not_available`。

@@ -56,7 +56,7 @@ usage: 由各 Skill 在人类门控处写入；Skill 执行前读取以判断是
 > Skill 执行时按需追加行；未涉及的阶段可删除。
 > **路径说明**：大型新需求：需求启动 → HLD → impact-analyzer → 跨 Workbench review → 需求汇总；存量 CR：需求启动 → impact-analyzer → 需求汇总（删除 HLD 行并在该行备注"已评估，跳过"）。
 > **QA 用例**：需求汇总确认后即可触发，与架构设计、开发并行，不必等开发完成；不执行时不要删除该行，标注原因。
-> **QA 用例执行**：用例生成后不会自动执行。开发自测通过后，由 QA/Dev Lead 按 `qa_test_cases.md` 逐条手工执行，结果（通过／失败／阻塞，附 TC_ID）记入 `qa_test_report.md`。失败项把 TC_ID、步骤、实际结果交给对应 Workbench 工程师，用 `bug-fixer` 修复并回归，之后重跑该用例，直到门控“QA 执行结果确认”通过。
+> **QA 用例执行**：用例生成后不会自动执行。开发自测通过后，由 QA/Dev Lead 按 `qa_test_cases.md` 逐条手工执行，结果（通过／失败／阻塞，附 TC_ID）按 `doc-templates/10_qa_test_report_template.md` 的格式记入 `qa_test_report.md`。失败项把 TC_ID、步骤、实际结果交给对应 Workbench 工程师，用 `bug-fixer` 修复并回归，之后重跑该用例，直到门控“QA 执行结果确认”通过。
 > **新项目**（任一 Workbench 目标仓库为新）：HLD 行不可删除、不可标跳过，且必须保留下方“仓库约定”两行。
 
 | 阶段 | Skill | 执行者 | 状态 | 完成时间 | 产出文件路径 |
@@ -99,7 +99,7 @@ usage: 由各 Skill 在人类门控处写入；Skill 执行前读取以判断是
 | 仓库约定复核（仅新项目） | architecture-advisor | — | Dev Lead 复核补全后的 AGENTS.md，状态改回已确认 | — |
 | QA 用例设计确认 | qa-test-case | — | QA 负责人确认 AC 覆盖率 100%、用例可直接执行 | — |
 | QA UAT 场景确认 | qa-test-case | — | BA/业务方确认业务语言准确 | — |
-| QA 执行结果确认 | QA 用例执行 | — | QA/Dev Lead 确认 qa_test_report.md：用例全部通过，或失败项已修复并回归 | — |
+| QA 执行结果确认 | QA 用例执行 | — | QA/Dev Lead 确认 qa_test_report.md（格式见 10_qa_test_report_template.md）：用例全部通过，或失败项已修复并回归 | — |
 | 代码审查 BLOCKING 处理 | code-reviewer | — | 开发修复 | — |
 | 自测用例确认 | dev-self-test | — | 开发确认 | — |
 | 造数脚本确认 | test-data-script-generator | — | 开发确认 | — |

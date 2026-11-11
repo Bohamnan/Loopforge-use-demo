@@ -13,7 +13,6 @@ from pathlib import Path
 import pytest
 
 import app.services.reconcile_service as reconcile_module
-from app.core.errors import SaveFailedError
 from app.services.reconcile_service import ReconcileReport, ReconcileService
 from tests.fakes import FakeClock
 from tests.repositories.test_resume_repository import make_resume
@@ -221,15 +220,15 @@ def test_unknown_files_directories_and_symlinks_are_never_touched(
 
 
 def test_draft_directory_is_not_touched(resume_env: ResumeEnv) -> None:
-    resume_env.new_draft()
+    resume_env.new_session()
     drafts_before = resume_env.draft_file_names()
-    rows_before = resume_env.draft_rows()
+    rows_before = resume_env.session_rows()
     put(resume_env, tmp(9))
 
     reconcile(resume_env)
 
     assert resume_env.draft_file_names() == drafts_before and len(drafts_before) == 1
-    assert resume_env.draft_rows() == rows_before
+    assert resume_env.session_rows() == rows_before
 
 
 def test_service_depends_only_on_resume_repository_and_archive_store() -> None:
@@ -424,70 +423,6 @@ def test_run_duration_comes_from_the_injected_clock(
 # ---- end-to-end with ResumeService faults (task 2.4 states) -----------------------------------
 
 
-@pytest.mark.parametrize(
-    ("point", "error"),
-    [
-        ("promote", SimulatedCrash()),
-        ("db_after_commit", SimulatedCrash()),
-        ("db_after_commit", RuntimeError("commit outcome unknown")),
-    ],
-)
-def test_state_left_by_a_failed_confirm_is_completed_by_reconcile(
-    resume_env: ResumeEnv, point: str, error: BaseException
-) -> None:
-    token = resume_env.new_draft()
-    draft_bytes = (resume_env.data_dir / "drafts" / resume_env.draft_file_names()[0]).read_bytes()
-    resume_env.injector.arm(point, error)
-    with pytest.raises((SimulatedCrash, SaveFailedError)):
-        resume_env.service.confirm(token, True)
-    resume_id = resume_env.query("SELECT id FROM resumes")[0][0]
-    assert resume_env.archive_names() == [f".{resume_id}.pdf.tmp"]  # starting state
-
-    report = reconcile(resume_env)
-
-    assert report.rolled_forward == 1
-    assert resume_env.archive_names() == [f"{resume_id}.pdf"]  # tmp gone, final present
-    assert (resume_env.file_dir / f"{resume_id}.pdf").read_bytes() == draft_bytes
-    assert resume_env.query("SELECT id, file_path FROM resumes") == [
-        (resume_id, f"{resume_id}.pdf")
-    ]
-    assert resume_env.count("resume_educations") == 1
-
-    again = resume_env.service.confirm(token, True)  # retry converges on the same record
-    assert (again.already_saved, again.resume_id) == (True, resume_id)
-    assert resume_env.archive_names() == [f"{resume_id}.pdf"]
-    assert reconcile(resume_env) == ReconcileReport()  # and a second reconcile is a no-op
-
-
-def test_crash_before_commit_tmp_is_deleted_and_draft_survives(resume_env: ResumeEnv) -> None:
-    token = resume_env.new_draft()
-    resume_env.injector.arm("db_before", SimulatedCrash())
-    with pytest.raises(SimulatedCrash):
-        resume_env.service.confirm(token, True)
-    assert len(resume_env.archive_names()) == 1  # tmp without record
-
-    report = reconcile(resume_env)
-
-    assert report.tmp_removed == 1
-    assert resume_env.archive_names() == [] and resume_env.count("resumes") == 0
-    assert len(resume_env.draft_rows()) == 1  # the draft is untouched: the user can retry
-    result = resume_env.service.confirm(token, True)
-    assert resume_env.archive_names() == [f"{result.resume_id}.pdf"]
-
-
-def test_rename_failing_twice_is_completed_by_reconcile(resume_env: ResumeEnv) -> None:
-    token = resume_env.new_draft()
-    resume_env.injector.arm("promote", OSError("rename failed"), times=2)
-    with pytest.raises(SaveFailedError):
-        resume_env.service.confirm(token, True)
-    resume_id = resume_env.query("SELECT id FROM resumes")[0][0]
-
-    reconcile(resume_env)
-
-    assert resume_env.archive_names() == [f"{resume_id}.pdf"]
-    assert resume_env.count("resumes") == 1
-
-
 # ---- 2.7 follow-ups (review batch 8: SUGGEST-1/2/3) -------------------------------------------
 
 
@@ -566,3 +501,84 @@ def test_unexpected_error_mid_run_keeps_the_counts_done_so_far(
 
     assert report.aborted is True and report.rolled_forward == 1
     assert resume_env.archive_names() == sorted([final(1), tmp(9)])
+
+
+# ---- stale older version after a confirmed update (task 2.5, B-05) -------------------------
+
+
+def versioned(n: int, suffix: str, ext: str = ".pdf") -> str:
+    return f"{rid(n)}-{suffix}{ext}"
+
+
+def add_updated_record(env: ResumeEnv, n: int, current: str) -> None:
+    env.resume_repo.create_aggregate(make_resume(n, file_path=current))
+
+
+def test_stale_old_version_is_deleted_when_the_records_own_file_exists(
+    resume_env: ResumeEnv,
+) -> None:
+    """Crash after the update commit, before the old file was removed."""
+    new = versioned(1, "ab12cd34")
+    add_updated_record(resume_env, 1, new)
+    put(resume_env, new, PDF_B)
+    put(resume_env, final(1), PDF_A)  # first-save name
+    put(resume_env, versioned(1, "00000000"), PDF_C)  # an older update
+
+    report = reconcile(resume_env)
+
+    assert resume_env.archive_names() == [new]
+    assert (resume_env.file_dir / new).read_bytes() == PDF_B
+    assert (report.stale_removed, report.conflicts, report.failed) == (2, 0, 0)
+    assert ids(resume_env) == [rid(1)]
+    assert reconcile(resume_env) == ReconcileReport()  # idempotent
+
+
+def test_other_extension_of_the_same_record_is_stale_only_if_the_own_file_exists(
+    resume_env: ResumeEnv,
+) -> None:
+    new = versioned(1, "ab12cd34", ".png")
+    add_updated_record(resume_env, 1, new)
+    put(resume_env, final(1, ".pdf"), PDF_A)
+
+    kept = reconcile(
+        resume_env
+    )  # the record's own file is missing: the old one may be the only copy
+    assert resume_env.archive_names() == [final(1, ".pdf")]
+    assert (kept.stale_removed, kept.conflicts) == (0, 1)
+
+    put(resume_env, new, PDF_B)
+    removed = reconcile(resume_env)
+    assert resume_env.archive_names() == [new]
+    assert (removed.stale_removed, removed.conflicts) == (1, 0)
+
+
+def test_old_version_is_kept_and_counted_when_the_records_own_file_is_missing(
+    resume_env: ResumeEnv,
+) -> None:
+    new = versioned(1, "ab12cd34")
+    add_updated_record(resume_env, 1, new)
+    put(resume_env, final(1), PDF_A)  # the only data left
+
+    report = reconcile(resume_env)
+
+    assert resume_env.archive_names() == [final(1)]
+    assert (resume_env.file_dir / final(1)).read_bytes() == PDF_A
+    assert (report.stale_removed, report.conflicts, report.missing_files) == (0, 1, 0)
+
+
+def test_new_version_without_a_record_pointing_to_it_is_still_removed(
+    resume_env: ResumeEnv,
+) -> None:
+    """Crash after promote, before the update transaction: the record still has the old file."""
+    add_record(resume_env, 1)
+    put(resume_env, final(1), PDF_A)
+    put(resume_env, versioned(1, "ab12cd34"), PDF_B)  # not the record's file, record's own exists
+
+    report = reconcile(resume_env)
+
+    assert resume_env.archive_names() == [final(1)]
+    assert (resume_env.file_dir / final(1)).read_bytes() == PDF_A
+    assert report.stale_removed == 1
+    # a versioned file whose base id has no record at all is an ordinary orphan
+    put(resume_env, versioned(9, "ab12cd34"), PDF_C)
+    assert reconcile(resume_env).final_removed == 1

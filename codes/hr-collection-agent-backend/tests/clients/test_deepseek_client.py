@@ -590,10 +590,7 @@ def test_chat_request_carries_only_text_sections_no_file_name_or_identifier() ->
 @pytest.mark.parametrize(
     "responder",
     [
-        lambda r: httpx.Response(401),
-        lambda r: httpx.Response(429),
-        lambda r: httpx.Response(500),
-        lambda r: httpx.Response(400),
+        lambda r: httpx.Response(500),  # one HTTP error status: they share one branch
         lambda r: httpx.Response(200, content=b""),
         lambda r: httpx.Response(200, json={"choices": []}),
         lambda r: chat_reply("not json"),

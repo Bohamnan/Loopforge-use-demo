@@ -71,6 +71,14 @@ class SessionTransaction:
         )
         return cursor.rowcount == 1
 
+    def touch(self, session_id: str, browser_hash: str, now: str) -> bool:
+        """Refresh only ``last_active_at`` of a reviewing session (a chat exchange happened)."""
+        cursor = self._conn.execute(
+            f"UPDATE sessions SET last_active_at = ? WHERE {_OWNED} AND status = 'reviewing'",
+            (now, session_id, browser_hash),
+        )
+        return cursor.rowcount == 1
+
     def mark_saved(self, session_id: str, browser_hash: str, resume_id: str, now: str) -> bool:
         """reviewing -> saved (first save). Conditional: False if the state already changed."""
         cursor = self._conn.execute(
