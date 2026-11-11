@@ -505,7 +505,7 @@
 - [ ] 接入 `create_app()`
 - [ ] 对应测试
 
-### Task 2.8：接口：手动删除会话（两种情形）　🆕 v2
+### Task 2.8：接口：手动删除会话（两种情形）　✅ v2 已完成
 - **关联：** REQ-BE-05.6；D§5.6；A `DELETE /sessions/{id}`；ADR-008
 - **涉及文件：** `services/session_service.py`（delete）、`api/routes/sessions.py`、`tests/services/test_session_service_delete.py`
 - **内容：** 删除属于本浏览器的会话（204，重复 / 非本人 404）：`reviewing` 会话删除会话行（级联消息 / 建议）与临时文件；`saved` 会话只删会话，**不触及 `resumes`、子表与 `file/` 文件**；`pending` 会话同时删除其临时文件。`SessionService` 只持有 `ResumeReader`，类型上拿不到写接口。

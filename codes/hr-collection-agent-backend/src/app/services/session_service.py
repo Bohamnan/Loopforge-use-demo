@@ -163,6 +163,22 @@ class SessionService:
                 raise SessionNotFoundError()
         return SessionFieldsResponse(session_id=session_id, fields=merged, updated_at=now)
 
+    def delete(self, session_id: str, browser_id: str | None) -> None:
+        """Delete one session with its messages and suggestions (REQ-BE-05.6).
+
+        The row goes first, the temp file afterwards (a failure leaves an orphan for the
+        start-up sweep). A saved session's resume record and archived file are never touched:
+        this service has no write access to either.
+        """
+        if browser_id is None:
+            raise SessionNotFoundError()
+        removed = self._sessions.delete(session_id, browser_hash(browser_id))
+        if removed is None:
+            raise SessionNotFoundError()
+        if removed.file_path:
+            self._discard_file(removed.file_path)
+        log_event("session_deleted", session_id=session_id)
+
     # ---- helpers -------------------------------------------------------------------------
 
     def _owned(self, session_id: str, browser_id: str | None) -> SessionRecord:

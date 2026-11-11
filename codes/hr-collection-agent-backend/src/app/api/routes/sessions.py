@@ -79,3 +79,18 @@ def update_session_fields(
     if browser_id is not None:  # always true here: the service raises otherwise
         cookies.renew(response, browser_id, settings)
     return result
+
+
+@router.delete("/{session_id}", status_code=204, operation_id="deleteSession")
+def delete_session(
+    session_id: str,
+    browser_id: str | None = Depends(get_browser_id),
+    service: SessionService = Depends(get_session_service),
+    settings: Settings = Depends(get_settings),
+) -> Response:
+    """Delete a session; a saved resume and its archived file stay untouched."""
+    service.delete(session_id, browser_id)
+    response = Response(status_code=204)
+    if browser_id is not None:  # always true here: the service raises otherwise
+        cookies.renew(response, browser_id, settings)
+    return response
