@@ -47,7 +47,7 @@
 | 7a backend 技术设计（`design.md` v0.4，8368919） | ✅ DL 确认 |
 | 7b frontend 技术设计（`design.md` v2.0，34ff8f7） | ✅ DL 确认 |
 | 8a/8b 任务拆分 + `AGENTS.md` 更新 | ✅ DL 确认（tasks.md v2.0；AGENTS.md 已确认；同意删除 backend `tests/selftest/`） |
-| 9a/9b 编码 | 🔄 第 1 批（阶段 1）✅ 审查通过（be3f7be）；第 2 批（阶段 2，含第一批 9 条 SUGGEST）进行中：backend 已审查通过（a5ec07e，25bbe7b）；frontend 已合并（8c43072，主工作区复验 lint 0、vitest 611 通过 1 todo、build 通过），审查中 `ctx_7eb1a67cf4fe`（review-batch1）。每阶段一批审查，共 ≤ 3 批 |
+| 9a/9b 编码 | 🔄 第 3 批（阶段 3）已合并（daf882d），审查中 `ctx_300e190ecf86`（review-batch1，backend+frontend 一并）；第 2 批两侧均 ✅（backend 25bbe7b、frontend 772ffc1）。第 1 批（阶段 1）✅ 审查通过（be3f7be）；第 2 批（阶段 2，含第一批 9 条 SUGGEST）进行中：backend 已审查通过（a5ec07e，25bbe7b）；frontend 已合并（8c43072，主工作区复验 lint 0、vitest 611 通过 1 todo、build 通过），审查中 `ctx_7eb1a67cf4fe`（review-batch1）。每阶段一批审查，共 ≤ 3 批 |
 | 10 审查（每批）→ 11a/11b 自测 → 11q QA 执行（AT/E2E/UAT）→ 12 DL 最终 Review | 未开始 |
 
 ## 四、DL 的长期决定（易忘）

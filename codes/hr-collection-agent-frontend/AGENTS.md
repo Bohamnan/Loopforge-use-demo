@@ -51,7 +51,7 @@ codes/hr-collection-agent-frontend/
 - 测试文件与被测文件同目录，命名 `*.test.ts(x)`；共用工具放 `src/test/`。
 - `src` 下不新增其他目录（Q-DL-02：纯逻辑模块放 `hooks/model/`）。
 - 依据：design v2.0 §3（TD-06、TD-16）、tasks v2.0。
-- v1 的 `scripts/drill_resume.py`、`selftest_resume.py` 依赖单草稿契约，v2 后失效，按 Q-TD-01 **退役**（任务 3.2），其职责由 Vitest 红线测试与浏览器实测（11b）承担；退役前不得依赖这两个脚本验证 v2。
+- v1 的单草稿自测脚本已按 Q-TD-01 **退役**（任务 3.2），其职责由 Vitest 红线测试与浏览器实测（11b）承担；v2 的验证不依赖任何仓库内脚本。
 
 ## 分层与职责
 
@@ -101,7 +101,7 @@ codes/hr-collection-agent-frontend/
 
 验证口径：构建日志须有真实的编译动作，不能仅凭退出码或“成功”字样判定通过。
 
-测试夹具：`src/test/ApiMocks.ts`、`FakeBackend.ts` 为会话模型，支持按请求注入延迟与失败，供 F-03 / 结果未知核对类确定性测试使用；v1 的 `drill_resume.py` / `selftest_resume.py` 已退役（任务 3.2）。
+测试夹具：`src/test/ApiMocks.ts`、`FakeBackend.ts` 为会话模型，支持按请求注入延迟与失败，供 F-03 / 结果未知核对类确定性测试使用。
 
 ### 依赖安装约定（项目例外）
 
