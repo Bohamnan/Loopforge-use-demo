@@ -121,11 +121,14 @@ def fake_chat() -> FakeChatClient:
 
 @pytest.fixture
 def session_app(
-    settings: Settings, fake_parser: FakeParserClient, fake_clock: FakeClock
+    settings: Settings,
+    fake_parser: FakeParserClient,
+    fake_clock: FakeClock,
+    fake_chat: FakeChatClient,
 ) -> FastAPI:
     init_drafts_db(settings.data_dir / "drafts.db")
     init_resumes_db(settings.data_dir / "resumes.db")
-    return create_app(settings, parser_client=fake_parser, clock=fake_clock)
+    return create_app(settings, parser_client=fake_parser, chat_client=fake_chat, clock=fake_clock)
 
 
 @pytest.fixture

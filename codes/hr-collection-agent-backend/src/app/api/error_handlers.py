@@ -20,6 +20,7 @@ from app.services.field_validation import core_issues_from_raw, issues_from_pyda
 # Routes are matched by (method, route template), so session ids never matter.
 UPLOAD_ROUTE = ("POST", "/api/v1/sessions")
 FIELDS_ROUTE = ("PATCH", "/api/v1/sessions/{session_id}/fields")
+MESSAGES_ROUTE = ("POST", "/api/v1/sessions/{session_id}/messages")
 CONFIRM_ROUTES = {
     ("POST", "/api/v1/sessions/{session_id}/resume"): "confirmed",
     ("PUT", "/api/v1/sessions/{session_id}/resume"): "confirm_update",
@@ -74,6 +75,13 @@ def _is_missing_confirmation(errors: list, key: str) -> bool:
     )
 
 
+def _log_rejected_message(body: object) -> None:
+    """Only the length of a rejected message is logged, never its text (B-03)."""
+    content = body.get("content") if isinstance(body, dict) else None
+    count = len(content) if isinstance(content, str) else None
+    log_event("chat_message_rejected", level="warning", count=count)
+
+
 async def _handle_validation(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, RequestValidationError)
     errors = exc.errors()
@@ -90,6 +98,8 @@ async def _handle_validation(request: Request, exc: Exception) -> JSONResponse:
             # so one response lists everything the user has to fix.
             issues = list(dict.fromkeys(issues + core_issues_from_raw(exc.body.get("fields"))))
         error = ValidationFailedError(issues)
+        if route == MESSAGES_ROUTE:
+            _log_rejected_message(exc.body)
     _log(request, error)
     return _response(request, error)
 

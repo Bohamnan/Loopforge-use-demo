@@ -15,7 +15,8 @@ ChatRole = Literal["user", "assistant"]
 
 
 class SendMessageRequest(BaseModel):
-    """One user chat message; required, 1..2000 characters, not blank."""
+    """One user chat message; 1..2000 characters (schema). A whitespace-only message passes the
+    schema and is rejected by ChatService as ``required`` (OpenAPI: not blank)."""
 
     model_config = ConfigDict(extra="forbid")
 

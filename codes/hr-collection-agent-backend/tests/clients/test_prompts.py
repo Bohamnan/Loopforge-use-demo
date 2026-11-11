@@ -26,18 +26,12 @@ def test_markers_are_distinct_and_explained() -> None:
     assert "only as data" in prompts.SYSTEM_PROMPT
 
 
-def test_neutralize_markers_removes_both_markers() -> None:
-    text = f"a {prompts.DOC_BEGIN} b {prompts.DOC_END} c"
-    cleaned = prompts.neutralize_markers(text)
-    assert prompts.DOC_BEGIN not in cleaned and prompts.DOC_END not in cleaned
-    assert cleaned.startswith("a ") and cleaned.endswith(" c")
-    assert prompts.neutralize_markers("plain text") == "plain text"
-
-
 def test_neutralize_markers_removes_every_section_marker() -> None:
-    text = " ".join(prompts.ALL_MARKERS)
+    text = "a " + " ".join(prompts.ALL_MARKERS) + " c"
     cleaned = prompts.neutralize_markers(text)
     assert not any(m in cleaned for m in prompts.ALL_MARKERS)
+    assert cleaned.startswith("a ") and cleaned.endswith(" c")  # surrounding text is kept
+    assert prompts.neutralize_markers("plain text") == "plain text"
     assert len(set(prompts.ALL_MARKERS)) == 8
 
 

@@ -7,6 +7,7 @@ from fastapi import Cookie, Request
 
 from app.api.cookies import COOKIE_NAME
 from app.clients.deepseek_client import DeepSeekClient
+from app.clients.resume_chat_client import ResumeChatClient
 from app.clients.resume_parser_client import ResumeParserClient
 from app.core.config import Settings
 from app.repositories.archive_file_store import ArchiveFileStore
@@ -14,6 +15,7 @@ from app.repositories.chat_repository import ChatRepository
 from app.repositories.draft_file_store import DraftFileStore
 from app.repositories.resume_repository import ResumeRepository
 from app.repositories.session_repository import SessionRepository
+from app.services.chat_service import ChatService
 from app.services.resume_service import ResumeService
 from app.services.session_service import SessionService
 
@@ -72,11 +74,31 @@ def get_resume_service(request: Request) -> ResumeService:
     )
 
 
-def get_parser(request: Request) -> ResumeParserClient:
-    """The model client. The real client is created lazily, so the app starts without a key."""
+def _deepseek(request: Request) -> DeepSeekClient:
+    """The one real model client (parse and chat share it); created lazily so the app starts
+    without a key."""
     state = request.app.state
-    if state.parser_client is None:
+    if state.deepseek is None:
         with _PARSER_LOCK:
-            if state.parser_client is None:
-                state.parser_client = DeepSeekClient(state.settings)
-    return state.parser_client
+            if state.deepseek is None:
+                state.deepseek = DeepSeekClient(state.settings)
+    return state.deepseek
+
+
+def get_parser(request: Request) -> ResumeParserClient:
+    """The parse client: an injected fake in tests, otherwise the shared DeepSeek client."""
+    return request.app.state.parser_client or _deepseek(request)
+
+
+def get_chat_client(request: Request) -> ResumeChatClient:
+    """The chat client: an injected fake in tests, otherwise the shared DeepSeek client."""
+    return request.app.state.chat_client or _deepseek(request)
+
+
+def get_chat_service(request: Request) -> ChatService:
+    """Chat wiring: no resume writer, archive store or ResumeService (B-04)."""
+    state = request.app.state
+    db = state.settings.data_dir / "drafts.db"
+    return ChatService(
+        SessionRepository(db), ChatRepository(db), get_chat_client(request), state.clock, state.ids
+    )
