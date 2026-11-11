@@ -113,7 +113,7 @@
 
 - **v2 状态：** 保持 ✅。`ErrorBoundary` 与主题不变；`App.tsx` 的 `view` 切换在 2.14 修改。
 
-### Task 1.3：types 与测试夹具（OpenAPI 0.2.0，**v2 首个任务**） ⟳ v2 重开
+### Task 1.3：types 与测试夹具（OpenAPI 0.2.0，**v2 首个任务**） ✅
 - **关联：** REQ-FE-06.4、06.5；design.md §3.1、F-02（手写类型）；`interface_spec_resume.md` §四
 - **内容：** `src/types/ResumeModel.ts`（`FieldStatus`、`StringField`、`StringListField`、三个经历列表字段、`WorkExperience`、`ProjectExperience`、`Education`、`ResumeFields` 22 字段、`ResumeFieldsUpdate`）、`Draft.ts`（`OriginalFileInfo`、`DraftResponse`、`DraftUpdateRequest`）、`Resume.ts`（`CreateResumeRequest`、`CreateResumeResponse`）、`Errors.ts`（`ErrorCode` 13 值、`ErrorDetail` 及 `reason` 5 值、`ErrorResponse`、`ClientErrorCode`）。每个文件头注明对应 OpenAPI 版本 0.1.1；标量允许 `null` 体现为 `string | null`。
 - **测试：** 类型级测试（`tsc --noEmit` 纳入 `npm run build`）；用 Vitest 编写“契约镜像”测试：`ResumeFields` 的 22 个键集合、`FieldStatus` 4 值、`ErrorCode` 13 值、`reason` 5 值，与一份测试内的期望常量（按 OpenAPI 0.1.1 逐项核对）一致，防止漏项或漂移。
@@ -128,10 +128,10 @@
 
 #### 子任务
 
-- [ ] 4 个类型文件与文件头版本注释
-- [ ] 契约镜像测试
+- [x] 4 个类型文件与文件头版本注释
+- [x] 契约镜像测试
 
-### Task 1.4：api 封装核心（ApiClient / ApiError / ResponseShapes） ⟳ v2 重开
+### Task 1.4：api 封装核心（ApiClient / ApiError / ResponseShapes） ✅
 - **关联：** REQ-FE-06.1、06.3、06.4、01.4、01.6、05.1；design.md §3.2、§6（ApiClient / ResumeDraftApi / ResumeApi）、§7.2、DD-02/05/06/10；O-12、F-05
 - **内容：** `src/api/ApiError.ts`、`ApiClient.ts`、`ResumeDraftApi.ts`、`ResumeApi.ts`。
   - `ApiClient`：前缀 `/api/v1`；`credentials: 'same-origin'`；JSON 设 `Content-Type`，`FormData` 不手设；`AbortController` 超时（上传 75s，其余 30s）；区分 `client_timeout` 与 `network_error`；非 2xx 解析 `ErrorResponse`（含 `details`），缺字段或非 JSON 时 `unknown_error` 并使用通用文案；日志仅 `request_id` / `code` / HTTP 状态。
@@ -149,10 +149,10 @@
 
 #### 子任务
 
-- [ ] `ApiError` 与工厂
-- [ ] `ApiClient`（超时、错误转换、日志约束）
-- [ ] `ResumeDraftApi`、`ResumeApi`
-- [ ] 契约样例的 mock 工厂（供后续切片测试复用，放 `src/test/`）
+- [x] `ApiError` 与工厂
+- [x] `ApiClient`（超时、错误转换、日志约束）
+- [x] `ResumeDraftApi`、`ResumeApi`
+- [x] 契约样例的 mock 工厂（供后续切片测试复用，放 `src/test/`）
 
 ### Task 1.5：hooks/model 纯逻辑 ✅
 - **关联：** REQ-FE-01.1、01.2、02.1、02.2、03.4、03.5、04.1、04.2；design.md §3.3、§4.2–§4.4、§6（SectionConfig / FieldRules / UploadPrecheck / SectionView）、§6.1（`FIELD_MAX_LENGTH`）、TD-06、TD-07；G-01、G-02、CR-01、CR-01a
@@ -170,7 +170,7 @@
 
 - **v2 状态：** 保持 ✅。`FieldRules`、`UploadPrecheck`、`SectionConfig`、`SectionView` 的既有用例沿用；v2 对其的增补（`labelOfField`、`valuesAsFields`）在 1.10。
 
-### Task 1.6：SessionReducer（会话状态机，按 design §5.3 重写） ⟳ v2 重开
+### Task 1.6：SessionReducer（会话状态机，按 design §5.3 重写） ✅
 - **关联：** REQ-FE-01.5、03.2、04.3–04.8、05.2、05.3；design.md §3.3（SessionReducer）、§5.2、§5.3、§6、TD-02/03/04/05/12；O-02、O-10、D-01
 - **内容：** `src/hooks/model/SessionReducer.ts`：状态类型与全部动作 / 转移（design §5.3 逐行实现）：`bootstrapping` / `bootstrap_failed` / `empty` / `reviewing` / `saved`；`view`、`busy` 互斥、`epoch` 丢弃过期响应、`editBuffer`、`fieldErrors`、`notice`、`error`、`pendingFile`、`overwriteAcknowledged`、`savedSummary`、`dialog`。纯函数，无副作用。
 - **测试：** 逐条覆盖 §5.3 转移表：GET 200 / 404 / 其他失败；上传 201 与失败（失败不清旧草稿，O-02）；覆盖确认流转；PATCH 200 / 422 / `draft_not_found` / 其他失败；进入 / 退出最终确认；确认成功（`already_saved` 两分支）、`draft_not_found`（→ 空态 + `maybe_saved`）、422、超时 / 5xx（停留 `final`）；新对话与 `overwriteAcknowledged`；`busy` 非空时拒绝新请求类动作；过期 epoch 的响应不改变状态；`saved` 后状态不含手机号 / 邮箱等简历内容。
@@ -185,10 +185,10 @@
 
 #### 子任务
 
-- [ ] 状态与动作类型
-- [ ] 转移实现与表驱动测试
+- [x] 状态与动作类型
+- [x] 转移实现与表驱动测试
 
-### Task 1.7：api 模块（Session / Conversation / Resume / Archive） 🆕 v2 新增
+### Task 1.7：api 模块（Session / Conversation / Resume / Archive） ✅
 - **关联：** design §3.2、§6（SessionApi…ArchiveApi）、TD-28；interface_spec v0.3 DD-12..DD-22；REQ-FE-01、03、04、05、07、08、09
 - **涉及文件：** `src/api/SessionApi.ts`、`ConversationApi.ts`、`ResumeApi.ts`（改）、`ArchiveApi.ts` 及各 `*.test.ts`（`ResumeApi.test.ts` 重写）。
 - **内容：** `createSession(file)`、`listSessions()`、`getSession(id)`、`deleteSession(id)`（`none` 模式）、`updateSessionFields(id, fields)`；`sendMessage(id, content)`（75s）、`applySuggestions`/`cancelSuggestions(id, mid)`；`createResume(sessionId)`（体恒为 `{confirmed:true}`）、`updateResume(sessionId)`（体恒为 `{confirm_update:true}`）；`listResumes()`、`getResume(id)`、`downloadResumeFile(id)`（`blob`）。固定 URL / 方法 / 超时 / 模式 / 校验；路径参数 `encodeURIComponent`；不含任何 UI 文案。
@@ -197,9 +197,9 @@
 
 #### 子任务
 
-- [ ] `SessionApi`、`ConversationApi`
-- [ ] `ResumeApi`（改）、`ArchiveApi`
-- [ ] 各模块测试
+- [x] `SessionApi`、`ConversationApi`
+- [x] `ResumeApi`（改）、`ArchiveApi`
+- [x] 各模块测试
 
 ### Task 1.8：Verify（结果未知后的核对，纯逻辑；HIGH_RISK：F-03） 🆕 v2 新增
 - **关联：** design §3.3、§6（Verify）、TD-19；REQ-FE-04.6、07.3、09.4；G2-04
@@ -210,8 +210,8 @@
 
 #### 子任务
 
-- [ ] `Verify` 四个纯函数
-- [ ] 表驱动测试（含 F-03 回落断言）
+- [x] `Verify` 四个纯函数
+- [x] 表驱动测试（含 F-03 回落断言）
 
 ### Task 1.9：UpdateDiff（更新差异计算，纯逻辑；HIGH_RISK：差异必列清空字段） 🆕 v2 新增
 - **关联：** design §3.3、§6（UpdateDiff）、TD-23；REQ-FE-09.2；Y-02
@@ -222,10 +222,10 @@
 
 #### 子任务
 
-- [ ] `buildUpdateDiff` 与归一规则
-- [ ] 表驱动测试（含 `clears` 必列断言）
+- [x] `buildUpdateDiff` 与归一规则
+- [x] 表驱动测试（含 `clears` 必列断言）
 
-### Task 1.10：小工具增补（FormatTime / labelOfField / valuesAsFields） 🆕 v2 新增
+### Task 1.10：小工具增补（FormatTime / labelOfField / valuesAsFields） ✅
 - **关联：** design §3.3（FormatTime、SectionConfig、SectionView）、TD-22；REQ-FE-05.2、07.4、08.3、09.2
 - **涉及文件：** `src/hooks/model/FormatTime.ts`（新增，由 `SavedResultCard.tsx` 的 `formatSavedAt` 上移）、`SectionConfig.ts`（加 `labelOfField(key)`）、`SectionView.ts`（加 `valuesAsFields(values)`）及各自既有测试文件追加用例。
 - **内容：** `formatDateTime(iso)` 供列表、消息、归档、结果卡共用；`labelOfField` 覆盖 19 个建议字段，白名单外字段抛错（由形状校验兜底）；`valuesAsFields` 把 `ResumeValues` 适配为带占位状态的 `ResumeFields`，仅供渲染、不上送。
@@ -234,8 +234,8 @@
 
 #### 子任务
 
-- [ ] `FormatTime`（含 `SavedResultCard` 调用点）
-- [ ] `labelOfField`、`valuesAsFields`
+- [x] `FormatTime`（含 `SavedResultCard` 调用点）
+- [x] `labelOfField`、`valuesAsFields`
 
 ---
 

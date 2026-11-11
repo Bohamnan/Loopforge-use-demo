@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sampleFields } from '../../test/ApiMocks';
+import { fieldsToValues, sampleFields } from '../../test/ApiMocks';
 import type { FieldStatus, ResumeFieldKey, ResumeFields } from '../../types/ResumeModel';
 import { RESUME_FIELD_KEYS } from '../../types/ResumeModel';
 import { getSection } from './SectionConfig';
@@ -13,6 +13,7 @@ import {
   firstTodoSection,
   hasUnsubmittedEdits,
   orderedFieldKeys,
+  valuesAsFields,
   sectionStatus,
   statusCounts,
   unconfirmedCount,
@@ -288,5 +289,15 @@ describe('buildSectionUpdate: blank text-list rows stay where the user left them
     });
     expect(errors).toEqual({ 'work_experiences[0].responsibilities[1]': 'too_long' });
     expect(update.work_experiences).toEqual([{ company: 'A', responsibilities: ['x'.repeat(2001)] }]);
+  });
+});
+
+describe('valuesAsFields', () => {
+  it('produces all 22 keys carrying the saved values (rendering only)', () => {
+    const values = fieldsToValues(sampleFields());
+    const fields = valuesAsFields(values);
+    expect(Object.keys(fields)).toEqual([...RESUME_FIELD_KEYS]);
+    expect(fields.name.value).toBe(values.name);
+    expect(fields.work_experiences.value).toEqual(values.work_experiences);
   });
 });
