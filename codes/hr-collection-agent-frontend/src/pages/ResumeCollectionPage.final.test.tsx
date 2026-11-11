@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { ConfigProvider } from 'antd';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { errorResponse, jsonResponse, sampleArchivedResume, sampleSessionDetail, stubFetch } from '../test/ApiMocks';
-import { FakeBackend, type Fault } from '../test/FakeBackend';
+import { createGate, FakeBackend, type Fault } from '../test/FakeBackend';
 import { RESUME_FIELD_KEYS, type ResumeFields } from '../types/ResumeModel';
 import ResumeCollectionPage from './ResumeCollectionPage';
 
@@ -93,12 +93,14 @@ describe('final review (REQ-FE-04.1, 04.2)', () => {
 
 describe('F-03: "已保存" only after a confirmed save (HIGH_RISK, deterministic)', () => {
   it('saves with exactly {confirmed: true}, once per click, then shows the saved card from the re-read session', async () => {
-    const backend = await openFinal({ faults: [{ match: POST_RESUME, delayMs: 30 }] });
+    const hold = createGate();
+    const backend = await openFinal({ faults: [{ match: POST_RESUME, gate: hold.gate }] });
     await userEvent.click(submit());
     fireEvent.click(submit());
     fireEvent.click(submit());
     expect(successShown()).toBe(false); // in flight
     expect(submit()).toBeDisabled();
+    hold.open();
     await waitFor(() => expect(successShown()).toBe(true));
     expect(backend.saveAnswered).toBe(true);
     expect(posts(backend).map((p) => p.body)).toEqual([{ confirmed: true }]);

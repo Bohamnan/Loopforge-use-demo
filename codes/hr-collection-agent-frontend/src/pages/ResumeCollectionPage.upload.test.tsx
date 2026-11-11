@@ -4,7 +4,7 @@ import { ConfigProvider } from 'antd';
 import { StrictMode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { errorResponse, jsonResponse, stubFetch } from '../test/ApiMocks';
-import { FakeBackend, type FakeBackendOptions } from '../test/FakeBackend';
+import { createGate, FakeBackend, type FakeBackendOptions } from '../test/FakeBackend';
 import ResumeCollectionPage from './ResumeCollectionPage';
 
 afterEach(() => {
@@ -53,13 +53,15 @@ describe('upload creates a new session (REQ-FE-01, no overwrite)', () => {
   });
 
   it('shows one loading notice, disables the inputs and ignores a second file while uploading', async () => {
-    const { backend, container } = setup({ faults: [{ match: POST_SESSIONS, delayMs: 50 }] });
+    const hold = createGate();
+    const { backend, container } = setup({ faults: [{ match: POST_SESSIONS, gate: hold.gate }] });
     await userEvent.upload(fileInput(container), pdf());
     expect(await screen.findByText('正在识别，最长约 1 分钟')).toBeInTheDocument();
     expect(screen.getAllByRole('status')).toHaveLength(1);
     expect(fileInput(container).disabled).toBe(true);
     expect(screen.getByRole('button', { name: /新对话/ })).toBeDisabled();
     fireEvent.drop(document, { dataTransfer: { files: [pdf('另一个.pdf')] } });
+    hold.open();
     await READY();
     expect(backend.count(POST_SESSIONS)).toBe(1);
   });

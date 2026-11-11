@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { ConfigProvider } from 'antd';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SAMPLE_SESSION_ID, errorResponse, jsonResponse, sampleSessionDetail, stubFetch } from '../test/ApiMocks';
-import { FakeBackend, type Fault } from '../test/FakeBackend';
+import { createGate, FakeBackend, type Fault } from '../test/FakeBackend';
 import ResumeCollectionPage from './ResumeCollectionPage';
 
 afterEach(() => {
@@ -62,11 +62,13 @@ describe('update diff card (REQ-FE-09.2, red line: clears must be listed)', () =
 
 describe('F-03: "已更新" only after a confirmed update (HIGH_RISK, deterministic)', () => {
   it('sends exactly {confirm_update: true} once per click; "已更新" only after the 2xx answer and re-read', async () => {
-    const backend = await openPending([{ match: PUT_RESUME, delayMs: 30 }]);
+    const hold = createGate();
+    const backend = await openPending([{ match: PUT_RESUME, gate: hold.gate }]);
     await openDiff();
     await userEvent.click(within(card()).getByRole('button', { name: /确认更新/ }));
     fireEvent.click(within(card()).getByRole('button', { name: /确认更新/ }));
     expect(updatedShown()).toBe(false); // in flight
+    hold.open();
     await waitFor(() => expect(updatedShown()).toBe(true));
     expect(puts(backend).map((p) => p.body)).toEqual([{ confirm_update: true }]);
     expect(within(main()).getByText('已按本次内容更新')).toBeInTheDocument();

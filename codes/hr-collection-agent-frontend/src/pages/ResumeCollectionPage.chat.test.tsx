@@ -1,9 +1,9 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConfigProvider } from 'antd';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { errorResponse, sampleSessionDetail, stubFetch } from '../test/ApiMocks';
-import { FakeBackend, type FakeBackendOptions } from '../test/FakeBackend';
+import { createGate, FakeBackend, type FakeBackendOptions } from '../test/FakeBackend';
 import ResumeCollectionPage from './ResumeCollectionPage';
 
 afterEach(() => {
@@ -50,11 +50,14 @@ describe('chat: main path (REQ-FE-07.1-07.3)', () => {
   });
 
   it('shows "思考中" while waiting and ignores a second send meanwhile', async () => {
-    const backend = await openReviewing({ faults: [{ match: POST_MESSAGES, delayMs: 50 }] });
+    const hold = createGate();
+    const backend = await openReviewing({ faults: [{ match: POST_MESSAGES, gate: hold.gate }] });
     await userEvent.type(box(), '你好');
     await userEvent.click(sendButton());
     expect(await screen.findByText('思考中…')).toBeInTheDocument();
     expect(box()).toBeDisabled();
+    fireEvent.keyDown(box(), { key: 'Enter' });
+    hold.open();
     await screen.findByText('好的，已处理。');
     expect(posts(backend, POST_MESSAGES)).toBe(1);
   });
