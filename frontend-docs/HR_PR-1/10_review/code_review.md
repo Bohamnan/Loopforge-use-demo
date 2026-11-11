@@ -595,3 +595,103 @@
 | `npx tsc --noEmit` | 报错全部归属阶段 2/3（见上） |
 | `npx eslint . --max-warnings 0` | ✅ |
 | 未做 | 未跑 `npm run build`（`tsc` 阶段已知失败）；未做浏览器实测；未做变异测试（本批未预算） |
+
+---
+
+## v2 第二批审查（frontend 阶段 2：2.1–2.14 与第一批 SUGGEST-1..4）
+
+- Review 模式：Ticket-aware Review；持久化：是（本节）
+- 日期：2026-11-11；Reviewer：Yin Yang（dev-lead，审查 agent 代行）；被审查 Workbench：frontend
+- 范围：`git diff b97961a HEAD -- codes/hr-collection-agent-frontend`（64 个文件；src +1583 / −343，测试 +1288 / −1451）。已先合并 `feature`（merge 203125e）。
+- 依据：requirements v2、design v2.0、`interface_spec_resume.md` v0.3、OpenAPI 0.2.0（冻结）、tasks v2.0、仓库 `AGENTS.md`（v2）。
+- HIGH_RISK：2.6 最终确认、2.10 对话输入与消息列表、2.13 确认更新。
+- 结论：**PASS_WITH_SUGGESTIONS**（0 BLOCK / 2 QUESTION / 6 SUGGEST）
+- 任务结论：**2.6 建议标 ✅**（待 Q-2 确认后标记）；**2.10 建议标 ✅**；**2.13 建议标 ✅**。2.1–2.3、2.7–2.9、2.11、2.12、2.14 抽查未发现阻断项。
+
+### 本批复跑
+
+| 命令 | 结果 |
+|---|---|
+| `npx vitest run`（全量） | 66 个文件通过，1 个文件跳过（`ResumeCollectionPage.integration.test.tsx`，内容为 `it.todo`，属 3.1 重写范围）；611 用例通过，1 条 todo |
+| `npx tsc --noEmit` | 0 错误（第一批报告的 45 / 14 / 5 等阶段 2 错误已全部消除） |
+| `npx eslint . --max-warnings 0` | 通过 |
+| 未做 | 未跑 `npm run build`；未做浏览器实测；未做变异测试（本批未预算） |
+
+### 红线核对
+
+| 红线 | 结论 | 证据 |
+|---|---|---|
+| F-03 "已保存"只在成功或核对后出现 | ✅ | `CONFIRM_SUCCEEDED` 仅在 POST 2xx 且 `isCreateResumeResponse` 通过后、并完成重读后置位（`useResumeSession.ts` `confirm` 分支）；`CONFIRM_VERIFIED` 仅在重读 `status=saved` 时置位（`Verify.decideAfterConfirmRead`）。超时、网络失败、`unknown_error`、`session_read_only` 一律先 `GET` 再判断。形状不符的 2xx 按 `unknown_error` 处理（`ApiClient.ts`）。 |
+| F-03 "已更新"只在成功或核对后出现 | ✅ | `UPDATE_SUCCEEDED` 仅在 PUT 2xx 且 `isUpdateResumeResponse` 通过后置位；`UPDATE_VERIFIED` 仅在 `update_state=applied` 时置位（`decideAfterUpdateRead`）。`already_saved` 的 notice 与 `updated` 互斥。 |
+| 409 的判断依据 | ✅ | 前端只按 `error.code` 分支，不按 HTTP 状态分支（全量检索 `src` 非测试代码，无 `409` 或 `status ===` 判断）。 |
+| B-03 日志与界面 | ✅ | `ApiClient.logFailure` 只输出 `request_id/code/status`。`ErrorBoundary` 只输出 `error.name`。`ResumeCollectionPage.chat.test.tsx` 的哨兵用例断言 console、`document.title`、`Storage` 中不含对话原文与回复（成功、失败、未知结果三条路径）。下载文件名用通用名（`ArchiveList/useArchive` 的 `GENERIC_NAME`）。 |
+| B-04 / F-02 | ✅ | `src` 非测试代码无 `localStorage`、`sessionStorage`、`indexedDB`、`document.cookie`。输入框 `autoComplete="off"`，`ComposerBar.test` 与 chat 测试覆盖。消息以纯文本节点渲染（`MessageBubble`），无 Markdown、HTML 解析。 |
+| 差异必列清空字段 | ✅ | `buildUpdateDiff` 逐一比较全部 22 个键；候选为空而已有值非空的字段标 `clears`，卡片加"将被清空"（`UpdateDiffCard`）。第一批 SUGGEST-1 的全空经历条目也计入清空。 |
+| 会话归属 | ✅ | 会话 `session_not_found` 统一走 `gone()`，回空态并提示。 |
+| 与冻结契约一致 | ✅ | `ResponseShapes` 对 `messages`、`suggestions`、`update_candidate` 等做形状校验。`suggestion_unavailable`、`session_read_only`（messages、apply、cancel、POST resume）、`update_not_available`（PUT）在 OpenAPI 中均为 409，与 `FakeBackend` 的模拟一致。 |
+
+### 一、第一批必查项
+
+1. **`ResponseShapes.isArrayOf` 根因：确认。** 旧写法 `value.every(check)` 会把数组下标作为第二个参数传给 `check`。`isChatMessage(value, role?)` 把第二个参数当作期望角色，于是下标 1 被当成 `role=1`，`oneOf([1], value.role)` 恒为假。结果是消息数组中下标为 1 的元素必然判形状错误，消息 ≥2 条的会话详情会被当作 `unknown_error`。修复为 `value.every((item) => check(item))` 正确。回归用例的消息数组是 `[user, assistant, user]`，旧代码下会失败，因此用例有效。`isArrayOf` 的其他调用方都是单参数检查函数，无同类问题。
+
+2. **`ChatThread` 改动：合理，不属于范围扩散，但与设计文档不一致。** TD-31 要求焦点键带上消息 id（`message:last#<id>`），这样同一位置的新消息也能再次触发滚动。`ChatThread` 因此在查询 `data-focus-key` 前去掉 `#` 后的部分。这是改动的直接后果，不是额外优化。design §3.4（第 193 行）仍把 `ChatThread` 列为"不变"，需同步文档（见 S-2）。组件从 `hooks/useChatScroll` 导入常量有轻微耦合，可接受。
+
+3. **第一批 SUGGEST 落实情况：**
+   - SUGGEST-1（`UpdateDiff` 空经历条目）：✅。`isBlankItem` 判断条目各子字段是否全空，并有用例 `educations: [{ school: ' ', major: null }]` 断言 `clears: true`。
+   - SUGGEST-2（消息文本比较）：✅。`matchSentMessage` 两侧 trim 后比较。后端 `ChatService._store` 收到并写入的是原始 `content`（未 trim），因此两种情况都能正确匹配。
+   - SUGGEST-3（`valuesAsFields` 占位状态）：✅。改为无 `status` 的 `StatuslessFields` 类型，`@ts-expect-error` 用例证明它不能传给 `unconfirmedCount` 之类依赖 `ResumeFields` 的函数。
+   - SUGGEST-4（冗余测试）：✅，按原意落实。审查原文提到 `ConversationApi.test.ts` 中 apply 与 cancel 可合并为参数化用例，但该文件中两者在 b97961a 时已合并在同一个用例里，无需再合并。本次删除的是 apply 的 409 映射用例（页面级 `suggest.test.tsx` 与 reducer 用例已覆盖）和 `ApiClient` 的 75 秒对话超时用例（与上传超时同一等价类，且 `ConversationApi` 中 `sendMessage times out after 75s` 已覆盖）。删除后覆盖没有减少。
+
+### 二、HIGH_RISK 任务
+
+#### 2.6 最终确认与保存：建议标 ✅（待 Q-2）
+
+- 确认按钮：仅在核心三项合法且 `confirmed` 时可点；未确认字段先弹窗；未提交编辑先拦截；`busy` 期间禁用；每次点击只发一次 `POST` 且体为 `{confirmed: true}`（`final.test.tsx` 用 `FakeBackend.gate` 保持请求在途，验证无"已保存"）。
+- 失败分支：5xx、`save_failed`、422（回对应分区并标出字段原因）、409 未核对、形状不符的 2xx、网络失败。每种情况都断言界面无"已保存"，并断言是否发起重读。
+- 已保存过（201 与 200 两种）：仅显示"该简历已保存过"，不显示"已保存"或"已更新"。依据响应字段而非 HTTP 状态。
+- 未知结果后重读：命中 `status=saved` 则显示成功且不再发送 POST；未命中则保持校对中、可重试。
+- 与 v1 验收文字的差异：v1 的"超时后按钮可立即重试且不调用任何状态查询"已被 v2 增量替代，现在超时后先 `GET` 核对（TD-19 / G2-04）。另外 v1 的"成功后内存中无手机号、邮箱"和"`already_saved` 不渲染记录内容"也已被 TD-11 v2 与 X-06 替代（design 第 580、710、759 行），成功后会话转只读并展示正式库内容。该替代是否接受见 Q-2。
+
+#### 2.10 对话输入与消息列表：建议标 ✅
+
+- 红线：哨兵用例覆盖 B-03；"确认提交"对话只显示回复，不发起 `POST …/resume`（F-03）；输入框 `autoComplete="off"`，断言不读写 `Storage`（F-02）。
+- 主路径：发送后才清空输入框；失败或未知结果时输入框只读并显示"重试 / 放弃"；放弃时原文回填；`chat_failed` 显示后端 `message`；思考中时忽略二次发送；IME 组合期间 Enter 不发送；2000 字可发、2001 字禁发且不截断。
+- 未知结果：超时或网络失败后先重读，命中则视为成功且不重发，未命中则重发。
+- 缺口（SUGGEST-3）：哨兵用例没有单独覆盖 `client_timeout`。它与网络失败走同一条未知结果分支，不作为阻断。
+
+#### 2.13 已保存后的确认更新：建议标 ✅
+
+- 差异卡：列出全部变化字段，`clears` 字段高亮并标"将被清空"；快捷回复打开卡片，不发请求，不调用模型。
+- "已更新"：仅在 PUT 2xx 且形状通过、或核对读到 `applied` 时出现；`save_failed` 显示"已有简历未改变"；超时、网络失败、`unknown_error` 显示"重新读取核对"；`already_saved` 响应不显示"已保存"或"已更新"。
+- 缺口见 S-1：PUT 成功但紧随的重读失败时，旧候选仍在，快捷回复会再次出现。不违反 F-03，但界面状态不一致。
+
+### 三、其他任务抽查
+
+- 2.7 新对话：`NEW_CHAT_REQUESTED` 只清空视图，不调用删除接口；未提交编辑时先弹"离开确认"。通过。
+- 2.8 焦点键：新控件带焦点键，`ChatThread` 行为见"第一批必查 2"。通过。
+- 2.9 会话栏与删除：已保存会话的删除文案说明归档保留，与 OpenAPI（删除会话不触及 `resumes`）一致。通过。
+- 2.11 建议卡片：按卡片整体应用或取消；`suggestion_unavailable` 在卡内显示提示并重读会话。通过。
+- 2.12 已保存视图：`resume` 缺失时（重读失败）显示"重新读取"按钮；已保存过的会话只读展示正式库内容，不显示"已更新"（打开时无 `pending` 候选）。通过。
+- 2.14 归档页：下载文件名为通用名；`file_not_available` 留在页面内提示。`saveBlob` 的释放时机见 S-4。
+- 2.1–2.3：本批改动少，`enterSession`、分区 PATCH 合并与 `merge_update` 未见问题。
+
+### 四、待澄清点（不自行裁决）
+
+- **Q-1 分区数量：9 还是 11。** 代码与测试采用 11 个分区（`SECTIONS` 共 11 项），与 design §4.2（P-04，"22 个字段 → 11 个分区"）和 TD-01 一致。但 design 第 218 行（组件树 `ReadOnlySection ×9(分类)`）与第 584 行（归档详情"9 分类只读"）写的是 9。请 DL 确认采用 11；确认后应修正 design 中的 9，否则归档详情与已保存视图之间会出现文档与实现的不一致。
+- **Q-2 2.6 验收文字是否按 v2 替代。** 下列 v1 验收已被 v2 替代：超时后"不调用状态查询"（改为先重读）、"成功后内存中无手机号、邮箱"（改为重读正式库，TD-11 v2）、"`already_saved` 不渲染记录内容"（改为由已保存视图只读展示，X-06）。实现按 v2 执行。请 DL 确认，并在 tasks.md 2.6 处注明，确认前 2.6 不标 ✅。
+
+### 五、SUGGEST（跟踪项，不阻断，不要求新增测试）
+
+- **S-1（2.13）重读失败后的旧候选。** `UPDATE_SUCCEEDED` 在 `readError` 时保留旧 `saved`（`update_state` 仍为 `pending`）。界面显示"已更新"，但"按本次内容更新"快捷回复仍然可用，`SavedSessionView` 的"重新读取"按钮只在 `saved` 为空时显示。再次点击会打开一张已应用的差异卡，PUT 返回 409 `update_not_available` 后才会核对成功。建议：更新成功但重读失败时，隐藏快捷回复或提供"重新读取"按钮。
+- **S-2（文档）ChatThread 与设计不一致。** design 第 193 行写 `ChatThread` "不变"。建议把 design 更新为"去掉焦点键的 `#` 后缀再查询"，或改为单独的滚动信号参数，避免组件依赖 hooks 中的常量。
+- **S-3（2.10）哨兵用例缺超时路径。** 见 2.10 缺口。可在后续测试整理时补一条断言，不要求新增。
+- **S-4（2.14）下载后立即释放对象 URL。** `saveBlob` 在 `link.click()` 后同步调用 `URL.revokeObjectURL`。部分浏览器可能在下载开始前使 URL 失效。建议延后释放（例如 `setTimeout` 数秒）。本次未做真实浏览器验证。
+- **S-5（测试发散）。** 测试与业务新增行比约 0.81:1，在参考预算（1:1）之内。`final.test.tsx` 中"5xx internal_error"与"save_failed"两例走同一分支（记录错误、不重读），可合并为一例，约省 2–3 行。`already_saved` 的 201 与 200 两例保留，因为 2.6 验收明确要求两种状态码都覆盖。整体可删减约 5–15 行。
+- **S-6（3.1 占位）。** `ResumeCollectionPage.integration.test.tsx` 目前只有 `it.todo`，属于阶段 3 的 3.1，已在任务说明中注明。跟踪即可。
+
+### 六、未验证项
+
+- 真实浏览器中的下载、窄屏与焦点行为（S-4、2.8 焦点）。
+- `npm run build` 的真实编译日志（本批只跑了 `tsc`，构建日志未核对）。
+- 与真实后端的联调与契约漂移检查（`ContractDrift` 用例只比对仓库内的 OpenAPI 文件，已在全量 vitest 中通过）。
+- 变异测试（本批未预算）。

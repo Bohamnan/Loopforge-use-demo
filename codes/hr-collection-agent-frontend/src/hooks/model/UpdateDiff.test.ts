@@ -46,6 +46,8 @@ describe('buildUpdateDiff', () => {
     expect(byField).toEqual({ job_title: true, skills: true, work_experiences: true });
     // Whitespace-only is also "empty", it must not hide the clearing.
     expect(buildUpdateDiff(resume, candidate({ job_title: '  ' })).changed[0]).toMatchObject({ field: 'job_title', clears: true });
+    // An experience list holding only blank items clears the existing items too (SUGGEST-1).
+    expect(buildUpdateDiff(resume, candidate({ educations: [{ school: ' ', major: null }] })).changed[0]).toMatchObject({ field: 'educations', clears: true });
   });
 
   it('does not mark a change from empty to a value as clearing', () => {

@@ -1,7 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import App, { appTheme } from './App';
-import { errorResponse, stubFetch } from './test/ApiMocks';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -9,7 +8,6 @@ afterEach(() => {
 
 describe('App', () => {
   it('renders the page shell inside the error boundary', async () => {
-    stubFetch(() => errorResponse(404, { code: 'draft_not_found' }));
     render(<App />);
     expect(screen.getByRole('heading', { name: 'HR 简历信息收集' })).toBeInTheDocument();
     expect(await screen.findByText(/上传简历文件/)).toBeInTheDocument();

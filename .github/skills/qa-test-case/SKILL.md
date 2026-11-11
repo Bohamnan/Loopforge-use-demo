@@ -57,6 +57,8 @@ description: |
 └── qa_data_requirements.md   # 数据需求清单（供开发配合准备测试数据）
 ```
 
+> 用例执行结果不由本 Skill 产出。开发自测通过后，QA / Dev Lead 手工执行用例，并按 `doc-templates/10_qa_test_report_template.md` 在同目录生成 `qa_test_report.md`（含失败项转 `bug-fixer` 的格式与流程）。
+
 ---
 
 ## Guardrails

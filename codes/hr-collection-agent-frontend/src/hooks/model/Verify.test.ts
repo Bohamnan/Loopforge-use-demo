@@ -22,6 +22,11 @@ describe('matchSentMessage', () => {
     expect(matchSentMessage([u('u2', '别的'), a('a2')], [], '同文')).toBeNull();
     expect(matchSentMessage([], [], '同文')).toBeNull();
   });
+
+  it('matches whether or not the server stored the text trimmed (SUGGEST-2)', () => {
+    expect(matchSentMessage([u('u2', '你好'), a('a2')], [], '  你好\n')?.user.message_id).toBe('u2');
+    expect(matchSentMessage([u('u2', '  你好 '), a('a2')], [], '你好')?.user.message_id).toBe('u2');
+  });
 });
 
 describe('decideAfter*Read (F-03: unreadable means not confirmed)', () => {

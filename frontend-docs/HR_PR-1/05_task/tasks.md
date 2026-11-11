@@ -243,7 +243,7 @@
 
 > 每个切片是用户可见能力：组件 → hook → api 调用 → 测试。HIGH_RISK（受约束 F-03 约束）单独成任务。
 
-### Task 2.1：页面外壳与会话装入（REQ-FE-05 骨架，去掉启动读草稿） ⟳ v2 重开
+### Task 2.1：页面外壳与会话装入（REQ-FE-05 骨架，去掉启动读草稿） ✅
 - **关联：** REQ-FE-05.1、05.3、REQ-FE-06.1；design.md §3.3（useResumeSession）、§3.4（AppShell、NewChatButton、ChatThread、WelcomePanel、NoticeBanner、BootstrapErrorPanel）、§3.5（ResumeCollectionPage）、§5.1（启动分支）、§7.1（启动失败、无可恢复草稿）、TD-08；P-02、P-11；O-12、裁决 F-03
 - **内容：** `src/hooks/useResumeSession.ts`（`useReducer` 驱动；`bootstrap`、`retryBootstrap`；调用 `getCurrentResumeDraft`；StrictMode 下不产生重复请求副作用；`busy` 互斥；epoch 记录），`src/pages/ResumeCollectionPage.tsx`（按 `phase` 编排，不请求接口），`AppShell`（顶栏 Logo + 产品名、左窄栏仅含 `NewChatButton`，无用户信息与历史列表，< 860px 折叠为顶栏）、`NewChatButton`（本任务仅渲染，禁用逻辑与确认流程在 2.7）、`ChatThread`（基础滚动容器）、`WelcomePanel`（空态引导，无填写指南 / 隐私说明 / 示例文件按钮）、`NoticeBanner`（四类文案）、`BootstrapErrorPanel`（可重试，隐藏上传主入口）。`App` 改为挂载页面。
 - **测试：** 页面启动：GET 404 → 空态，**无错误提示、无 `console` 输出**（O-12）；GET 500 / 网络失败 / 非 JSON → 可重试错误态且不是空态、无上传主入口；点击重试后成功进入下一状态；加载态显示；外壳不含用户头像、历史会话、填写指南、隐私说明、示例文件按钮；请求带 `same-origin`；StrictMode 下仅一次有效 GET。
@@ -258,11 +258,11 @@
 
 #### 子任务
 
-- [ ] `useResumeSession`（bootstrap）
-- [ ] 外壳与空态 / 错误态组件
-- [ ] `ResumeCollectionPage` 与 `App` 接线
+- [x] `useResumeSession`（bootstrap）
+- [x] 外壳与空态 / 错误态组件
+- [x] `ResumeCollectionPage` 与 `App` 接线
 
-### Task 2.2：上传简历（REQ-FE-01，上传即新建会话） ⟳ v2 重开
+### Task 2.2：上传简历（REQ-FE-01，上传即新建会话） ✅
 - **关联：** REQ-FE-01.1–01.6；design.md §3.4（ComposerBar、FileCard、UploadProgressNotice、ErrorAlert、ConfirmDialog）、§5.1、§5.3（上传相关行）、§6、§7.1（上传相关）、TD-04/05/10；P-03、P-05；C-07、C-08、O-02、裁决 F-04
 - **内容：** `ComposerBar`（📎 上传 `accept` 单选、整页拖拽取第一个、底部免责提示、**无文本框**、忙碌态禁用）、`FileCard`、`UploadProgressNotice`（单一加载提示“正在识别，最长约 1 分钟”）、`ErrorAlert`（契约错误只展示 `message`，前端自有码用固定文案，附 `request_id`）、`ConfirmDialog`（本任务启用“覆盖确认”）；`useResumeSession` 增加 `requestUpload`、`confirmOverwriteAndUpload`；上传成功后以占位方式进入 `reviewing`（展示由 2.3 完成）。
 - **测试：** 预校验阻止（类型不支持、10 MB + 1、0 字节、多文件）且不发请求；上传中显示单一加载提示、输入区与“新对话”禁用、无法重复提交；75s 超时（fake timers）→ 提示重新上传；backend 错误（`file_*`、`unsupported_file_type`、`parse_failed`、`parse_unavailable`、`parse_timeout`）只展示 `message`，失败后保留原草稿（O-02）；有草稿时先弹覆盖确认，取消则不发请求，确认后才发；无草稿直接上传；`ComposerBar` 无 `textarea`；日志不含文件内容。
@@ -277,11 +277,11 @@
 
 #### 子任务
 
-- [ ] `ComposerBar`、`FileCard`、`UploadProgressNotice`、`ErrorAlert`
-- [ ] `ConfirmDialog`（覆盖确认）
-- [ ] `useResumeSession` 上传动作
+- [x] `ComposerBar`、`FileCard`、`UploadProgressNotice`、`ErrorAlert`
+- [x] `ConfirmDialog`（覆盖确认）
+- [x] `useResumeSession` 上传动作
 
-### Task 2.3：识别结果展示（REQ-FE-02，去草稿恢复展示） ⟳ v2 重开
+### Task 2.3：识别结果展示（REQ-FE-02，去草稿恢复展示） ✅
 - **关联：** REQ-FE-02.1–02.4、05.2；design.md §3.4（FieldStatusTag、ReadOnlySection、ReviewSummary、SectionCard 只读态）、§4.1–§4.3、§6；P-04、P-06、P-10、B-04
 - **内容：** `FieldStatusTag`（待确认 / 不确定、请确认 / 待补充 / 已确认，文字 + 颜色）、`ReadOnlySection`、`ReviewSummary`（四状态计数与待处理分区跳转芯片）、`SectionCard` 只读骨架（11 个分区全部展示，分区内 `missing` / `uncertain` 置顶高亮，`null` 显示“（未提供）”，手机号完整显示）；上传成功与恢复成功后选取活跃分区，恢复时显示“已为你恢复未完成的简历”（`NoticeBanner`）；全部已确认则进入最终确认视图。
 - **测试：** 用覆盖四种状态与空列表的合成 `DraftResponse` 渲染：22 字段全部出现且按 11 区分组；四种状态文案与颜色类正确；`recognized` 不显示为已确认；`missing` / `uncertain` 在分区内置顶；经历类多条展示；手机号完整显示；非核心字段为空不阻塞展示；恢复成功出现恢复提示；上传成功与恢复成功选取同一规则的活跃分区；页面不自行补全任何字段值。
@@ -296,9 +296,9 @@
 
 #### 子任务
 
-- [ ] `FieldStatusTag`、`ReadOnlySection`、`ReviewSummary`
-- [ ] `SectionCard` 只读态与活跃分区选取
-- [ ] 恢复提示接线
+- [x] `FieldStatusTag`、`ReadOnlySection`、`ReviewSummary`
+- [x] `SectionCard` 只读态与活跃分区选取
+- [x] 恢复提示接线
 
 ### Task 2.4：分区核对 — 标量与文本列表编辑（REQ-FE-03） ✅
 - **关联：** REQ-FE-03.1–03.2、03.4–03.6、REQ-FE-02.4；design.md §3.4（FieldRow、StringListEditor、SectionCard 编辑态、QuickReplyChips）、§4.4、§5.3（编辑 / 确认本区行）、§6、§6.1、TD-01/03/09/15；P-01 选 A、P-04；G-01、G-02、D-06、O-11
@@ -330,7 +330,7 @@
 
 - **v2 状态：** 保持 ✅。`ObjectListEditor` 不变；`ResumeCollectionPage.items.test.tsx` 仅换夹具（2.1 完成）。
 
-### Task 2.6：最终确认与保存结果（REQ-FE-04，HIGH_RISK：约束 F-03，会话版） ⟳ v2 重开
+### Task 2.6：最终确认与保存结果（REQ-FE-04，HIGH_RISK：约束 F-03，会话版） ⟳ v2 重开 ✅（v2 第二批审查 PASS_WITH_SUGGESTIONS，DL 2026-11-11 确认）
 - **关联：** REQ-FE-04.1–04.8；design.md §3.4（FinalReviewCard、SavedResultCard、ConfirmDialog）、§5.1、§5.3（最终确认相关行）、§6、§7.1、§9.2、TD-04/11；B-04、F-03、C-05、C-10、C-11、D-01、D-03、D-04、O-08、O-10、P-09、Q-DL-03
 - **内容：** `FinalReviewCard`（11 区全文只读、未确认字段数提示、“确认提交”仅在核心三项齐全、合法且为 `confirmed` 时可点，否则说明原因；“我还要修改”；失败时卡内 `ErrorAlert`，按钮可直接重试）、`SavedResultCard`（`already_saved=false`：“已保存”+ 姓名 / 原始文件名 / 保存时间 +“上传下一份”；`already_saved=true`：仅“该简历已保存过”，不展示任何记录内容；均不显示 `resume_id` / 记录编号）、`ConfirmDialog`（启用“存在未确认字段”和“存在未提交编辑”两类）；`useResumeSession` 增加 `goFinal`、`backToSections`、`confirmResume`、`resetAfterSaved`；成功后只保留 `savedSummary`，清空草稿与缓冲；`draft_not_found` → 空态 + “可能已保存，请重新上传核实”；422 返回对应分区。
 - **测试：** 约束 F-03 重点用例：成功响应之前（进行中、超时、网络失败、5xx、`save_failed`、422、`draft_not_found`）界面任何位置都不出现“已保存”；超时 / 网络失败后按钮可立即重试且不调用任何状态查询；`already_saved` 依据字段而非 HTTP 状态（200 / 201 两种都覆盖），`true` 时不渲染任何已有记录内容；成功后内存中无手机号 / 邮箱等简历内容，仅姓名 / 文件名 / 保存时间；核心三项未就绪时确认按钮禁用；仍有未确认字段时先弹提示，取消不发请求，继续后发送；存在未提交编辑时被拦截；进行中防重复点击；`recognized` 字段在最终视图中不显示为已确认；数据验证：断言 `POST /resumes` 请求体恰为 `{confirmed: true}` 且只发送一次。
@@ -341,16 +341,17 @@
 - **涉及文件：** `useResumeSession.ts`（`confirmResume(sessionId)`、保存后重读会话、`verifyByConfirm`）、`SavedResultCard.tsx`（`saved`/`already_saved` 两形态；`updated` 在 2.13）、`FinalReviewCard.tsx`（仅文案，design §6）、`ResumeCollectionPage.final.test.tsx`、`SavedResultCard.test.tsx`、`FinalReviewCard.test.tsx`。`draft_not_found → 空态 + 可能已保存` 整条路径删除。
 - **内容：** `POST /sessions/{id}/resume`，体恒为 `{confirmed:true}`；成功后**会话保留**并转只读（重读会话，内容来自正式库，TD-11 v2）；超时 / 网络失败 / `unknown_error` / `session_read_only`（409）→ 先 `GET` 会话再决定（`Verify.decideAfterConfirmRead`，TD-19，G2-04）；`already_saved` 依据响应字段而非 HTTP 状态；不显示 `resume_id`；422 回对应分区。
 - **验收（F-03 确定性用例，沿用 v1 用例集并迁移）：** 成功响应之前（进行中、超时、网络失败、5xx、`save_failed`、422、409 未核对为已保存、形状不符的 2xx）任何位置都不出现“已保存”；仅 POST 2xx 且形状通过，或重读到 `status=saved` 才出现；`already_saved=true` 出现“该简历已保存过”，**不出现“已保存”/“已更新”**；核对路径：超时后重读命中已保存 → 显示已保存且不再重发 POST，未命中 → 保持校对中并可重试；`POST` 请求体恰为 `{confirmed:true}` 且每次点击只发一次；核心三项未就绪按钮禁用。
+- **v1 验收替代确认（DL 2026-11-11，审查 Q-2）：** 上文 v1 “测试”中以下三条已被 v2 替代，以 v2 增量为准：①超时后“不调用状态查询”→先重读会话再决定（TD-19 / G2-04）；②成功后“内存中无手机号 / 邮箱”→重读正式库，会话转只读展示（TD-11 v2）；③`already_saved` “不渲染任何已有记录内容”→由已保存视图只读展示（X-06）。
 - **前置依赖：** Task 2.3、Task 1.8、Task 1.7。 **HIGH_RISK：** 是（F-03）。 **预估：** 7h。
 
 #### 子任务
 
-- [ ] `FinalReviewCard`、`SavedResultCard`
-- [ ] `ConfirmDialog` 两类场景
-- [ ] `confirmResume` 及全部错误分支
-- [ ] HIGH_RISK 用例集（单独成组）
+- [x] `FinalReviewCard`、`SavedResultCard`
+- [x] `ConfirmDialog` 两类场景
+- [x] `confirmResume` 及全部错误分支
+- [x] HIGH_RISK 用例集（单独成组）
 
-### Task 2.7：新对话（清空视图 + 离开确认，去覆盖语义） ⟳ v2 重开
+### Task 2.7：新对话（清空视图 + 离开确认，去覆盖语义） ✅
 - **关联：** REQ-FE-01.5；design.md §3.4（NewChatButton）、§5.3（新对话相关行）、TD-12；P-08、C-07、Q-DL-04
 - **内容：** `NewChatButton` 启用与禁用逻辑（忙碌态禁用）；`useResumeSession` 增加 `requestNewChat`、`confirmNewChat`；有未确认草稿或未提交编辑时先弹确认，文案明示“刷新页面会恢复该草稿，再次上传会覆盖它”；确认后清空界面、`epoch++`、`overwriteAcknowledged=true`（后续首次上传不再重复覆盖确认）；`empty` / `saved` 下无需确认；“上传下一份”复位。
 - **测试：** 无草稿时直接清空；有草稿时弹确认，取消不变，确认后清空且不调用任何接口（无丢弃草稿接口）；确认后再次上传不再弹覆盖确认；刷新（重新 bootstrap）后旧草稿仍被恢复；忙碌期间按钮禁用；过期响应在新对话后被丢弃。
@@ -365,10 +366,10 @@
 
 #### 子任务
 
-- [ ] `NewChatButton` 与对话框接线
-- [ ] `requestNewChat` / `confirmNewChat` 与 epoch 处理
+- [x] `NewChatButton` 与对话框接线
+- [x] `requestNewChat` / `confirmNewChat` 与 epoch 处理
 
-### Task 2.8：无障碍与响应式（增量：新控件与焦点键） ⟳ v2 重开
+### Task 2.8：无障碍与响应式（增量：新控件与焦点键） ✅
 - **关联：** design.md §3.3（useChatScroll）、§3.4（ChatThread）、§6（ChatThread、AppShell）、TD-13、TD-14；Q-DL-05
 - **内容：** `src/hooks/useChatScroll.ts`（仅返回“需要滚动 / 聚焦的区块 key”，不触碰 DOM 样式）、`ChatThread` 使用该信号完成 `scrollIntoView` / `focus()`；`aria-live="polite"` 播报加载与保存结果、`role="alert"` 用于错误；分区推进后焦点移到新分区标题；< 860px 外壳折叠（`Drawer` 或顶栏按钮承载“＋ 新对话”）；状态用文字 + 颜色；核心按钮键盘可达。
 - **测试：** 按角色与名称查询核心按钮并通过键盘触发；加载 / 错误 / 保存结果出现在对应 `aria-live` / `role=alert` 区域；分区推进后焦点位于新分区标题；`useChatScroll` 为纯信号（不引用 DOM API）；窄屏下外壳折叠且“＋ 新对话”仍可达（以 `matchMedia` mock 验证）。
@@ -383,10 +384,10 @@
 
 #### 子任务
 
-- [ ] `useChatScroll` 与 `ChatThread` 焦点 / 滚动
-- [ ] 外壳响应式与 aria 属性
+- [x] `useChatScroll` 与 `ChatThread` 焦点 / 滚动
+- [x] 外壳响应式与 aria 属性
 
-### Task 2.9：会话栏、切换、删除与离开确认（REQ-FE-05） 🆕 v2 新增
+### Task 2.9：会话栏、切换、删除与离开确认（REQ-FE-05） ✅
 - **关联：** design §3.3（useSessionList）、§3.4（SessionList、AppShell）、TD-16/17/26/29/30；REQ-FE-05.1–05.6；ADR-008
 - **涉及文件：** `src/hooks/useSessionList.ts`、`src/components/SessionList.tsx`、`AppShell.tsx`（加 `nav`/`sidebar` 插槽、窄屏 `Drawer`）、`ConfirmDialog` 文案（`leave`、`delete` 两种，组件本身不变）、`useResumeSession.ts`（`requestDelete`/`confirmDelete`/`confirmLeave`、`LeaveIntent`）、`ResumeCollectionPage.tsx`（接线）及测试。约 8 个文件。
 - **内容：** 列表 `loading/error（重试）/空` 三态，失败只影响列表区（TD-16）；选会话 → `openSession`；`busy≠null` 时列表不响应；删除校对中（“信息与文件一并删除，无法恢复”）与已保存（“只删对话记录，归档简历保留”）两种文案；删除当前会话回空态、`DELETE` 404 视为成功；离开确认仅当 `editBuffer` 非空，意图 `switch(id)|new_chat|upload(file)`；上传 / 对话 / 应用 / 保存 / 更新 / 删除成功后各 `reload()` 一次，读取类不刷新（TD-30）；窄屏顶栏“会话”按钮开 `Drawer`，选后关闭。
@@ -395,11 +396,11 @@
 
 #### 子任务
 
-- [ ] `useSessionList`、`SessionList`
-- [ ] `AppShell` 插槽与窄屏 `Drawer`
-- [ ] 删除、离开确认与 `reload` 接线
+- [x] `useSessionList`、`SessionList`
+- [x] `AppShell` 插槽与窄屏 `Drawer`
+- [x] 删除、离开确认与 `reload` 接线
 
-### Task 2.10：对话输入与消息列表（REQ-FE-07.1–07.3，HIGH_RISK：B-03 / F-03 / F-02） 🆕 v2 新增
+### Task 2.10：对话输入与消息列表（REQ-FE-07.1–07.3，HIGH_RISK：B-03 / F-03 / F-02） 🆕 v2 新增 ✅（v2 第二批审查 PASS_WITH_SUGGESTIONS，DL 2026-11-11 确认）
 - **关联：** design §3.4（ComposerBar、MessageList、MessageBubble、ThinkingNotice）、§5.4、TD-10/15/19/20；REQ-FE-07.1–07.3；ADR-007
 - **涉及文件：** `ComposerBar.tsx`（文本输入、发送、字数、IME 守卫、只读态）、`MessageList.tsx`、`MessageBubble.tsx`、`ThinkingNotice.tsx`、`useResumeSession.ts`（`sendMessage`/`retryMessage`/`discardPendingMessage`）、`ResumeCollectionPage.tsx` 接线及测试。约 7 个文件。
 - **内容：** `Input.TextArea` `autoComplete="off"`；Enter 发送、Shift+Enter 换行，`isComposing`/composition 期间 Enter 不发送；trim 空或 >2000 禁发（不截断）；发送即 `pendingMessage`，**成功才清空输入框**；失败或结果未知后输入框只读，气泡提供“重试 / 放弃”（放弃 = 原文回填）；超时 / 网络失败 → 先重读会话，`Verify.matchSentMessage` 命中则视为成功、未命中则可重试；`chat_failed` 展示 `message`；消息以**纯文本**渲染（不解析 Markdown / HTML）；`phase=empty` 提示先上传，`phase=saved` 禁用并提示。
@@ -408,12 +409,12 @@
 
 #### 子任务
 
-- [ ] `ComposerBar` 文本输入与 IME / 字数 / 只读
-- [ ] `MessageList`、`MessageBubble`、`ThinkingNotice`
-- [ ] `sendMessage` 及核对重读
-- [ ] 红线用例集（单独成组）
+- [x] `ComposerBar` 文本输入与 IME / 字数 / 只读
+- [x] `MessageList`、`MessageBubble`、`ThinkingNotice`
+- [x] `sendMessage` 及核对重读
+- [x] 红线用例集（单独成组）
 
-### Task 2.11：修改建议卡片（REQ-FE-07.4–07.6） 🆕 v2 新增
+### Task 2.11：修改建议卡片（REQ-FE-07.4–07.6） ✅
 - **关联：** design §3.4（SuggestionCard、ChangeRows）、TD-21；REQ-FE-07.4–07.6；O2-01
 - **涉及文件：** `SuggestionCard.tsx`、`ChangeRows.tsx`、`useResumeSession.ts`（`applySuggestions`/`cancelSuggestions`）、`MessageList.tsx` 接线及测试。
 - **内容：** 一条助手消息一张卡；整卡应用 / 取消；`applicable=false` 行只展示原因文案；按钮仅在 `cardStatus=pending ∧ phase=reviewing ∧ !busy` 显示；应用成功用响应 `fields` 整体替换、**不自动跳转分区**、清除 `editBuffer` 中被应用字段（TD-03）、提供“查看 X 分区”芯片；`suggestion_unavailable` 在卡片内 `ErrorAlert`。
@@ -422,10 +423,10 @@
 
 #### 子任务
 
-- [ ] `ChangeRows`、`SuggestionCard`
-- [ ] 应用 / 取消及 `editBuffer` 清理
+- [x] `ChangeRows`、`SuggestionCard`
+- [x] 应用 / 取消及 `editBuffer` 清理
 
-### Task 2.12：已保存会话视图（REQ-FE-04.4、04.5、05.3） 🆕 v2 新增
+### Task 2.12：已保存会话视图（REQ-FE-04.4、04.5、05.3） ✅
 - **关联：** design §3.4（SavedSessionView）、TD-11/18/22；REQ-FE-04.4、04.5、05.3
 - **涉及文件：** `SavedSessionView.tsx`、`ResumeCollectionPage.tsx`（`saved` 分支改渲染）、`MessageList.tsx`（只读模式）及测试。
 - **内容：** 组合 `FileCard` → `SavedResultCard` → 只读分区（`showStatus=false`、`emptyText='未填写'`，`valuesAsFields` 适配）→ `update_state=applied` 时静态一行“已按本次内容更新” → 只读 `MessageList`（建议卡无按钮）；重读失败（`saved=null`）时只显示结果卡 + “重新读取”。重新打开 `applied` 会话**不**触发“已更新”提示（TD-24）。
@@ -434,10 +435,10 @@
 
 #### 子任务
 
-- [ ] `SavedSessionView`
-- [ ] 重读失败回退
+- [x] `SavedSessionView`
+- [x] 重读失败回退
 
-### Task 2.13：已保存过后的确认更新（REQ-FE-09，HIGH_RISK：F-03 “已更新” + 差异必列清空字段） 🆕 v2 新增
+### Task 2.13：已保存过后的确认更新（REQ-FE-09，HIGH_RISK：F-03 “已更新” + 差异必列清空字段） 🆕 v2 新增 ✅（v2 第二批审查 PASS_WITH_SUGGESTIONS，DL 2026-11-11 确认）
 - **关联：** design §3.4（UpdateDiffCard）、§5.5、TD-23/24；REQ-FE-09.1–09.5；Y-01、Y-02
 - **涉及文件：** `UpdateDiffCard.tsx`、`SavedResultCard.tsx`（`updated` 形态）、`useResumeSession.ts`（`openUpdateDiff`/`closeUpdateDiff`/`confirmUpdate`、`verifyByUpdate`）、`ResumeCollectionPage.tsx`（快捷回复“按本次内容更新”，不经模型）及测试。
 - **内容：** 快捷回复进入差异卡（`buildUpdateDiff`）；卡内文件新旧名称、有差异字段（`clears` 行高亮并标“将被清空”）、其余 N 项相同；“确认更新”→ `PUT …/resume`，体恒为 `{confirm_update:true}`；**“已更新”仅在 PUT 2xx 且形状通过，或核对路径读到 `update_state=applied` 时出现**；`save_failed` 追加“已有简历未改变”；超时 / 网络失败 → 重试 / 重新读取核对；对话文字不发起 `PUT`。
@@ -446,11 +447,11 @@
 
 #### 子任务
 
-- [ ] `UpdateDiffCard` 与快捷回复入口
-- [ ] `confirmUpdate` 及核对重读
-- [ ] 红线用例集（单独成组）
+- [x] `UpdateDiffCard` 与快捷回复入口
+- [x] `confirmUpdate` 及核对重读
+- [x] 红线用例集（单独成组）
 
-### Task 2.14：已归档简历页（REQ-FE-08） 🆕 v2 新增
+### Task 2.14：已归档简历页（REQ-FE-08） ✅
 - **关联：** design §3.3（useArchive）、§3.4（ArchiveList、ArchiveDetail）、§3.5（ArchivePage、App）、TD-25/26/27；REQ-FE-08.1–08.5
 - **涉及文件：** `src/hooks/useArchive.ts`、`src/pages/ArchivePage.tsx`、`ArchiveList.tsx`、`ArchiveDetail.tsx`（含 `saveBlob`）、`src/App.tsx`（`view` 状态、两页同时挂载、`Segmented` 导航）及测试。约 8 个文件。
 - **内容：** `App` 持有 `view`，两页同时挂载、非当前页 `hidden`（不引入路由库，不丢 `editBuffer` / 输入 / 当前会话）；归档页 `active` 由 false→true 时重读列表；`Table`（姓名、手机号、邮箱、求职意向，`null` 显示“未填写”，不显示 id）、空态“暂无记录”；详情 `Drawer`（9 分类只读、文件名、保存时间、最近更新）；“打开原始文件”：`file_available=false` 禁用并提示，点击走 blob + `saveBlob`（临时 `<a download>`、`revokeObjectURL`），**文件名为通用名**（`原始简历.pdf/.jpg/.png`），`file_not_available`/`resume_not_found` 页面内提示。
@@ -459,9 +460,9 @@
 
 #### 子任务
 
-- [ ] `useArchive`、`ArchivePage`、列表与详情
-- [ ] `App` 两页挂载与导航
-- [ ] 文件下载与通用文件名
+- [x] `useArchive`、`ArchivePage`、列表与详情
+- [x] `App` 两页挂载与导航
+- [x] 文件下载与通用文件名
 
 ---
 

@@ -946,3 +946,62 @@
 | `ruff check .` / `ruff format --check .` | ✅ All checks passed / 109 files already formatted |
 | DDL 与 `sql_ddl_resume.md` 核对 | ✅ 由 `test_openapi_alignment`/`test_db` 的结构断言 + 人工对读 `core/db.py:19-77` |
 | 未做 | 未运行真实 DeepSeek；未跑全量 `pytest`（收集即中止，原因见上）；未做变异测试（本批未预算，1.12 的红线断言已逐条对读代码） |
+
+
+---
+
+## v2 第二批审查（backend 阶段 2：2.1–2.13 与第一批 SUGGEST-1..5）
+
+- 范围：`git diff be3f7be 8fb9b5c -- codes/hr-collection-agent-backend backend-docs/HR_PR-1/05_task/tasks.md`（合并 feature 后审查）。
+- HIGH_RISK：2.4 首次保存、2.5 对账陈旧旧版规则、2.9 确认更新、2.10 建议校验、2.11 发送对话、2.12 应用/取消。
+- 已知不计：`tests/contract`、`tests/e2e`、`scripts/self_test_live.py` 的失败与旧契约引用（属阶段 3：3.1/3.2/3.4）。
+- 验证：排除上述两目录后 pytest 全部通过，`ruff check` 通过；总覆盖率 98%（`resume_service` 90%、`chat_service` 96%、`reconcile_service` 99%、`suggestion_validation` 100%、`orphan_sweep` 100%、`archive_query` 100%）。未做变异测试，未调用真实 DeepSeek。覆盖率来源：本次 `pytest --cov` 实测。
+
+**结论：PASS_WITH_SUGGESTIONS（BLOCK 0 / QUESTION 0 / SUGGEST 4）**
+
+### 一、红线证据
+
+| 红线 | 结论 | 证据 |
+|---|---|---|
+| B-01 | ✅ | diff 内无密钥；`deps._deepseek` 只经 `Settings` 取配置，懒创建 |
+| B-02 | ✅ | 对话与解析共用 `DeepSeekClient`，外发只经 clients；`ChatService` 只持有 `ResumeChatClient` 协议 |
+| B-03 | ✅ | `log_event` 对异常只记类名与裁剪栈；`chat_message_rejected` 只记长度（`error_handlers._log_rejected_message`、`ChatService.send`）；`test_logs_hold_no_message_reply_or_suggestion_values`、`test_chat_messages` 验证；404 不含内容 |
+| B-04 对话不写正式库 | ✅ | `ChatService.__init__` 无 ResumeService/ResumeRepository/ArchiveFileStore，`get_chat_service` 同；`test_chat_service_cannot_reach_saving_or_the_archive`、`test_talking_about_saving_never_writes_the_formal_database` |
+| B-04 三项必填须出现在用户消息 | ✅ | `suggestion_validation.occurs_in_message`（name/phone/email 规范化后子串）；核心项为 `null` 一律丢弃（不能清空核心项）；`test_suggestion_validation` 覆盖 |
+| B-04 经历块建议丢弃 | ✅ | `L.SUGGESTION_FIELDS` 白名单 + 模块级 `assert ⊆ ResumeFields`；`test_success_stores...` 含 `work_experiences` 被丢弃 |
+| B-04 应用才改字段 | ✅ | `apply` 在同一 BEGIN IMMEDIATE 内重校验（`ResumeFieldsUpdate` + `validate_update`）→ `merge_update`（与 PATCH 同一函数）→ 标记 applied；任一失败整卡回滚（`test_one_failing_suggestion_voids_the_whole_card`）；`send` 不持有连接调用模型（`test_no_write_transaction_is_held...`），模型失败/会话期间被保存或删除均不落库 |
+| B-05 确认更新 | ✅ | `update_existing`：唯一版本名 stage+promote（`{id}-{token_hex(4)}`）→ `replace_aggregate` 单事务 → 删旧 → 标记 applied；事务前失败记录与旧文件不变；回滚删新文件；提交结果未知以记录指向为准（`_points_at`）；`test_resume_update_faults` 覆盖 stage/promote/事务/崩溃/删旧失败/标记失败 |
+| B-05 首次保存 | ✅ | 顺序 查键→stage→create_aggregate→promote→finish 未变；`_committed` 未知按已提交处理（保留 tmp 交对账）；竞态重复走 `_duplicate`；`test_resume_service_faults` |
+| B-05 对账陈旧规则 | ✅ | `_remove_orphans`：仅当记录自己的终态文件存在才删其他版本；自己文件缺失 → 保留并计 conflict；tmp 命中记录一律 conflict 不删；无记录时终态文件全部保留；先扫目录后读记录。`test_stale_*`、`test_old_version_is_kept_and_counted_when_the_records_own_file_is_missing`。`_VERSION_SUFFIX_RE` 只匹配末尾 `-8位hex`，不会误吞 UUID 形 id |
+| 文件下载 | ✅ | 路径只来自数据库；`open_final` 仅匹配终态名、`lstat` 拒符号链接、`O_NOFOLLOW`、`fstat` 必须普通文件；`Content-Disposition` 为 RFC5987 编码并剔除控制字符，`nosniff`；缺失 → `file_not_available` |
+| 会话归属 | ✅ | 所有会话/对话/确认/更新入口均 `browser_hash` + 同一 `SessionNotFoundError`，不存在与非本人不可区分；apply/cancel 对他会话消息、用户消息同为 404（`test_message_ids_of_other_sessions...`） |
+
+### 二、与 OpenAPI 0.2.0 一致性
+10 个路径与 operationId 逐一对应（sessions 5、messages/apply/cancel 3、`/resume` POST+PUT、`/resumes` 3）；状态码：创建 201/已存在 200、更新 200、对话 201、删除 204，`confirmation_required`/`validation_failed` 422，`update_not_available`/只读 409，`save_failed` 500、对话失败 502 与文档一致。`/resumes*` 无需浏览器标识，与 OpenAPI 明示（ADR-009，已知风险 X-09）一致。契约自动比对属阶段 3（3.1），本次未跑。
+
+### 三、范围扩散检查：未发现越界
+- `SessionTransaction.touch`：design.md §5（对话时序，约 318 行）要求对话刷新 `last_active_at`，GET 不刷新（TQ-v2-05）；只更新 `last_active_at`，限定 reviewing，范围内。
+- `archive.is_available` 只读注入 `SessionService`：design §3.3/§4（`ArchiveFileStore` 新增只读 `is_available`、`SessionService` 只持 `ResumeReader`），以 `Callable` 注入使其拿不到写接口，范围内。
+- `suffix8 = secrets.token_hex(4)`：与 design「`{resume_id}-{suffix8}`」及对账正则 `[0-9a-f]{8}` 一致，范围内。
+- 其余：无 tasks.md 以外的接口、字段、依赖、配置；`app.state.deepseek` 共用客户端是 design 明确的“解析与对话共用一套”。第一批 SUGGEST 落实情况：#1 `suggestions_of_session` 改按 `m.created_at, m.seq, s.seq` ✅；#2 schema docstring 改为与 OpenAPI/服务层一致 ✅；#3 `chat_message_rejected`/`chat_suggestions`/`chat_suggestions_dropped` 日志已补 ✅；#4 v1 的 draft/cleanup/resume 旧模块与旧路由已删 ✅；#5 `test_neutralize_markers_removes_both_markers` 已不存在 ✅。
+
+### 四、测试发散检查
+- 规模：本批 tests 新增 2343 / 删除 2322，src 新增 1534 / 删除 505；新增行比约 1.5:1（参考 1:1）。其中约一半是对 v1 测试的改名与缩减，真正净增集中在 chat（约 450 行）、更新/故障（约 280 行）和对账陈旧规则。整体判断：**基本合理，略偏高，未见失控**。
+- 逐类判断：chat/suggestion/apply（防 B-04、B-03、并发）、resume_update(+faults)（防 B-05）、reconcile 陈旧规则（防误删唯一文件）均对应红线，保留；session_service 与 sessions API 测试防归属 404、只读、删除不触及正式库，保留；各 API 路由的“非本人 404”是每条路由的接线检查，虽与服务层语义重复，但成本很小，保留。
+- 建议删减/合并（SUGGEST，合计约 60–90 行）：
+  1. `test_reconcile_service.py::test_unexpected_error_in_the_middle_of_the_run_is_contained`（341）与 `test_one_failing_delete_does_not_block_the_rest`（280）防的是同一风险（单个删除失败不阻断），建议删前者（约 18 行）。
+  2. `test_run_duration_comes_from_the_injected_clock`（407，约 20 行）只验证日志耗时字段，不防红线风险，建议删。
+  3. `test_roll_forward_keeps_the_extension` 的 `[.pdf,.jpg,.png]` 参数化三例等价，保留 `.pdf` 与一个非 pdf 即可（约 4 行）。
+  4. `test_resume_update_faults.py` 的 `["stage","stage_mid_copy","promote"]` 三个故障点断言完全相同，可合并为 `stage_mid_copy` 与 `promote` 两例（运行成本，行数约 0）。
+  5. `test_reconcile_service.py::test_service_depends_only_on_resume_repository_and_archive_store` 是结构性断言，与已有“不碰草稿目录”测试部分重叠，可选合并（约 12 行）。
+  以上均为 SUGGEST，不阻断；只有 BLOCK 可要求新增测试，本批无 BLOCK，不要求新增。
+
+### 五、SUGGEST（跟踪项）
+- SUGGEST-1（B-04，低）：`occurs_in_message` 对 `name` 用规范化后的子串判断，极短姓名（如单字/单字母）几乎必然出现在任意消息中，门槛形同虚设。风险被“用户必须点击应用”兜住，不是越权写入；建议登记为跟踪项，必要时对长度 <2 的姓名建议直接要求用户在消息中单独给出。
+- SUGGEST-2（覆盖，低）：`resume_service.update_existing` 的核心项校验失败（114 行）与身份不匹配（120 行）两个分支未被测试覆盖。已保存会话的字段不可再 PATCH（只读），这两处在正常流程不可达，属防御代码；建议要么加注释说明“防御性、不可达”，要么保持现状，不要求补测。
+- SUGGEST-3（可维护性，低）：`confirm` 与 `update_existing` 各含一段相同的“取字段→`validate_core_fields`→`build_identity`”代码，可抽成私有方法（`resume_service.py` 约 108–116 行与 82–90 行附近）。
+- SUGGEST-4（测试，见第四节）：约 60–90 行测试可删或合并。
+
+### 六、建议
+- 各 HIGH_RISK 任务 2.4、2.5、2.9、2.10、2.11、2.12 均有代码与测试证据，建议标 ✅；2.1–2.3、2.6–2.8、2.13（非 HIGH_RISK）tasks.md 已标完成，与代码一致。
+- 未验证项：真实 DeepSeek 调用、OpenAPI 契约自动比对（3.1）、端到端（3.2）。

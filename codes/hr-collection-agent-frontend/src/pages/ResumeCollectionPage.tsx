@@ -1,18 +1,20 @@
 import { Spin } from 'antd';
-import { useRef } from 'react';
-import type { ApiError } from '../api/ApiError';
+import { useRef, useState, type ReactNode } from 'react';
 import AppShell from '../components/AppShell';
-import BootstrapErrorPanel from '../components/BootstrapErrorPanel';
 import ChatThread from '../components/ChatThread';
 import ComposerBar, { type ComposerBarHandle } from '../components/ComposerBar';
 import ConfirmDialog from '../components/ConfirmDialog';
 import ErrorAlert from '../components/ErrorAlert';
 import FileCard from '../components/FileCard';
 import FinalReviewCard from '../components/FinalReviewCard';
+import MessageList from '../components/MessageList';
+import SuggestionCard from '../components/SuggestionCard';
 import NoticeBanner from '../components/NoticeBanner';
+import SessionList from '../components/SessionList';
 import QuickReplyChips from '../components/QuickReplyChips';
 import ReviewSummary from '../components/ReviewSummary';
-import SavedResultCard from '../components/SavedResultCard';
+import UpdateDiffCard from '../components/UpdateDiffCard';
+import SavedSessionView from '../components/SavedSessionView';
 import SectionCard from '../components/SectionCard';
 import UploadProgressNotice from '../components/UploadProgressNotice';
 import WelcomePanel from '../components/WelcomePanel';
@@ -21,16 +23,26 @@ import { canConfirmSection, coreReady, unconfirmedCount } from '../hooks/model/S
 import { useChatScroll } from '../hooks/useChatScroll';
 import { usePreventFileDropNavigation } from '../hooks/usePreventFileDropNavigation';
 import { useResumeSession } from '../hooks/useResumeSession';
+import { useSessionList } from '../hooks/useSessionList';
 
 const UPLOAD_TIMEOUT_TEXT = '识别时间过长，请重新上传。';
 // A 2xx answer of the wrong shape: the server may already have replaced the draft, so the screen cannot be trusted.
 const UPLOAD_BAD_RESPONSE_TEXT = '上传结果异常，请刷新页面后核对。';
 
+interface ResumeCollectionPageProps {
+  /** false while the archive page is shown: the page stays mounted (state kept) but accepts no input (TD-25). */
+  visible?: boolean;
+  nav?: ReactNode;
+}
+
 /** Page orchestration only: picks what to render from the session state; never calls the API itself. */
-export default function ResumeCollectionPage() {
+export default function ResumeCollectionPage({ visible = true, nav }: ResumeCollectionPageProps = {}) {
+  const list = useSessionList();
   const {
     state,
-    retryBootstrap,
+    openSession,
+    requestDelete,
+    confirmDelete,
     dismissNotice,
     selectSection,
     editField,
@@ -40,26 +52,76 @@ export default function ResumeCollectionPage() {
     backToSections,
     confirmResume,
     proceedUnconfirmed,
-    uploadNext,
+    rereadSession,
+    openUpdateDiff,
+    closeUpdateDiff,
+    confirmUpdate,
+    verifyUpdate,
     requestNewChat,
-    confirmNewChat,
+    confirmLeave,
     dismissDialog,
     requestUpload,
-    confirmOverwrite,
-    cancelOverwrite,
     selectionNotice,
-  } = useResumeSession();
+    sendMessage,
+    retryMessage,
+    discardPendingMessage,
+    applySuggestions,
+    cancelSuggestions,
+  } = useResumeSession({ onActivity: list.reload });
+  const [text, setText] = useState('');
   usePreventFileDropNavigation(); // also covers phases without a composer
-  const focusKey = useChatScroll({ phase: state.phase, view: state.view, activeSection: state.activeSection });
+  const focusKey = useChatScroll({
+    phase: state.phase,
+    view: state.view,
+    activeSection: state.activeSection,
+    lastMessageId: state.messages.at(-1)?.message_id ?? null,
+    diffOpen: state.diff !== null,
+  });
   const composerRef = useRef<ComposerBarHandle>(null);
   const busy = state.busy !== null;
-  const bannerKind = state.notice && state.notice !== 'already_saved' ? state.notice : null;
-  const hasUnsubmittedEdits = Object.keys(state.editBuffer).length > 0;
+  const bannerKind = state.notice === 'session_gone' ? state.notice : null;
   const uploading = state.busy === 'upload';
   const uploadError = state.error?.scope === 'upload' ? state.error.cause : null;
+  const sessionError = state.error?.scope === 'read' || state.error?.scope === 'delete' ? state.error.cause : null;
   const sectionError = state.error?.scope === 'section' ? state.error.cause : null;
   const confirmError = state.error?.scope === 'confirm' ? state.error.cause : null;
   const inSections = state.phase === 'reviewing' && state.view === 'sections' && state.draft !== null;
+
+  const chatError = state.error?.scope === 'chat' ? state.error.cause : null;
+  // The input is cleared only when the text is part of the conversation (a failed send keeps it for retry / discard).
+  const clearIfSent = (result: Promise<'sent' | 'failed'>) => {
+    void result.then((r) => {
+      if (r === 'sent') setText('');
+    });
+  };
+  const messageList = (
+    <MessageList
+      messages={state.messages}
+      pending={state.pendingMessage}
+      pendingError={chatError}
+      thinking={state.busy === 'chat'}
+      actionsDisabled={busy}
+      onRetry={() => clearIfSent(retryMessage())}
+      onDiscard={() => {
+        const original = discardPendingMessage();
+        if (original !== null) setText(original);
+      }}
+      renderCard={(message) => (
+        <SuggestionCard
+          suggestions={message.suggestions}
+          actionable={state.phase === 'reviewing' && !busy}
+          error={state.error?.scope === 'suggest' && state.error.messageId === message.message_id ? state.error.cause : null}
+          onApply={() => applySuggestions(message.message_id)}
+          onCancel={() => cancelSuggestions(message.message_id)}
+          onJump={selectSection}
+        />
+      )}
+    />
+  );
+
+  const readOnlyMessages = (
+    <MessageList messages={state.messages} renderCard={(message) => <SuggestionCard suggestions={message.suggestions} actionable={false} />} />
+  );
 
   const pending =
     uploading && state.pendingFile ? (
@@ -71,31 +133,22 @@ export default function ResumeCollectionPage() {
 
   let content;
   switch (state.phase) {
-    case 'bootstrapping':
-      content = (
-        <div className="welcome-panel" role="status">
-          <Spin /> <span>正在读取草稿…</span>
-        </div>
-      );
-      break;
-    case 'bootstrap_failed':
-      content = state.error ? (
-        <BootstrapErrorPanel error={state.error.cause as ApiError} onRetry={retryBootstrap} />
-      ) : null;
-      break;
     case 'empty':
       content = uploading ? (
         pending
+      ) : state.busy === 'read' ? (
+        <div className="welcome-panel" role="status">
+          <Spin /> <span>正在打开会话…</span>
+        </div>
       ) : (
         <WelcomePanel onUploadClick={() => composerRef.current?.openPicker()}>
-          {bannerKind ? <NoticeBanner kind={bannerKind} /> : null}
+          {bannerKind ? <NoticeBanner kind={bannerKind} onClose={dismissNotice} /> : null}
         </WelcomePanel>
       );
       break;
     case 'reviewing':
       content = (
         <>
-          {bannerKind ? <NoticeBanner kind={bannerKind} onClose={dismissNotice} /> : null}
           {state.draft ? (
             <FileCard name={state.draft.original_file.filename} sizeBytes={state.draft.original_file.size_bytes} />
           ) : null}
@@ -128,27 +181,48 @@ export default function ResumeCollectionPage() {
               buffer={state.editBuffer}
               unconfirmedCount={unconfirmedCount(state.draft.fields)}
               coreReady={coreReady(state.draft.fields, state.editBuffer)}
-              busy={state.busy === 'confirm'}
+              busy={busy}
               error={confirmError}
               onConfirm={confirmResume}
               onBack={() => backToSections()}
               onEditCore={() => backToSections('basic')}
             />
           ) : null}
+          {messageList}
           {pending}
         </>
       );
       break;
     case 'saved':
       content = (
-        <SavedResultCard summary={state.savedSummary} alreadySaved={state.notice === 'already_saved'} onUploadNext={uploadNext} />
+        <SavedSessionView
+          kind={state.notice === 'updated' ? 'updated' : state.notice === 'already_saved' ? 'already_saved' : 'saved'}
+          saved={state.saved}
+          summary={state.savedSummary}
+          messages={readOnlyMessages}
+          diff={
+            state.diff ? (
+              <UpdateDiffCard
+                diff={state.diff}
+                busy={busy}
+                error={state.error?.scope === 'update' ? state.error.cause : null}
+                onConfirm={confirmUpdate}
+                onCancel={closeUpdateDiff}
+                onVerify={verifyUpdate}
+              />
+            ) : null
+          }
+          busy={busy}
+          onUploadNext={requestNewChat}
+          onReread={rereadSession}
+        />
       );
       break;
     default:
       content = null;
   }
 
-  const showComposer = state.phase === 'empty' || state.phase === 'reviewing';
+  const textHint = state.phase === 'empty' ? '请先上传简历' : state.phase === 'saved' ? '已保存的会话不能再对话' : undefined;
 
   // Quick replies trigger the same actions as the buttons on the active card.
   let quickReplies = null;
@@ -165,49 +239,77 @@ export default function ResumeCollectionPage() {
     );
   }
 
+  // "按本次内容更新" is a quick reply, not a chat message: it opens the diff card without any request (Y-01).
+  if (state.phase === 'saved' && state.saved?.update_state === 'pending' && state.saved.update_candidate && state.diff === null) {
+    quickReplies = <QuickReplyChips chips={[{ label: '按本次内容更新', primary: true, disabled: busy, onClick: openUpdateDiff }]} />;
+  }
+
   return (
     <AppShell
+      nav={nav}
       onNewChat={requestNewChat}
-      newChatDisabled={busy || state.phase === 'bootstrapping' || state.phase === 'bootstrap_failed'}
+      newChatDisabled={busy}
+      sidebar={(close) => (
+        <SessionList
+          status={list.status}
+          items={list.items}
+          error={list.error}
+          currentId={state.sessionId}
+          disabled={busy}
+          onSelect={(id) => {
+            close();
+            openSession(id);
+          }}
+          onDelete={requestDelete}
+          onRetry={list.retry}
+        />
+      )}
       footer={
-        showComposer ? (
+        (
           <ComposerBar
             ref={composerRef}
             onFiles={requestUpload}
-            disabled={busy}
+            disabled={busy || !visible}
             notice={selectionNotice}
+            text={text}
+            onTextChange={setText}
+            onSend={() => clearIfSent(sendMessage(text))}
+            textHint={textHint}
+            textReadOnly={state.pendingMessage !== null}
             quickReplies={quickReplies}
             error={
               uploadError ? (
                 <ErrorAlert error={uploadError} timeoutMessage={UPLOAD_TIMEOUT_TEXT} badResponseMessage={UPLOAD_BAD_RESPONSE_TEXT} />
+              ) : sessionError ? (
+                <ErrorAlert error={sessionError} />
               ) : null
             }
           />
-        ) : null
+        )
       }
     >
       <ChatThread focusKey={focusKey}>
         {content}
       </ChatThread>
       <ConfirmDialog
-        open={state.dialog === 'overwrite'}
-        title="覆盖当前草稿"
-        content="将用新文件覆盖当前未确认的简历内容（含未提交的修改），是否继续？"
-        okText="继续上传"
-        onOk={confirmOverwrite}
-        onCancel={cancelOverwrite}
+        open={state.dialog === 'leave'}
+        title="存在未提交的修改"
+        content="有未提交的修改，继续将放弃这些修改。是否继续？"
+        okText="放弃修改并继续"
+        cancelText="返回"
+        onOk={confirmLeave}
+        onCancel={dismissDialog}
       />
       <ConfirmDialog
-        open={state.dialog === 'new_chat'}
-        title="开始新对话"
+        open={state.dialog === 'delete'}
+        title="删除会话"
         content={
-          <>
-            <p>界面将清空。未确认的简历草稿仍会保留，刷新页面会恢复它；再次上传新简历会覆盖它。</p>
-            {hasUnsubmittedEdits ? <p>未提交的修改将丢失。</p> : null}
-          </>
+          state.dialogTarget?.kind === 'delete' && state.dialogTarget.status === 'saved'
+            ? '只删除这个会话的对话记录；已归档的简历和原始文件会保留，仍可在“已归档简历”中查看。'
+            : '删除后，这份简历的信息与已上传文件将一并删除，且无法恢复。'
         }
-        okText="清空并开始"
-        onOk={confirmNewChat}
+        okText="确认删除"
+        onOk={confirmDelete}
         onCancel={dismissDialog}
       />
       <ConfirmDialog
