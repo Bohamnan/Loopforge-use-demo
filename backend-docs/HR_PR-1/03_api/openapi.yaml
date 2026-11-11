@@ -3,7 +3,7 @@ info:
   title: HR 简历信息收集 API（hr-collection-agent）
   version: 0.2.0
   description: |
-    HR_PR-1 backend OpenAPI。**0.2.0 草稿（2026-11-11，v2/v2.1：HR_PR-1-CRv2、CRv2.1），待 cross-workbench-reviewer 审视后冻结**。
+    HR_PR-1 backend OpenAPI。**0.2.0 已冻结（2026-11-11，v2/v2.1：HR_PR-1-CRv2、CRv2.1）**。
     0.1.1 的 `/resume-drafts*` 与 `POST /resumes` 随会话化被替换（v1 未交付，不保留兼容路由，TQ-v2-02）。
 
     约定：
@@ -1088,7 +1088,7 @@ components:
     UpdateCandidate:
       type: object
       required: [fields, original_file]
-      description: 更新候选：保存命中幂等键那一刻冻结的"本次内容"，与 `resume`（已有记录）比较得到差异。
+      description: 更新候选：保存命中幂等键那一刻冻结的"本次内容"，与 `resume`（已有记录）比较得到差异。其 `original_file` 是本会话上传的文件（即 `SessionDetail.original_file`），确认更新后将替换已有记录的文件；已有记录当前的文件见 `resume.original_file`。
       properties:
         fields: { $ref: '#/components/schemas/ResumeValues' }
         original_file: { $ref: '#/components/schemas/OriginalFileInfo' }
@@ -1102,7 +1102,7 @@ components:
         status: { $ref: '#/components/schemas/SessionStatus' }
         update_state: { $ref: '#/components/schemas/UpdateState' }
         original_file:
-          description: 本会话上传的原始文件元数据（`saved` 且文件已清除时仍返回元数据，仅展示用）。
+          description: 本会话上传的文件的元数据（仅展示用；`saved` 且文件已清除时仍返回元数据）。已保存过（`update_state = pending`）时，它就是更新候选的文件，同 `update_candidate.original_file`；已有记录的文件见 `resume.original_file`。
           allOf:
             - $ref: '#/components/schemas/OriginalFileInfo'
         fields:
