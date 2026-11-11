@@ -3,7 +3,7 @@
 | 项 | 内容 |
 |---|---|
 | 当前级别 | v2 需求变更（Type C）：整体 L2，红线功能点（B-03 日志、B-04 建议校验、B-05 更新补偿）按 L3 深度验证 |
-| 状态 | 🔄 v2 重跑清单执行到第 7 项：backend 7a 技术设计已合并、**待 DL 确认**；frontend 7b 技术设计进行中 |
+| 状态 | 🔄 v2 重跑清单执行到第 8 项：8a/8b 任务拆分进行中（7a/7b 技术设计已确认） |
 | 最后更新 | 2026-11-11，feature `8afff0b` |
 | 权威进度 | `01-requirements/HR_PR-1/_progress.md`（流程表、人类门控、「需求变更记录 → 重跑清单（v2）/ v2.1 小表」、贡献记录、关键决策） |
 
@@ -43,9 +43,9 @@
 |---|---|
 | 1 PRD、2 HLD（含 v2.1）、3a/3b 影响分析、4 跨 Workbench 审视、5 需求汇总、5q QA 用例（86 条） | ✅ |
 | 6a backend Schema + OpenAPI 0.2.0（冻结）、6b frontend 接口消费规范 v0.3 | ✅ |
-| 7a backend 技术设计（`design.md` v0.4，8368919） | ⏸ 待 DL 确认；5 个待确认点已按授权采纳（见贡献记录） |
-| 7b frontend 技术设计（`design.md` v2.0，34ff8f7） | ⏸ 待 DL 确认；Q-TD-01..03 已按授权采纳 |
-| 8a/8b 任务拆分 + `AGENTS.md` 更新 | 待 7a/7b 确认；tasks.md 写测试预算（POC ≈ 1:1） |
+| 7a backend 技术设计（`design.md` v0.4，8368919） | ✅ DL 确认 |
+| 7b frontend 技术设计（`design.md` v2.0，34ff8f7） | ✅ DL 确认 |
+| 8a/8b 任务拆分 + `AGENTS.md` 更新 | 🔄 已派出（2026-11-11）；tasks.md 写测试预算（POC ≈ 1:1），停在任务清单确认门控 |
 | 9a/9b 实现 → 10 审查 → 11a/11b 自测 → 11q QA 执行（AT/E2E/UAT）→ 12 DL 最终 Review | 未开始 |
 
 ## 四、DL 的长期决定（易忘）
