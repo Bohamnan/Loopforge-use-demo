@@ -256,9 +256,10 @@ describe('quick replies (ADR-006)', () => {
     expect(document.querySelector('[aria-current="true"]')).not.toBeNull();
   });
 
-  it('offers no free-text box anywhere', async () => {
+  it('offers no free-text box besides the chat input (ADR-007)', async () => {
     await open();
-    expect(document.querySelectorAll('textarea')).toHaveLength(0);
+    const boxes = Array.from(document.querySelectorAll('textarea')).filter((b) => b.getAttribute('aria-hidden') !== 'true');
+    expect(boxes.map((b) => b.getAttribute('aria-label'))).toEqual(['对话输入']);
     expect(RESUME_FIELD_KEYS).toHaveLength(22);
   });
 });

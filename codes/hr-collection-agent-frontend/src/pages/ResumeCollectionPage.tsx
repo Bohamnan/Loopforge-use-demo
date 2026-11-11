@@ -1,5 +1,5 @@
 import { Spin } from 'antd';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import AppShell from '../components/AppShell';
 import ChatThread from '../components/ChatThread';
 import ComposerBar, { type ComposerBarHandle } from '../components/ComposerBar';
@@ -7,6 +7,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import ErrorAlert from '../components/ErrorAlert';
 import FileCard from '../components/FileCard';
 import FinalReviewCard from '../components/FinalReviewCard';
+import MessageList from '../components/MessageList';
 import NoticeBanner from '../components/NoticeBanner';
 import SessionList from '../components/SessionList';
 import QuickReplyChips from '../components/QuickReplyChips';
@@ -48,7 +49,11 @@ export default function ResumeCollectionPage() {
     dismissDialog,
     requestUpload,
     selectionNotice,
+    sendMessage,
+    retryMessage,
+    discardPendingMessage,
   } = useResumeSession({ onActivity: list.reload });
+  const [text, setText] = useState('');
   usePreventFileDropNavigation(); // also covers phases without a composer
   const focusKey = useChatScroll({ phase: state.phase, view: state.view, activeSection: state.activeSection });
   const composerRef = useRef<ComposerBarHandle>(null);
@@ -60,6 +65,28 @@ export default function ResumeCollectionPage() {
   const sectionError = state.error?.scope === 'section' ? state.error.cause : null;
   const confirmError = state.error?.scope === 'confirm' ? state.error.cause : null;
   const inSections = state.phase === 'reviewing' && state.view === 'sections' && state.draft !== null;
+
+  const chatError = state.error?.scope === 'chat' ? state.error.cause : null;
+  // The input is cleared only when the text is part of the conversation (a failed send keeps it for retry / discard).
+  const clearIfSent = (result: Promise<'sent' | 'failed'>) => {
+    void result.then((r) => {
+      if (r === 'sent') setText('');
+    });
+  };
+  const messageList = (
+    <MessageList
+      messages={state.messages}
+      pending={state.pendingMessage}
+      pendingError={chatError}
+      thinking={state.busy === 'chat'}
+      actionsDisabled={busy}
+      onRetry={() => clearIfSent(retryMessage())}
+      onDiscard={() => {
+        const original = discardPendingMessage();
+        if (original !== null) setText(original);
+      }}
+    />
+  );
 
   const pending =
     uploading && state.pendingFile ? (
@@ -126,6 +153,7 @@ export default function ResumeCollectionPage() {
               onEditCore={() => backToSections('basic')}
             />
           ) : null}
+          {messageList}
           {pending}
         </>
       );
@@ -139,7 +167,7 @@ export default function ResumeCollectionPage() {
       content = null;
   }
 
-  const showComposer = state.phase === 'empty' || state.phase === 'reviewing';
+  const textHint = state.phase === 'empty' ? '请先上传简历' : state.phase === 'saved' ? '已保存的会话不能再对话' : undefined;
 
   // Quick replies trigger the same actions as the buttons on the active card.
   let quickReplies = null;
@@ -176,12 +204,17 @@ export default function ResumeCollectionPage() {
         />
       )}
       footer={
-        showComposer ? (
+        (
           <ComposerBar
             ref={composerRef}
             onFiles={requestUpload}
             disabled={busy}
             notice={selectionNotice}
+            text={text}
+            onTextChange={setText}
+            onSend={() => clearIfSent(sendMessage(text))}
+            textHint={textHint}
+            textReadOnly={state.pendingMessage !== null}
             quickReplies={quickReplies}
             error={
               uploadError ? (
@@ -191,7 +224,7 @@ export default function ResumeCollectionPage() {
               ) : null
             }
           />
-        ) : null
+        )
       }
     >
       <ChatThread focusKey={focusKey}>

@@ -7,15 +7,14 @@ import ComposerBar, { type ComposerBarHandle } from './ComposerBar';
 const pdf = () => new File(['x'], '合成简历.pdf', { type: 'application/pdf' });
 
 describe('ComposerBar', () => {
-  it('has an upload button, a single-file input limited to the allowed types, and no text box (ADR-006)', () => {
+  it('has an upload button, a single-file input limited to the allowed types, and a chat text box that is not remembered by the browser (ADR-007, F-02)', () => {
     const { container } = render(<ComposerBar onFiles={() => undefined} />);
     expect(screen.getByRole('button', { name: /上传简历/ })).toBeInTheDocument();
     const input = container.querySelector('input[type="file"]') as HTMLInputElement;
     expect(input).not.toBeNull();
     expect(input.multiple).toBe(false);
     expect(input.accept).toBe('.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png');
-    expect(container.querySelector('textarea')).toBeNull();
-    expect(container.querySelector('input[type="text"]')).toBeNull();
+    expect(screen.getByRole('textbox', { name: '对话输入' })).toHaveAttribute('autocomplete', 'off');
   });
 
   it('shows the 10 MB hint (P-03) and the AI disclaimer', () => {
@@ -122,5 +121,52 @@ describe('ComposerBar accessibility', () => {
     screen.getByRole('button', { name: /上传简历/ }).focus();
     await userEvent.keyboard('{Enter}');
     expect(click).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ComposerBar chat input (REQ-FE-07.1)', () => {
+  const box = () => screen.getByRole('textbox', { name: '对话输入' });
+  const setup = (props: Partial<React.ComponentProps<typeof ComposerBar>> = {}) => {
+    const onSend = vi.fn();
+    render(<ComposerBar onFiles={() => undefined} text="你好" onTextChange={() => undefined} onSend={onSend} {...props} />);
+    return onSend;
+  };
+
+  it('Enter sends, Shift+Enter does not', () => {
+    const onSend = setup();
+    fireEvent.keyDown(box(), { key: 'Enter', shiftKey: true });
+    expect(onSend).not.toHaveBeenCalled();
+    fireEvent.keyDown(box(), { key: 'Enter' });
+    expect(onSend).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not send while an input method is composing', () => {
+    const onSend = setup();
+    fireEvent.compositionStart(box());
+    fireEvent.keyDown(box(), { key: 'Enter' });
+    fireEvent.compositionEnd(box());
+    fireEvent.keyDown(box(), { key: 'Enter', isComposing: true });
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
+  it('blocks blank text and text over 2000 characters (no truncation), allows exactly 2000', () => {
+    const { rerender } = render(<ComposerBar onFiles={() => undefined} text="   " onSend={() => undefined} />);
+    expect(screen.getByRole('button', { name: /发\s?送/ })).toBeDisabled();
+    rerender(<ComposerBar onFiles={() => undefined} text={'好'.repeat(2000)} onSend={() => undefined} />);
+    expect(screen.getByRole('button', { name: /发\s?送/ })).toBeEnabled();
+    expect(screen.getByText('2000/2000')).toBeInTheDocument();
+    rerender(<ComposerBar onFiles={() => undefined} text={'好'.repeat(2001)} onSend={() => undefined} />);
+    expect(screen.getByRole('button', { name: /发\s?送/ })).toBeDisabled();
+    expect(box()).toHaveValue('好'.repeat(2001));
+  });
+
+  it('shows a hint and cannot send when the text box is closed, and keeps the text visible but locked when read-only', () => {
+    const { rerender } = render(<ComposerBar onFiles={() => undefined} text="" textHint="请先上传简历" />);
+    expect(box()).toBeDisabled();
+    expect(box()).toHaveAttribute('placeholder', '请先上传简历');
+    rerender(<ComposerBar onFiles={() => undefined} text="待重试" textReadOnly onSend={() => undefined} />);
+    expect(box()).toHaveValue('待重试');
+    expect(box()).toHaveAttribute('readonly');
+    expect(screen.getByRole('button', { name: /发\s?送/ })).toBeDisabled();
   });
 });

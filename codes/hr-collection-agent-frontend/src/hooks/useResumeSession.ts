@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useReducer, useState } from 'react';
 import { ApiError } from '../api/ApiError';
+import { sendMessage } from '../api/ConversationApi';
 import { createSession, deleteSession, getSession, updateSessionFields } from '../api/SessionApi';
 import type { ResumeFieldsUpdate } from '../types/ResumeModel';
 import type { SessionStatus } from '../types/Session';
 import { getSection, type SectionKey } from './model/SectionConfig';
 import { buildSectionUpdate } from './model/SectionView';
+import { matchSentMessage } from './model/Verify';
 import { initialState, sessionReducer, type SessionAction, type SessionState } from './model/SessionReducer';
 import { MULTIPLE_FILES_NOTICE, pickSingleFile } from './model/UploadPrecheck';
 
@@ -36,6 +38,24 @@ function createEngine(dispatch: (action: SessionAction) => void) {
   /** Section whose PATCH is being started. */
   let patchSection: SectionKey | null = null;
 
+  /** Callers of sendMessage / retryMessage waiting to learn whether the text reached the conversation. */
+  const waiters: { length: number; resolve: (result: 'sent' | 'failed') => void }[] = [];
+
+  function settleWaiters(after: SessionState) {
+    if (after.busy === 'chat' || (after.busy === 'read' && after.readPurpose === 'verify_message')) return;
+    for (const waiter of waiters.splice(0)) {
+      waiter.resolve(after.pendingMessage === null && after.messages.length > waiter.length ? 'sent' : 'failed');
+    }
+  }
+
+  function sendAndWait(action: SessionAction): Promise<'sent' | 'failed'> {
+    return new Promise((resolve) => {
+      waiters.push({ length: latest.current.messages.length, resolve });
+      send(action);
+      settleWaiters(latest.current);
+    });
+  }
+
   function send(action: SessionAction) {
     const before = latest.current;
     const after = sessionReducer(before, action);
@@ -45,6 +65,7 @@ function createEngine(dispatch: (action: SessionAction) => void) {
       launch(before, after);
     }
     if (after.notice === 'session_gone' && before.notice !== 'session_gone') onActivity.current?.();
+    settleWaiters(after);
     return { before, after };
   }
 
@@ -78,6 +99,15 @@ function createEngine(dispatch: (action: SessionAction) => void) {
         );
         break;
       }
+      case 'chat': {
+        const pending = after.pendingMessage;
+        if (pending === null || after.sessionId === null) break;
+        void sendMessage(after.sessionId, pending.text).then(
+          (response) => settle({ type: 'SEND_SUCCEEDED', response, epoch }),
+          (error: unknown) => settle({ type: 'SEND_FAILED', error: toApiError(error), epoch }, false),
+        );
+        break;
+      }
       case 'delete': {
         const target = before.dialogTarget;
         if (target?.kind !== 'delete') break;
@@ -102,6 +132,16 @@ function createEngine(dispatch: (action: SessionAction) => void) {
         const id = target?.kind === 'switch' ? target.id : openId;
         if (id === null) break;
         void getSession(id).then((detail) => send({ type: 'READ_SUCCEEDED', detail, epoch }), fail);
+        break;
+      }
+      case 'verify_message': {
+        // The send's outcome is unknown: read the session and look for the message before deciding to resend (TD-19).
+        const pending = after.pendingMessage;
+        if (after.sessionId === null || pending === null) break;
+        void getSession(after.sessionId).then((detail) => {
+          if (matchSentMessage(detail.messages, pending.knownIds, pending.text)) settle({ type: 'MESSAGE_VERIFIED', detail, epoch });
+          else send({ type: 'MESSAGE_RESEND', epoch });
+        }, fail);
         break;
       }
       case 'sync':
@@ -166,6 +206,23 @@ function createEngine(dispatch: (action: SessionAction) => void) {
       /** "＋ 新对话" / "上传下一份": clears the view only; no session is deleted (TD-12). */
       requestNewChat() {
         send({ type: 'NEW_CHAT_REQUESTED' });
+      },
+      /**
+       * Sends a chat message. Resolves 'sent' only when the text is part of the conversation (the caller then clears
+       * the input); 'failed' leaves the text in the input with retry / discard on the bubble.
+       */
+      sendMessage(text: string) {
+        return sendAndWait({ type: 'SEND_REQUESTED', text });
+      },
+      /** Retry of a failed / unknown send: an unknown one first looks the message up on the server. */
+      retryMessage() {
+        return sendAndWait({ type: 'MESSAGE_RETRY_REQUESTED' });
+      },
+      /** Drops the pending message and returns its text so the page can put it back into the input. */
+      discardPendingMessage(): string | null {
+        const text = latest.current.pendingMessage?.text ?? null;
+        const { after } = send({ type: 'MESSAGE_DISCARDED' });
+        return after.pendingMessage === null ? text : null;
       },
       /** Opens the delete confirmation; the wording depends on the session status (REQ-FE-05.5). */
       requestDelete(id: string, status: SessionStatus) {

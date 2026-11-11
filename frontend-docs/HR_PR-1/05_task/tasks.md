@@ -408,10 +408,10 @@
 
 #### 子任务
 
-- [ ] `ComposerBar` 文本输入与 IME / 字数 / 只读
-- [ ] `MessageList`、`MessageBubble`、`ThinkingNotice`
-- [ ] `sendMessage` 及核对重读
-- [ ] 红线用例集（单独成组）
+- [x] `ComposerBar` 文本输入与 IME / 字数 / 只读
+- [x] `MessageList`、`MessageBubble`、`ThinkingNotice`
+- [x] `sendMessage` 及核对重读
+- [x] 红线用例集（单独成组）
 
 ### Task 2.11：修改建议卡片（REQ-FE-07.4–07.6） 🆕 v2 新增
 - **关联：** design §3.4（SuggestionCard、ChangeRows）、TD-21；REQ-FE-07.4–07.6；O2-01

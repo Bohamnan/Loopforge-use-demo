@@ -455,3 +455,45 @@ body {
   cursor: pointer;
   padding: 0 8px;
 }
+
+/* Chat */
+.composer-text {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.composer-count {
+  color: var(--muted, #65717b);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.composer-count-over {
+  color: var(--danger, #dd0028);
+}
+.message-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.message {
+  max-width: 80%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: #fff;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.message-user {
+  align-self: flex-end;
+  background: #e8f1ff;
+}
+.message-assistant {
+  align-self: flex-start;
+}
+.message-time {
+  display: block;
+  color: var(--muted, #65717b);
+  font-size: 12px;
+}

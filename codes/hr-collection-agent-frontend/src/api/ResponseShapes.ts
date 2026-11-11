@@ -69,7 +69,8 @@ function isFieldEntry(key: string, entry: unknown): boolean {
 
 const isDate = (value: unknown): boolean => typeof value === 'string' && !Number.isNaN(Date.parse(value));
 const oneOf = (list: readonly string[], value: unknown): boolean => typeof value === 'string' && list.includes(value);
-const isArrayOf = (value: unknown, check: (item: unknown) => boolean): boolean => Array.isArray(value) && value.every(check);
+// The check gets the item only: `every(check)` would also pass the index as a second argument (e.g. isChatMessage's role).
+const isArrayOf = (value: unknown, check: (item: unknown) => boolean): boolean => Array.isArray(value) && value.every((item) => check(item));
 
 function isOriginalFile(file: unknown): boolean {
   return (

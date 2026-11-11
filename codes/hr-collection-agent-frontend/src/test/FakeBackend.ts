@@ -37,6 +37,8 @@ export interface FakeBackendOptions {
   faults?: Fault[];
   /** Suggestions of the assistant reply to POST /messages; default: none. */
   suggest?: (content: string) => Suggestion[];
+  /** Text of the assistant reply to POST /messages; default: a fixed acknowledgement. */
+  reply?: (content: string) => string;
 }
 
 const SESSION_PATH = /^\/api\/v1\/sessions\/([^/]+)(\/fields|\/messages|\/resume)?(?:\/([^/]+)\/(apply|cancel))?$/;
@@ -189,7 +191,7 @@ export class FakeBackend {
     const assistant: ChatMessage = {
       message_id: this.nextId(),
       role: 'assistant',
-      content: '好的，已处理。',
+      content: this.options.reply?.(content) ?? '好的，已处理。',
       suggestions: this.options.suggest?.(content) ?? [],
       created_at: at,
     };
