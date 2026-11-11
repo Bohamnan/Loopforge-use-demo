@@ -281,7 +281,7 @@
 - [x] `ConfirmDialog`（覆盖确认）
 - [x] `useResumeSession` 上传动作
 
-### Task 2.3：识别结果展示（REQ-FE-02，去草稿恢复展示） ⟳ v2 重开
+### Task 2.3：识别结果展示（REQ-FE-02，去草稿恢复展示） ✅
 - **关联：** REQ-FE-02.1–02.4、05.2；design.md §3.4（FieldStatusTag、ReadOnlySection、ReviewSummary、SectionCard 只读态）、§4.1–§4.3、§6；P-04、P-06、P-10、B-04
 - **内容：** `FieldStatusTag`（待确认 / 不确定、请确认 / 待补充 / 已确认，文字 + 颜色）、`ReadOnlySection`、`ReviewSummary`（四状态计数与待处理分区跳转芯片）、`SectionCard` 只读骨架（11 个分区全部展示，分区内 `missing` / `uncertain` 置顶高亮，`null` 显示“（未提供）”，手机号完整显示）；上传成功与恢复成功后选取活跃分区，恢复时显示“已为你恢复未完成的简历”（`NoticeBanner`）；全部已确认则进入最终确认视图。
 - **测试：** 用覆盖四种状态与空列表的合成 `DraftResponse` 渲染：22 字段全部出现且按 11 区分组；四种状态文案与颜色类正确；`recognized` 不显示为已确认；`missing` / `uncertain` 在分区内置顶；经历类多条展示；手机号完整显示；非核心字段为空不阻塞展示；恢复成功出现恢复提示；上传成功与恢复成功选取同一规则的活跃分区；页面不自行补全任何字段值。
@@ -296,9 +296,9 @@
 
 #### 子任务
 
-- [ ] `FieldStatusTag`、`ReadOnlySection`、`ReviewSummary`
-- [ ] `SectionCard` 只读态与活跃分区选取
-- [ ] 恢复提示接线
+- [x] `FieldStatusTag`、`ReadOnlySection`、`ReviewSummary`
+- [x] `SectionCard` 只读态与活跃分区选取
+- [x] 恢复提示接线
 
 ### Task 2.4：分区核对 — 标量与文本列表编辑（REQ-FE-03） ✅
 - **关联：** REQ-FE-03.1–03.2、03.4–03.6、REQ-FE-02.4；design.md §3.4（FieldRow、StringListEditor、SectionCard 编辑态、QuickReplyChips）、§4.4、§5.3（编辑 / 确认本区行）、§6、§6.1、TD-01/03/09/15；P-01 选 A、P-04；G-01、G-02、D-06、O-11
