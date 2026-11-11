@@ -50,7 +50,7 @@
 | 跨 Workbench 一致性 review（仅跨 Workbench 需求） | cross-workbench-reviewer | Dev Lead | ✅ v2/v2.1 已裁决（X-01..X-10a、Y-01、Y-02）；v1 裁决中 C-03、C-06、C-07、C-11、D-01、D-04、D-05、O-01、O-03、O-12 被替代 | 2026-11-11 | `01-requirements/HR_PR-1/cross-workbench-review.md` |
 | 需求汇总（第二轮技术 Q&A + requirements.md） | requirements-analyst | Dev Lead/BA | ✅ v2：质量关卡 1 通过（23 条全部填空型）；两侧 requirements.md 增量更新并经 DL 确认（v1 快照 `_history/requirements.v1.md`）；glossary 已按 X-10a 写入 | 2026-11-11 | `backend-docs/HR_PR-1/01_requirements/requirements.md`；`frontend-docs/HR_PR-1/01_requirements/requirements.md` |
 | 架构设计（Schema+接口） | architecture-advisor | 各 Workbench 工程师 | ⚠ v2 进行中：backend ✅（Schema v0.2.0、OpenAPI 0.2.0 冻结，2026-11-11）；frontend ✅（接口消费规范 v0.3 对齐 0.2.0，2026-11-11）；v1：backend（OpenAPI 0.1.0 冻结，0.1.1 待修订 G-01/G-02）/ frontend（Step 2.2 评审通过） | 2026-11-10 | `backend-docs/HR_PR-1/02_schema/`、`03_api/`；`frontend-docs/HR_PR-1/03_api/interface_spec_resume.md` |
-| 技术设计 | architecture-advisor | 各 Workbench 工程师 | ⚠️ 待重审（v2）：backend v2 ⏸ 待确认（design.md v0.4，重跑清单 7a 确认后由主 agent 勾选）；frontend 待更新；v1：backend ✅ / frontend ✅（ADR-006 将被替代） | 2026-11-10 | `backend-docs/HR_PR-1/04_design/design.md`；`frontend-docs/HR_PR-1/04_design/design.md` |
+| 技术设计 | architecture-advisor | 各 Workbench 工程师 | ⚠️ 待重审（v2）：backend v2 ⏸ 待确认（design.md v0.4，重跑清单 7a 确认后由主 agent 勾选）；frontend v2 ⏸ 待确认（design.md v2.0，重跑清单 7b 确认后由主 agent 勾选）；v1：backend ✅ / frontend ✅（ADR-006 将被替代） | 2026-11-10 | `backend-docs/HR_PR-1/04_design/design.md`；`frontend-docs/HR_PR-1/04_design/design.md` |
 | 任务拆分 | architecture-advisor | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：backend（20 任务 / 91h）/ frontend（15 任务 / 79h） | 2026-11-10 | `backend-docs/HR_PR-1/05_task/tasks.md`；`frontend-docs/HR_PR-1/05_task/tasks.md` |
 | 仓库约定补全与复核（仅新项目 Workbench） | architecture-advisor（Step 5） | 各 Workbench 工程师/Dev Lead | ⚠️ 待重审（v2）；v1：backend / frontend 已确认 | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
 | 代码实现 | feature-developer | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：backend 21/21（含 2.3a，pytest 1001、覆盖率 99%、CRAP 最大 9.0）/ ✅ frontend 15/15（vitest 650、lint 0、build 通过） | — | `codes/hr-collection-agent-backend/`、`codes/hr-collection-agent-frontend/` |
@@ -132,6 +132,7 @@
 | 2026-11-11 | Yin Yang（backend） | architecture-advisor | 完成 backend v2 Step 2.1+2.2（Schema v0.2.0、OpenAPI 0.2.0 草稿、api_design 同步，提交 21e0e4f），停在 Schema+接口评审合并门控；设计决策 34 条（Schema 12 + 接口 22）；仓库无远端，未推送（SV-07） |
 | 2026-11-11 | Yin Yang（frontend） | architecture-advisor | 完成 frontend Step 2.2（接口消费规范 v0.3，同步 OpenAPI 0.2.0：13 个操作、22 条错误码映射、DD-12..DD-22），停在合并门控待评审；6b 未勾；仓库无远端，未推送（SV-07） |
 | 2026-11-11 | Yin Yang（backend） | architecture-advisor | 完成 backend v2 Step 3 技术设计（design.md v0.4，v1 快照 `_history/design.v1.md`），停在技术设计确认关卡；未新起草 ADR；仓库无远端，未推送（SV-07） |
+| 2026-11-11 | Yin Yang（frontend） | architecture-advisor | 完成 frontend Step 3 技术设计 v2（design.md v2.0：新增 TD-16..TD-31，追溯 54/54，X-10 脚本核查结论，3 条待 DL 澄清 Q-TD-01..03），停在技术设计确认关卡；7b 未勾；仓库无远端，未推送（SV-07） |
 
 ---
 
