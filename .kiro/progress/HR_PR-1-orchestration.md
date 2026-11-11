@@ -3,7 +3,7 @@
 | 项 | 内容 |
 |---|---|
 | 当前级别 | v2 需求变更（Type C）：整体 L2，红线功能点（B-03 日志、B-04 建议校验、B-05 更新补偿）按 L3 深度验证 |
-| 状态 | 🔄 v2 重跑清单执行到第 8 项：8a/8b 任务拆分进行中（7a/7b 技术设计已确认） |
+| 状态 | 🔄 v2 重跑清单执行到第 9 项：编码第 1 批（阶段 1）进行中 |
 | 最后更新 | 2026-11-11，feature `8afff0b` |
 | 权威进度 | `01-requirements/HR_PR-1/_progress.md`（流程表、人类门控、「需求变更记录 → 重跑清单（v2）/ v2.1 小表」、贡献记录、关键决策） |
 
@@ -45,8 +45,9 @@
 | 6a backend Schema + OpenAPI 0.2.0（冻结）、6b frontend 接口消费规范 v0.3 | ✅ |
 | 7a backend 技术设计（`design.md` v0.4，8368919） | ✅ DL 确认 |
 | 7b frontend 技术设计（`design.md` v2.0，34ff8f7） | ✅ DL 确认 |
-| 8a/8b 任务拆分 + `AGENTS.md` 更新 | 🔄 已派出（2026-11-11）；tasks.md 写测试预算（POC ≈ 1:1），停在任务清单确认门控 |
-| 9a/9b 实现 → 10 审查 → 11a/11b 自测 → 11q QA 执行（AT/E2E/UAT）→ 12 DL 最终 Review | 未开始 |
+| 8a/8b 任务拆分 + `AGENTS.md` 更新 | ✅ DL 确认（tasks.md v2.0；AGENTS.md 已确认；同意删除 backend `tests/selftest/`） |
+| 9a/9b 编码 | 🔄 第 1 批 = tasks.md 阶段 1（backend `ctx_4cc071af025c`、frontend `ctx_0788935e6ecd`）；每阶段一批审查，共 ≤ 3 批 |
+| 10 审查（每批）→ 11a/11b 自测 → 11q QA 执行（AT/E2E/UAT）→ 12 DL 最终 Review | 未开始 |
 
 ## 四、DL 的长期决定（易忘）
 
