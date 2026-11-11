@@ -320,7 +320,7 @@
 
 ---
 
-### Task 1.12：clients：ResumeChatClient、DeepSeekClient.chat、对话提示词与消毒　🆕 v2　**【HIGH_RISK：B-02 / B-03 / B-04】**
+### Task 1.12：clients：ResumeChatClient、DeepSeekClient.chat、对话提示词与消毒　🆕 v2　**【HIGH_RISK：B-02 / B-03 / B-04】** ✅（v2 第一批审查 PASS，DL 2026-11-11 确认）
 - **关联：** REQ-BE-07.1、07.2、07.10；D§3.4、D§1“对话客户端的形态”“对话请求体”“提示词分隔与消毒”“对话输出的信任边界”；D§7.2；ADR-007
 - **涉及文件：** `clients/resume_chat_client.py`（新）、`clients/deepseek_client.py`、`clients/prompts.py`、`tests/clients/test_deepseek_client.py`（追加）、`tests/clients/test_prompts.py`（追加）、`tests/fakes.py`（`FakeChatClient`）
 - **内容：** 协议 `ResumeChatClient.chat(request) -> RawChatResult`，`DeepSeekClient` 同时实现，复用同一 `httpx.Client`、超时、外发地址 / 模型锁定与状态映射；任何失败统一映射 `ChatFailedError`（不重试）；请求体只含系统提示 + 一条 user 消息（字段 JSON、最近历史、本条消息三个分隔段），**不含原文件、原文件名、浏览器标识**，体积沿用 `MAX_REQUEST_BYTES`，超出从最旧历史丢弃，仍超出则不外发并抛 `ChatFailedError`；`neutralize_markers` 泛化为处理全部成对标记（含 `DOC_*`）；输出解析：顶层结构不符 / `reply` 缺失或为空 → `ChatFailedError`，`reply` 超 4000 截断，`suggestions` 单项不合规丢弃、同字段保留第一项、忽略其他键。

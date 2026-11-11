@@ -1,8 +1,8 @@
-// Hand-written mirror of backend-docs/HR_PR-1/03_api/openapi.yaml (OpenAPI 0.1.1).
+// Hand-written mirror of backend-docs/HR_PR-1/03_api/openapi.yaml (OpenAPI 0.2.0).
 // Names match the OpenAPI schemas. Re-check this file whenever the contract changes (F-02).
 
 /** OpenAPI version these types were written against. */
-export const OPENAPI_VERSION = '0.1.1';
+export const OPENAPI_VERSION = '0.2.0';
 
 /** FieldStatus: recognized = awaiting confirmation, uncertain, missing, confirmed by the user (C-04). */
 export const FIELD_STATUSES = ['recognized', 'uncertain', 'missing', 'confirmed'] as const;
@@ -151,3 +151,53 @@ export interface ResumeFieldsUpdate {
   languages?: string[];
   self_evaluation?: string | null;
 }
+
+/** ResumeValues: the 22 fields as values only, no field status (X-07). Used for saved content, archive detail and update candidates. */
+export interface ResumeValues {
+  name: string | null;
+  job_title: string | null;
+  expected_city: string | null;
+  expected_salary: string | null;
+  available_time: string | null;
+  phone: string | null;
+  email: string | null;
+  homepage: string | null;
+  gender: string | null;
+  birth_month: string | null;
+  political_status: string | null;
+  current_city: string | null;
+  work_years: string | null;
+  highest_education: string | null;
+  strengths: string[];
+  work_experiences: WorkExperience[];
+  project_experiences: ProjectExperience[];
+  educations: Education[];
+  skills: string[];
+  certificates_honors: string[];
+  languages: string[];
+  self_evaluation: string | null;
+}
+
+/** SuggestionField: the 19 fields a chat suggestion may touch (whitelist; the three experience lists are excluded). */
+export const SUGGESTION_FIELDS = [
+  'name',
+  'job_title',
+  'expected_city',
+  'expected_salary',
+  'available_time',
+  'phone',
+  'email',
+  'homepage',
+  'gender',
+  'birth_month',
+  'political_status',
+  'current_city',
+  'work_years',
+  'highest_education',
+  'self_evaluation',
+  'strengths',
+  'skills',
+  'certificates_honors',
+  'languages',
+] as const;
+export type SuggestionField = (typeof SUGGESTION_FIELDS)[number];

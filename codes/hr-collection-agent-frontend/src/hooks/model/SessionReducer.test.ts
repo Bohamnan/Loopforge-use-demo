@@ -1,479 +1,384 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '../../api/ApiError';
-import { sampleCreateResumeResponse, sampleDraft, sampleFields } from '../../test/ApiMocks';
-import type { DraftResponse } from '../../types/Draft';
+import {
+  sampleChatMessage,
+  sampleCreateResumeResponse,
+  sampleSendMessageResponse,
+  sampleSessionDetail,
+  sampleSuggestion,
+} from '../../test/ApiMocks';
 import type { ErrorCode } from '../../types/Errors';
 import { RESUME_FIELD_KEYS } from '../../types/ResumeModel';
+import type { SessionDetail } from '../../types/Session';
 import { initialState, sessionReducer, type SessionAction, type SessionState } from './SessionReducer';
+
+// Table-driven over design §5.3 A-G. Failures never clear the old view; "saved" / "updated" only follow a
+// well-formed success or a verifying read (F-03 at reducer level).
 
 const pdf = () => new File(['x'], '合成简历.pdf', { type: 'application/pdf' });
 const apiError = (code: ErrorCode, details?: ApiError['details']) =>
   new ApiError({ code, message: '后端提示', status: 400, request_id: 'req_1', details });
+const timeoutError = () => ApiError.timeout();
 
 function run(state: SessionState, ...actions: SessionAction[]): SessionState {
   return actions.reduce(sessionReducer, state);
 }
 
-function allConfirmed(): DraftResponse {
-  const draft = sampleDraft();
-  for (const key of RESUME_FIELD_KEYS) draft.fields[key].status = 'confirmed';
-  return draft;
+/** Opens a session through the real transitions (OPEN_REQUESTED, READ_SUCCEEDED). */
+function open(detail: SessionDetail, from: SessionState = initialState()): SessionState {
+  return run(from, { type: 'OPEN_REQUESTED', id: detail.session_id }, { type: 'READ_SUCCEEDED', detail, epoch: from.epoch });
 }
 
-/** reviewing / sections with the default sample draft. */
-function reviewing(draft: DraftResponse = sampleDraft()): SessionState {
-  return run(initialState(), { type: 'BOOTSTRAP_SUCCEEDED', draft, epoch: 0 });
+function allConfirmedDetail(): SessionDetail {
+  const detail = sampleSessionDetail('reviewing');
+  for (const key of RESUME_FIELD_KEYS) detail.fields![key].status = 'confirmed';
+  return detail;
 }
 
-describe('bootstrap', () => {
-  it('starts in bootstrapping', () => {
-    const s = initialState();
-    expect(s).toMatchObject({ phase: 'bootstrapping', busy: null, draft: null, epoch: 0 });
+const withCard = (): SessionDetail => ({
+  ...sampleSessionDetail('reviewing'),
+  messages: [
+    sampleChatMessage('user', '哨兵-对话-0001', { message_id: 'u1' }),
+    sampleChatMessage('assistant', '哨兵-回复-0001', { message_id: 'a1', suggestions: [sampleSuggestion()] }),
+  ],
+});
+
+/** reviewing/final with every field confirmed and nothing unsubmitted: ready to confirm. */
+const readyToConfirm = () => open(allConfirmedDetail());
+const savedPending = () => open(sampleSessionDetail('pending'));
+
+describe('A. read and switch', () => {
+  it('starts empty with no busy', () => {
+    expect(initialState()).toMatchObject({ phase: 'empty', busy: null, sessionId: null, epoch: 0 });
   });
 
-  it('GET 200 restores the draft into reviewing/sections with a restored notice', () => {
-    const s = reviewing();
-    expect(s).toMatchObject({ phase: 'reviewing', view: 'sections', restored: true, busy: null });
-    expect(s.notice).toBe('restored');
-    expect(s.draft).not.toBeNull();
+  it('opening a reviewing session enters reviewing/sections at the first section needing attention', () => {
+    const asking = run(initialState(), { type: 'OPEN_REQUESTED', id: 's1' });
+    expect(asking).toMatchObject({ busy: 'read', readPurpose: 'open', phase: 'empty' });
+    const s = open(sampleSessionDetail('reviewing'));
+    expect(s).toMatchObject({ phase: 'reviewing', view: 'sections', busy: null, sessionId: sampleSessionDetail().session_id, epoch: 1 });
     expect(s.activeSection).toBe('basic');
-  });
-
-  it('selects the first section needing attention when restoring', () => {
-    const draft = sampleDraft();
-    for (const key of RESUME_FIELD_KEYS) draft.fields[key].status = 'confirmed';
-    draft.fields.work_years.status = 'uncertain';
-    expect(reviewing(draft).activeSection).toBe('personal');
+    expect(s.draft?.fields.name.value).toBe('测试用户甲');
+    expect(s.saved).toBeNull();
   });
 
   it('goes straight to the final view when everything is confirmed', () => {
-    expect(reviewing(allConfirmed())).toMatchObject({ phase: 'reviewing', view: 'final' });
-  });
-
-  it('GET 404 (null) goes to the empty state without error or notice', () => {
-    const s = run(initialState(), { type: 'BOOTSTRAP_SUCCEEDED', draft: null, epoch: 0 });
-    expect(s).toMatchObject({ phase: 'empty', draft: null, error: null, notice: null });
-  });
-
-  it('other GET failures go to bootstrap_failed (never the empty state)', () => {
-    const s = run(initialState(), { type: 'BOOTSTRAP_FAILED', error: apiError('internal_error'), epoch: 0 });
-    expect(s.phase).toBe('bootstrap_failed');
-    expect(s.error?.scope).toBe('bootstrap');
-  });
-
-  it('retry returns to bootstrapping and clears the error', () => {
-    const failed = run(initialState(), { type: 'BOOTSTRAP_FAILED', error: apiError('internal_error'), epoch: 0 });
-    const s = run(failed, { type: 'BOOTSTRAP_RETRY' });
-    expect(s).toMatchObject({ phase: 'bootstrapping', error: null });
-  });
-
-  it('ignores a bootstrap response with a stale epoch', () => {
-    const s = run(initialState(), { type: 'BOOTSTRAP_SUCCEEDED', draft: sampleDraft(), epoch: 5 });
-    expect(s.phase).toBe('bootstrapping');
-  });
-});
-
-describe('upload', () => {
-  const empty = () => run(initialState(), { type: 'BOOTSTRAP_SUCCEEDED', draft: null, epoch: 0 });
-
-  it('starts uploading directly when there is no draft', () => {
-    const s = run(empty(), { type: 'FILE_SELECTED', file: pdf() });
-    expect(s).toMatchObject({ busy: 'upload', dialog: null, error: null });
-    expect(s.pendingFile).not.toBeNull();
-  });
-
-  it('a precheck failure sets a local error and sends nothing', () => {
-    const bad = new File(['x'], 'a.docx', { type: 'text/plain' });
-    const s = run(empty(), { type: 'FILE_SELECTED', file: bad });
-    expect(s.busy).toBeNull();
-    expect(s.error).toMatchObject({ scope: 'upload', cause: { kind: 'local' } });
-  });
-
-  it('asks for overwrite confirmation when a draft exists', () => {
-    const s = run(reviewing(), { type: 'FILE_SELECTED', file: pdf() });
-    expect(s).toMatchObject({ busy: null, dialog: 'overwrite' });
-    expect(s.pendingFile).not.toBeNull();
-  });
-
-  it('cancelling the overwrite dialog sends nothing and keeps the draft', () => {
-    const s = run(reviewing(), { type: 'FILE_SELECTED', file: pdf() }, { type: 'OVERWRITE_CANCELLED' });
-    expect(s).toMatchObject({ busy: null, dialog: null, pendingFile: null });
-    expect(s.draft).not.toBeNull();
-  });
-
-  it('confirming the overwrite starts the upload', () => {
-    const s = run(reviewing(), { type: 'FILE_SELECTED', file: pdf() }, { type: 'OVERWRITE_CONFIRMED' });
-    expect(s).toMatchObject({ busy: 'upload', dialog: null });
-  });
-
-  it('OVERWRITE_CONFIRMED without a pending overwrite is ignored', () => {
-    const before = reviewing();
-    expect(run(before, { type: 'OVERWRITE_CONFIRMED' })).toBe(before);
-  });
-
-  it('ignores new files while a request is in flight (no duplicate submit)', () => {
-    const uploading = run(empty(), { type: 'FILE_SELECTED', file: pdf() });
-    expect(run(uploading, { type: 'FILE_SELECTED', file: pdf() })).toBe(uploading);
-  });
-
-  it('201 replaces the draft and resets edits, notices and errors', () => {
-    const edited = run(
-      reviewing(),
-      { type: 'FIELD_EDITED', update: { job_title: '改过' } },
-      { type: 'FILE_SELECTED', file: pdf() },
-      { type: 'OVERWRITE_CONFIRMED' },
-    );
-    const next = sampleDraft({ draft_id: '00000000-0000-4000-8000-0000000000aa' });
-    const s = run(edited, { type: 'UPLOAD_SUCCEEDED', draft: next, epoch: edited.epoch });
-    expect(s).toMatchObject({
-      phase: 'reviewing',
-      view: 'sections',
-      busy: null,
-      restored: false,
-      notice: null,
-      error: null,
-      pendingFile: null,
-      overwriteAcknowledged: false,
-    });
-    expect(s.draft?.draft_id).toBe(next.draft_id);
-    expect(s.editBuffer).toEqual({});
-  });
-
-  it('a failed upload keeps the old draft and view (O-02) and records the error', () => {
-    const before = run(reviewing(), { type: 'FILE_SELECTED', file: pdf() }, { type: 'OVERWRITE_CONFIRMED' });
-    const s = run(before, { type: 'UPLOAD_FAILED', error: apiError('parse_failed'), epoch: before.epoch });
-    expect(s).toMatchObject({ phase: 'reviewing', busy: null, pendingFile: null });
-    expect(s.draft).toBe(before.draft);
-    expect(s.error).toMatchObject({ scope: 'upload' });
-  });
-
-  it('a timeout leaves the empty state as it was', () => {
-    const before = run(empty(), { type: 'FILE_SELECTED', file: pdf() });
-    const s = run(before, { type: 'UPLOAD_FAILED', error: ApiError.timeout(), epoch: before.epoch });
-    expect(s).toMatchObject({ phase: 'empty', busy: null });
-    expect((s.error?.cause as ApiError).code).toBe('client_timeout');
-  });
-
-  it('ignores a stale upload response', () => {
-    const uploading = run(empty(), { type: 'FILE_SELECTED', file: pdf() });
-    const s = run(uploading, { type: 'UPLOAD_SUCCEEDED', draft: sampleDraft(), epoch: uploading.epoch + 1 });
-    expect(s).toBe(uploading);
-  });
-
-  it('after a confirmed new chat the first upload needs no second overwrite confirmation', () => {
-    const cleared = run(reviewing(), { type: 'NEW_CHAT_REQUESTED' }, { type: 'NEW_CHAT_CONFIRMED' });
-    expect(cleared.overwriteAcknowledged).toBe(true);
-    expect(run(cleared, { type: 'FILE_SELECTED', file: pdf() })).toMatchObject({ busy: 'upload', dialog: null });
-  });
-});
-
-describe('editing and section confirmation', () => {
-  it('buffers edits without touching the authoritative draft', () => {
-    const base = reviewing();
-    const s = run(base, { type: 'FIELD_EDITED', update: { job_title: '新岗位' } });
-    expect(s.editBuffer).toEqual({ job_title: '新岗位' });
-    expect(s.draft).toBe(base.draft);
-    expect(s.draft?.fields.job_title.status).toBe('recognized');
-  });
-
-  it('clears field errors of an edited field, including indexed paths', () => {
-    const withErrors: SessionState = {
-      ...reviewing(),
-      fieldErrors: { phone: 'invalid_format', 'work_experiences[0].company': 'too_long', email: 'required' },
-    };
-    const s = run(withErrors, { type: 'FIELD_EDITED', update: { work_experiences: [] } }, { type: 'FIELD_EDITED', update: { phone: '1' } });
-    expect(s.fieldErrors).toEqual({ email: 'required' });
-  });
-
-  it('switches the active section', () => {
-    expect(run(reviewing(), { type: 'SECTION_SELECTED', section: 'work' }).activeSection).toBe('work');
-  });
-
-  it('a locally invalid section sends nothing and records field errors', () => {
-    const s = run(reviewing(), { type: 'FIELD_EDITED', update: { phone: '123' } }, { type: 'SECTION_CONFIRM_REQUESTED', section: 'basic' });
-    expect(s.busy).toBeNull();
-    expect(s.fieldErrors).toMatchObject({ phone: 'invalid_format' });
-  });
-
-  it('a valid section starts a PATCH', () => {
-    const s = run(reviewing(), { type: 'FIELD_EDITED', update: { phone: '13800138000' } }, { type: 'SECTION_CONFIRM_REQUESTED', section: 'basic' });
-    expect(s).toMatchObject({ busy: 'patch' });
-    expect(s.fieldErrors).toEqual({});
-  });
-
-  it('ignores a second section confirmation while one is in flight', () => {
-    const inFlight = run(reviewing(), { type: 'SECTION_CONFIRM_REQUESTED', section: 'intent' });
-    expect(inFlight.busy).toBe('patch');
-    expect(run(inFlight, { type: 'SECTION_CONFIRM_REQUESTED', section: 'personal' })).toBe(inFlight);
-  });
-
-  it('PATCH 200 replaces the draft, drops that section\'s buffered edits and advances to the next unconfirmed section', () => {
-    const base = run(
-      reviewing(),
-      { type: 'FIELD_EDITED', update: { job_title: 'X', skills: ['A'] } },
-      { type: 'SECTION_CONFIRM_REQUESTED', section: 'intent' },
-    );
-    const updated = sampleDraft();
-    updated.fields.job_title = { value: 'X', status: 'confirmed' };
-    updated.fields.expected_city.status = 'confirmed';
-    updated.fields.expected_salary.status = 'confirmed';
-    updated.fields.available_time.status = 'confirmed';
-    for (const k of ['name', 'phone', 'email', 'homepage'] as const) updated.fields[k].status = 'confirmed';
-    const s = run(base, { type: 'PATCH_SUCCEEDED', draft: updated, section: 'intent', epoch: base.epoch });
-    expect(s.busy).toBeNull();
-    expect(s.draft).toBe(updated);
-    expect(s.editBuffer).toEqual({ skills: ['A'] });
-    expect(s.activeSection).toBe('personal');
-    expect(s.view).toBe('sections');
-  });
-
-  it('moves to the final view when nothing is left unconfirmed', () => {
-    const base = run(reviewing(), { type: 'SECTION_CONFIRM_REQUESTED', section: 'intent' });
-    const s = run(base, { type: 'PATCH_SUCCEEDED', draft: allConfirmed(), section: 'intent', epoch: base.epoch });
-    expect(s.view).toBe('final');
-  });
-
-  it('PATCH 422 keeps the buffer, maps details to field errors and does not leave the view', () => {
-    const base = run(
-      reviewing(),
-      { type: 'FIELD_EDITED', update: { work_experiences: [{ start_date: 'x' }] } },
-      { type: 'SECTION_CONFIRM_REQUESTED', section: 'work' },
-    );
-    const s = run(base, {
-      type: 'PATCH_FAILED',
-      error: apiError('validation_failed', [{ field: 'work_experiences[0].start_date', reason: 'too_long' }]),
-      epoch: base.epoch,
-    });
-    expect(s.busy).toBeNull();
-    expect(s.fieldErrors).toEqual({ 'work_experiences[0].start_date': 'too_long' });
-    expect(s.editBuffer).toEqual({ work_experiences: [{ start_date: 'x' }] });
-    expect(s.phase).toBe('reviewing');
-    expect(s.error?.scope).toBe('section');
-  });
-
-  it('PATCH draft_not_found clears everything and shows the expired notice (O-10)', () => {
-    const base = run(reviewing(), { type: 'FIELD_EDITED', update: { job_title: 'X' } }, { type: 'SECTION_CONFIRM_REQUESTED', section: 'intent' });
-    const s = run(base, { type: 'PATCH_FAILED', error: apiError('draft_not_found'), epoch: base.epoch });
-    expect(s).toMatchObject({ phase: 'empty', draft: null, notice: 'draft_expired', busy: null });
-    expect(s.editBuffer).toEqual({});
-  });
-
-  it.each([ApiError.timeout(), ApiError.network(), apiError('internal_error')])('PATCH failure %# keeps buffer and view for a retry', (error) => {
-    const base = run(reviewing(), { type: 'FIELD_EDITED', update: { job_title: 'X' } }, { type: 'SECTION_CONFIRM_REQUESTED', section: 'intent' });
-    const s = run(base, { type: 'PATCH_FAILED', error, epoch: base.epoch });
-    expect(s).toMatchObject({ phase: 'reviewing', busy: null });
-    expect(s.editBuffer).toEqual({ job_title: 'X' });
-    expect(s.error?.scope).toBe('section');
-  });
-});
-
-describe('final confirmation', () => {
-  const finalState = (draft = allConfirmed()) => {
-    const state = reviewing(draft);
-    return state.view === 'final' ? state : run(state, { type: 'GO_FINAL_REQUESTED' });
-  };
-
-  it('GO_FINAL moves to the final view when there are no unsubmitted edits', () => {
-    expect(run(reviewing(), { type: 'GO_FINAL_REQUESTED' }).view).toBe('final');
-  });
-
-  it('GO_FINAL with unsubmitted edits asks first', () => {
-    const s = run(reviewing(), { type: 'FIELD_EDITED', update: { job_title: 'X' } }, { type: 'GO_FINAL_REQUESTED' });
-    expect(s).toMatchObject({ view: 'sections', dialog: 'unsubmitted_edits' });
-  });
-
-  it('discarding edits then continues to the final view', () => {
-    const s = run(
-      reviewing(),
-      { type: 'FIELD_EDITED', update: { job_title: 'X' } },
-      { type: 'GO_FINAL_REQUESTED' },
-      { type: 'DISCARD_EDITS_AND_GO_FINAL' },
-    );
-    expect(s).toMatchObject({ view: 'final', dialog: null });
-    expect(s.editBuffer).toEqual({});
-  });
-
-  it('BACK_TO_SECTIONS returns to the first section needing attention', () => {
-    const s = run(reviewing(), { type: 'GO_FINAL_REQUESTED' }, { type: 'BACK_TO_SECTIONS' });
-    expect(s).toMatchObject({ view: 'sections', activeSection: 'basic' });
-  });
-
-  it('CONFIRM is ignored when the core fields are not ready', () => {
-    const final = run(reviewing(), { type: 'GO_FINAL_REQUESTED' });
-    expect(run(final, { type: 'CONFIRM_REQUESTED' })).toBe(final);
-  });
-
-  it('CONFIRM with unconfirmed non-core fields asks first and sends nothing', () => {
-    const draft = allConfirmed();
-    draft.fields.gender.status = 'missing';
-    const s = run(finalState(draft), { type: 'GO_FINAL_REQUESTED' }, { type: 'CONFIRM_REQUESTED' });
-    expect(s).toMatchObject({ busy: null, dialog: 'unconfirmed' });
-  });
-
-  it('cancelling the unconfirmed dialog sends nothing', () => {
-    const draft = allConfirmed();
-    draft.fields.gender.status = 'missing';
-    const s = run(finalState(draft), { type: 'CONFIRM_REQUESTED' }, { type: 'DIALOG_DISMISSED' });
-    expect(s).toMatchObject({ busy: null, dialog: null, view: 'final' });
-  });
-
-  it('continuing from the unconfirmed dialog sends the confirmation', () => {
-    const draft = allConfirmed();
-    draft.fields.gender.status = 'missing';
-    const s = run(finalState(draft), { type: 'CONFIRM_REQUESTED' }, { type: 'CONFIRM_PROCEEDED' });
-    expect(s).toMatchObject({ busy: 'confirm', dialog: null });
-  });
-
-  it('CONFIRM with everything confirmed sends directly', () => {
-    expect(run(finalState(), { type: 'CONFIRM_REQUESTED' })).toMatchObject({ busy: 'confirm', dialog: null });
-  });
-
-  it('prevents a second confirmation while one is in flight', () => {
-    const inFlight = run(finalState(), { type: 'CONFIRM_REQUESTED' });
-    expect(run(inFlight, { type: 'CONFIRM_REQUESTED' })).toBe(inFlight);
-  });
-
-  it('success (already_saved=false) shows the saved summary and clears the resume content', () => {
-    const base = run(finalState(), { type: 'CONFIRM_REQUESTED' });
-    const s = run(base, {
-      type: 'CONFIRM_SUCCEEDED',
-      response: sampleCreateResumeResponse({ already_saved: false, saved_at: '2026-11-10T09:00:00Z' }),
-      epoch: base.epoch,
-    });
-    expect(s).toMatchObject({ phase: 'saved', draft: null, busy: null, notice: null });
-    expect(s.savedSummary).toEqual({ name: '测试用户甲', filename: '合成简历.pdf', saved_at: '2026-11-10T09:00:00Z' });
-    expect(s.editBuffer).toEqual({});
-    expect(JSON.stringify(s)).not.toContain('13800138000');
-    expect(JSON.stringify(s)).not.toContain('test.user@example.com');
-  });
-
-  it('success (already_saved=true) shows only the already-saved notice, no summary', () => {
-    const base = run(finalState(), { type: 'CONFIRM_REQUESTED' });
-    const s = run(base, {
-      type: 'CONFIRM_SUCCEEDED',
-      response: sampleCreateResumeResponse({ already_saved: true }),
-      epoch: base.epoch,
-    });
-    expect(s).toMatchObject({ phase: 'saved', notice: 'already_saved', savedSummary: null, draft: null });
-  });
-
-  it('draft_not_found shows "maybe saved", never a success state', () => {
-    const base = run(finalState(), { type: 'CONFIRM_REQUESTED' });
-    const s = run(base, { type: 'CONFIRM_FAILED', error: apiError('draft_not_found'), epoch: base.epoch });
-    expect(s).toMatchObject({ phase: 'empty', notice: 'maybe_saved', draft: null, savedSummary: null });
-  });
-
-  it('422 returns to the sections view on the section of the first failing field', () => {
-    const base = run(finalState(), { type: 'CONFIRM_REQUESTED' });
-    const s = run(base, {
-      type: 'CONFIRM_FAILED',
-      error: apiError('validation_failed', [
-        { field: 'educations[0].school', reason: 'too_long' },
-        { field: 'phone', reason: 'invalid_format' },
-      ]),
-      epoch: base.epoch,
-    });
-    expect(s).toMatchObject({ phase: 'reviewing', view: 'sections', activeSection: 'education', busy: null });
-    expect(s.fieldErrors).toEqual({ 'educations[0].school': 'too_long', phone: 'invalid_format' });
+    expect(allConfirmedDetail().fields).not.toBeNull();
+    expect(readyToConfirm()).toMatchObject({ phase: 'reviewing', view: 'final' });
   });
 
   it.each([
-    ['timeout', ApiError.timeout()],
-    ['network', ApiError.network()],
-    ['internal_error', apiError('internal_error')],
-    ['save_failed', apiError('save_failed')],
-    ['confirmation_required', apiError('confirmation_required')],
-    ['unknown_error', ApiError.unknown(502)],
-  ])('%s stays on the final view with an error, never a success state, and allows a retry', (_name, error) => {
-    const base = run(finalState(), { type: 'CONFIRM_REQUESTED' });
-    const failed = run(base, { type: 'CONFIRM_FAILED', error, epoch: base.epoch });
-    expect(failed).toMatchObject({ phase: 'reviewing', view: 'final', busy: null, savedSummary: null });
-    expect(failed.error?.scope).toBe('confirm');
-    expect(failed.draft).not.toBeNull();
-    expect(run(failed, { type: 'CONFIRM_REQUESTED' }).busy).toBe('confirm');
+    ['saved', null],
+    ['pending', 'already_saved'],
+    ['applied', null],
+  ] as const)('opening a %s session enters the read-only saved view (notice %s)', (kind, notice) => {
+    const s = open(sampleSessionDetail(kind));
+    expect(s).toMatchObject({ phase: 'saved', draft: null, notice });
+    expect(s.saved?.update_state).toBe(sampleSessionDetail(kind).update_state);
   });
 
-  it('ignores a stale confirmation response', () => {
-    const base = run(finalState(), { type: 'CONFIRM_REQUESTED' });
-    const s = run(base, { type: 'CONFIRM_SUCCEEDED', response: sampleCreateResumeResponse(), epoch: base.epoch + 1 });
-    expect(s).toBe(base);
-  });
-});
-
-describe('new chat', () => {
-  it('asks for confirmation when an unconfirmed draft exists', () => {
-    expect(run(reviewing(), { type: 'NEW_CHAT_REQUESTED' })).toMatchObject({ dialog: 'new_chat', phase: 'reviewing' });
+  it('keeps the old view when opening fails, and shows the error', () => {
+    const before = open(sampleSessionDetail('reviewing'));
+    const s = run(before, { type: 'OPEN_REQUESTED', id: 'x' }, { type: 'READ_FAILED', error: apiError('internal_error'), epoch: before.epoch });
+    expect(s).toMatchObject({ phase: 'reviewing', busy: null, draft: before.draft });
+    expect(s.error?.scope).toBe('read');
   });
 
-  it('cancelling keeps everything', () => {
-    const before = reviewing();
-    const s = run(before, { type: 'NEW_CHAT_REQUESTED' }, { type: 'DIALOG_DISMISSED' });
-    expect(s.draft).toBe(before.draft);
-    expect(s.dialog).toBeNull();
+  it('session_not_found goes to empty with a notice and drops late responses of the old view', () => {
+    const before = open(sampleSessionDetail('reviewing'));
+    const s = run(before, { type: 'OPEN_REQUESTED', id: 'x' }, { type: 'READ_FAILED', error: apiError('session_not_found'), epoch: before.epoch });
+    expect(s).toMatchObject({ phase: 'empty', notice: 'session_gone', draft: null, epoch: before.epoch + 1 });
+    expect(sessionReducer(s, { type: 'READ_SUCCEEDED', detail: sampleSessionDetail('reviewing'), epoch: before.epoch })).toBe(s);
   });
 
-  it('confirming clears the UI state, bumps the epoch and acknowledges the overwrite', () => {
-    const before = run(reviewing(), { type: 'FIELD_EDITED', update: { job_title: 'X' } });
-    const s = run(before, { type: 'NEW_CHAT_REQUESTED' }, { type: 'NEW_CHAT_CONFIRMED' });
-    expect(s).toMatchObject({ phase: 'empty', draft: null, dialog: null, overwriteAcknowledged: true, notice: null, error: null });
-    expect(s.editBuffer).toEqual({});
-    expect(s.epoch).toBe(before.epoch + 1);
+  it('asks before leaving unsubmitted edits; "continue" opens, closing keeps the view and the edits', () => {
+    const edited = run(open(sampleSessionDetail('reviewing')), { type: 'FIELD_EDITED', update: { job_title: '改' } });
+    const asked = run(edited, { type: 'OPEN_REQUESTED', id: 'other' });
+    expect(asked).toMatchObject({ dialog: 'leave', busy: null, dialogTarget: { kind: 'switch', id: 'other' } });
+    expect(run(asked, { type: 'LEAVE_CONFIRMED' })).toMatchObject({ busy: 'read', dialog: null });
+    expect(run(asked, { type: 'DIALOG_DISMISSED' })).toMatchObject({ dialog: null, editBuffer: { job_title: '改' }, phase: 'reviewing' });
   });
 
-  it('resets immediately (no dialog) from the empty state', () => {
-    const empty = run(initialState(), { type: 'BOOTSTRAP_SUCCEEDED', draft: null, epoch: 0 });
-    const s = run(empty, { type: 'NEW_CHAT_REQUESTED' });
-    expect(s).toMatchObject({ phase: 'empty', dialog: null, overwriteAcknowledged: false });
-  });
-
-  it('resets immediately from the saved state and clears the summary', () => {
-    const base = run(reviewing(allConfirmed()), { type: 'CONFIRM_REQUESTED' });
-    const saved = run(base, { type: 'CONFIRM_SUCCEEDED', response: sampleCreateResumeResponse(), epoch: base.epoch });
-    const s = run(saved, { type: 'UPLOAD_NEXT' });
-    expect(s).toMatchObject({ phase: 'empty', savedSummary: null, notice: null, dialog: null });
-    expect(run(saved, { type: 'NEW_CHAT_REQUESTED' }).phase).toBe('empty');
-  });
-
-  it('is ignored while a request is in flight', () => {
-    const uploading = run(run(initialState(), { type: 'BOOTSTRAP_SUCCEEDED', draft: null, epoch: 0 }), { type: 'FILE_SELECTED', file: pdf() });
-    expect(run(uploading, { type: 'NEW_CHAT_REQUESTED' })).toBe(uploading);
-  });
-
-  it('discards a response that arrives after the new chat (stale epoch)', () => {
-    const inFlight = run(reviewing(), { type: 'SECTION_CONFIRM_REQUESTED', section: 'intent' });
-    const afterReset = { ...inFlight, busy: null as null }; // the UI blocks reset while busy; simulate a late reset
-    const reset = run(afterReset, { type: 'NEW_CHAT_REQUESTED' }, { type: 'NEW_CHAT_CONFIRMED' });
-    const s = run(reset, { type: 'PATCH_SUCCEEDED', draft: sampleDraft(), section: 'intent', epoch: inFlight.epoch });
-    expect(s).toBe(reset);
+  it.each<SessionAction>([
+    { type: 'OPEN_REQUESTED', id: 'x' },
+    { type: 'NEW_CHAT_REQUESTED' },
+    { type: 'SEND_REQUESTED', text: 'hi' },
+    { type: 'FILE_SELECTED', file: pdf() },
+    { type: 'DELETE_REQUESTED', id: 'x', status: 'saved' },
+  ])('ignores %o while a request is in flight (busy mutual exclusion)', (action) => {
+    const busy = run(open(sampleSessionDetail('reviewing')), { type: 'SECTION_CONFIRM_REQUESTED', section: 'basic' });
+    expect(busy.busy).toBe('patch');
+    expect(sessionReducer(busy, action)).toBe(busy);
   });
 });
 
-describe('notices and state hygiene', () => {
-  it('dismisses the restored notice', () => {
-    expect(run(reviewing(), { type: 'NOTICE_DISMISSED' }).notice).toBeNull();
+describe('B. upload creates a new session', () => {
+  it('valid file starts the upload; invalid file only sets a local error', () => {
+    expect(run(initialState(), { type: 'FILE_SELECTED', file: pdf() })).toMatchObject({ busy: 'upload' });
+    const bad = run(initialState(), { type: 'FILE_SELECTED', file: new File(['x'], 'a.docx') });
+    expect(bad).toMatchObject({ busy: null, error: { scope: 'upload', cause: { kind: 'local' } } });
   });
 
-  it('never stores browser-persistable resume content outside the draft and buffer', () => {
-    const s = run(reviewing(), { type: 'GO_FINAL_REQUESTED' });
-    expect(Object.keys(s).sort()).toEqual(
-      [
-        'activeSection',
-        'busy',
-        'dialog',
-        'draft',
-        'editBuffer',
-        'epoch',
-        'error',
-        'fieldErrors',
-        'notice',
-        'overwriteAcknowledged',
-        'pendingFile',
-        'phase',
-        'restored',
-        'savedSummary',
-        'view',
-      ].sort(),
+  it('success replaces the view with the new session (no overwrite dialog), failure keeps the old view', () => {
+    const before = open(sampleSessionDetail('saved'));
+    const started = run(before, { type: 'FILE_SELECTED', file: pdf() });
+    expect(started).toMatchObject({ busy: 'upload', dialog: null });
+    const ok = run(started, { type: 'UPLOAD_SUCCEEDED', detail: { ...sampleSessionDetail('reviewing'), session_id: 'new' }, epoch: started.epoch });
+    expect(ok).toMatchObject({ phase: 'reviewing', sessionId: 'new', messages: [], pendingFile: null });
+    const failed = run(started, { type: 'UPLOAD_FAILED', error: apiError('parse_failed'), epoch: started.epoch });
+    expect(failed).toMatchObject({ phase: 'saved', busy: null, pendingFile: null, error: { scope: 'upload' } });
+  });
+
+  it('unsubmitted edits go through the leave dialog first (upload intent)', () => {
+    const edited = run(open(sampleSessionDetail('reviewing')), { type: 'FIELD_EDITED', update: { job_title: '改' } });
+    const asked = run(edited, { type: 'FILE_SELECTED', file: pdf() });
+    expect(asked).toMatchObject({ dialog: 'leave', busy: null });
+    expect(run(asked, { type: 'LEAVE_CONFIRMED' })).toMatchObject({ busy: 'upload', dialog: null });
+  });
+});
+
+describe('C. section editing', () => {
+  it('confirming a section patches, then replaces the fields and drops that section buffer', () => {
+    const edited = run(open(sampleSessionDetail('reviewing')), { type: 'FIELD_EDITED', update: { homepage: 'https://e.example', job_title: '改' } });
+    const patching = run(edited, { type: 'SECTION_CONFIRM_REQUESTED', section: 'basic' });
+    expect(patching.busy).toBe('patch');
+    const fields = structuredClone(patching.draft!.fields);
+    fields.homepage = { value: 'https://e.example', status: 'confirmed' };
+    const s = run(patching, { type: 'PATCH_SUCCEEDED', response: { session_id: 'x', fields, updated_at: 't' }, section: 'basic', epoch: patching.epoch });
+    expect(s.draft?.fields.homepage.value).toBe('https://e.example');
+    expect(s.editBuffer).toEqual({ job_title: '改' });
+    expect(s.busy).toBeNull();
+  });
+
+  it('422 keeps the buffer and maps details to fields; other failures keep the buffer too', () => {
+    const patching = run(
+      open(sampleSessionDetail('reviewing')),
+      { type: 'FIELD_EDITED', update: { homepage: 'x' } },
+      { type: 'SECTION_CONFIRM_REQUESTED', section: 'basic' },
     );
-    expect(sampleFields().name.value).toBe('测试用户甲');
+    const s = run(patching, { type: 'PATCH_FAILED', error: apiError('validation_failed', [{ field: 'email', reason: 'invalid_format' }]), epoch: patching.epoch });
+    expect(s).toMatchObject({ busy: null, editBuffer: { homepage: 'x' }, fieldErrors: { email: 'invalid_format' } });
+  });
+
+  it('session_read_only on patch triggers a verifying read and then shows the saved view', () => {
+    const patching = run(open(sampleSessionDetail('reviewing')), { type: 'SECTION_CONFIRM_REQUESTED', section: 'basic' });
+    const reading = run(patching, { type: 'PATCH_FAILED', error: apiError('session_read_only'), epoch: patching.epoch });
+    expect(reading).toMatchObject({ busy: 'read', readPurpose: 'sync' });
+    const s = run(reading, { type: 'SESSION_SYNCED', detail: sampleSessionDetail('saved'), epoch: reading.epoch });
+    expect(s).toMatchObject({ phase: 'saved', busy: null, draft: null });
+    expect(s.error?.scope).toBe('section');
+  });
+
+  it('final view needs the unsubmitted edits resolved first', () => {
+    const edited = run(open(sampleSessionDetail('reviewing')), { type: 'FIELD_EDITED', update: { job_title: '改' } });
+    const asked = run(edited, { type: 'GO_FINAL_REQUESTED' });
+    expect(asked.dialog).toBe('unsubmitted_edits');
+    expect(run(asked, { type: 'DISCARD_EDITS_AND_GO_FINAL' })).toMatchObject({ view: 'final', editBuffer: {}, dialog: null });
+  });
+});
+
+describe('D. chat and suggestions', () => {
+  it('sends: busy chat with the known ids, success appends both messages', () => {
+    const base = open(withCard());
+    const sending = run(base, { type: 'SEND_REQUESTED', text: '哨兵-对话-0002' });
+    expect(sending).toMatchObject({ busy: 'chat', pendingMessage: { stage: 'sending', knownIds: ['u1', 'a1'] } });
+    const s = run(sending, { type: 'SEND_SUCCEEDED', response: sampleSendMessageResponse([]), epoch: sending.epoch });
+    expect(s.messages).toHaveLength(4);
+    expect(s).toMatchObject({ busy: null, pendingMessage: null });
+  });
+
+  it.each(['', '   ', 'x'.repeat(2001)])('ignores an unsendable text (%#)', (text) => {
+    const base = open(sampleSessionDetail('reviewing'));
+    expect(sessionReducer(base, { type: 'SEND_REQUESTED', text })).toBe(base);
+  });
+
+  it('chat_failed becomes "failed" (resend directly); a timeout becomes "unknown" (read first)', () => {
+    const sending = run(open(sampleSessionDetail('reviewing')), { type: 'SEND_REQUESTED', text: 'hi' });
+    const failed = run(sending, { type: 'SEND_FAILED', error: apiError('chat_failed'), epoch: sending.epoch });
+    expect(failed.pendingMessage?.stage).toBe('failed');
+    expect(run(failed, { type: 'MESSAGE_RETRY_REQUESTED' })).toMatchObject({ busy: 'chat', pendingMessage: { stage: 'sending' } });
+
+    const unknown = run(sending, { type: 'SEND_FAILED', error: timeoutError(), epoch: sending.epoch });
+    expect(unknown.pendingMessage?.stage).toBe('unknown');
+    const verifying = run(unknown, { type: 'MESSAGE_RETRY_REQUESTED' });
+    expect(verifying).toMatchObject({ busy: 'read', readPurpose: 'verify_message' });
+    // Found on the server: take its messages; not found: send again.
+    const found = run(verifying, { type: 'MESSAGE_VERIFIED', detail: withCard(), epoch: verifying.epoch });
+    expect(found).toMatchObject({ busy: null, pendingMessage: null, messages: withCard().messages });
+    expect(run(verifying, { type: 'MESSAGE_RESEND', epoch: verifying.epoch })).toMatchObject({ busy: 'chat', pendingMessage: { stage: 'sending' } });
+  });
+
+  it('discarding a pending message clears it without a request', () => {
+    const sending = run(open(sampleSessionDetail('reviewing')), { type: 'SEND_REQUESTED', text: 'hi' });
+    const failed = run(sending, { type: 'SEND_FAILED', error: apiError('chat_failed'), epoch: sending.epoch });
+    expect(run(failed, { type: 'MESSAGE_DISCARDED' })).toMatchObject({ pendingMessage: null, error: null, busy: null });
+  });
+
+  it('applying a card replaces the fields and drops only the unsubmitted edits of applied fields', () => {
+    const edited = run(open(withCard()), { type: 'FIELD_EDITED', update: { job_title: '手改', homepage: '留下' } });
+    const applying = run(edited, { type: 'SUGGEST_REQUESTED', messageId: 'a1' });
+    expect(applying.busy).toBe('suggest');
+    const fields = structuredClone(applying.draft!.fields);
+    fields.job_title = { value: '采购总监', status: 'confirmed' };
+    const s = run(applying, {
+      type: 'SUGGEST_SUCCEEDED',
+      response: { message_id: 'a1', suggestions: [sampleSuggestion({ status: 'applied', old_value: null })], fields, updated_at: 't' },
+      epoch: applying.epoch,
+    });
+    expect(s.draft?.fields.job_title.value).toBe('采购总监');
+    expect(s.editBuffer).toEqual({ homepage: '留下' });
+    expect(s.messages[1]?.suggestions[0]?.status).toBe('applied');
+  });
+
+  it('an already handled card (suggestion_unavailable) is re-read; a card that is not pending cannot be acted on', () => {
+    const applying = run(open(withCard()), { type: 'SUGGEST_REQUESTED', messageId: 'a1' });
+    const s = run(applying, { type: 'SUGGEST_FAILED', error: apiError('suggestion_unavailable'), messageId: 'a1', epoch: applying.epoch });
+    expect(s).toMatchObject({ busy: 'read', readPurpose: 'sync', error: { scope: 'suggest', messageId: 'a1' } });
+    const done = run(open(withCard()), { type: 'SUGGEST_REQUESTED', messageId: 'u1' });
+    expect(done.busy).toBeNull();
+  });
+});
+
+describe('E. final confirmation and save (F-03)', () => {
+  it('asks about unconfirmed fields before saving', () => {
+    const detail = allConfirmedDetail();
+    detail.fields!.homepage = { value: null, status: 'missing' };
+    const s = run(open(detail), { type: 'GO_FINAL_REQUESTED' }, { type: 'BACK_TO_SECTIONS' });
+    expect(s.view).toBe('sections');
+    const finalView = { ...s, view: 'final' as const };
+    expect(run(finalView, { type: 'CONFIRM_REQUESTED' }).dialog).toBe('unconfirmed');
+  });
+
+  it('201 saves: saved phase with a summary and no notice; 200 already_saved: notice, no summary', () => {
+    const confirming = run(readyToConfirm(), { type: 'CONFIRM_REQUESTED' });
+    expect(confirming).toMatchObject({ busy: 'confirm', phase: 'reviewing' });
+    const detail = sampleSessionDetail('saved');
+    const fresh = run(confirming, { type: 'CONFIRM_SUCCEEDED', response: sampleCreateResumeResponse(), detail, readError: null, epoch: confirming.epoch });
+    expect(fresh).toMatchObject({ phase: 'saved', draft: null, notice: null, savedSummary: { name: '测试用户甲', filename: '合成简历.pdf' } });
+    const again = run(confirming, { type: 'CONFIRM_SUCCEEDED', response: sampleCreateResumeResponse({ already_saved: true }), detail: sampleSessionDetail('pending'), readError: null, epoch: confirming.epoch });
+    expect(again).toMatchObject({ phase: 'saved', notice: 'already_saved', savedSummary: null });
+  });
+
+  it('a successful save whose reload failed is still saved, with a read error to retry', () => {
+    const confirming = run(readyToConfirm(), { type: 'CONFIRM_REQUESTED' });
+    const s = run(confirming, { type: 'CONFIRM_SUCCEEDED', response: sampleCreateResumeResponse(), detail: null, readError: apiError('internal_error'), epoch: confirming.epoch });
+    expect(s).toMatchObject({ phase: 'saved', saved: null, error: { scope: 'read' } });
+  });
+
+  it.each<ErrorCode>(['save_failed', 'internal_error', 'confirmation_required'])('%s stays in reviewing/final, nothing is "saved"', (code) => {
+    const confirming = run(readyToConfirm(), { type: 'CONFIRM_REQUESTED' });
+    const s = run(confirming, { type: 'CONFIRM_FAILED', error: apiError(code), epoch: confirming.epoch });
+    expect(s).toMatchObject({ phase: 'reviewing', view: 'final', busy: null, notice: null, savedSummary: null, error: { scope: 'confirm' } });
+  });
+
+  it.each([timeoutError(), ApiError.network(), ApiError.unknown(), apiError('session_read_only')])('unknown outcome (%s) reads the session before saying anything', (error) => {
+    const confirming = run(readyToConfirm(), { type: 'CONFIRM_REQUESTED' });
+    const reading = run(confirming, { type: 'CONFIRM_FAILED', error, epoch: confirming.epoch });
+    expect(reading).toMatchObject({ phase: 'reviewing', busy: 'read', readPurpose: 'verify_confirm', notice: null, savedSummary: null });
+    // The server still says reviewing: not saved, retry allowed.
+    const notSaved = run(reading, { type: 'CONFIRM_VERIFIED', detail: allConfirmedDetail(), epoch: reading.epoch });
+    expect(notSaved).toMatchObject({ phase: 'reviewing', view: 'final', busy: null, notice: null, savedSummary: null });
+    // The server says saved: now (and only now) the saved phase shows.
+    const saved = run(reading, { type: 'CONFIRM_VERIFIED', detail: sampleSessionDetail('saved'), epoch: reading.epoch });
+    expect(saved).toMatchObject({ phase: 'saved', notice: null, savedSummary: { name: '测试用户甲' } });
+    const existing = run(reading, { type: 'CONFIRM_VERIFIED', detail: sampleSessionDetail('pending'), epoch: reading.epoch });
+    expect(existing).toMatchObject({ phase: 'saved', notice: 'already_saved', savedSummary: null });
+  });
+
+  it('a failed verifying read is an error, not a success', () => {
+    const confirming = run(readyToConfirm(), { type: 'CONFIRM_REQUESTED' });
+    const reading = run(confirming, { type: 'CONFIRM_FAILED', error: timeoutError(), epoch: confirming.epoch });
+    const s = run(reading, { type: 'READ_FAILED', error: ApiError.network(), epoch: reading.epoch });
+    expect(s).toMatchObject({ phase: 'reviewing', busy: null, savedSummary: null, error: { scope: 'confirm' } });
+  });
+
+  it('422 returns to the section with the error and ignores a stale success', () => {
+    const confirming = run(readyToConfirm(), { type: 'CONFIRM_REQUESTED' });
+    const s = run(confirming, { type: 'CONFIRM_FAILED', error: apiError('validation_failed', [{ field: 'phone', reason: 'invalid_format' }]), epoch: confirming.epoch });
+    expect(s).toMatchObject({ view: 'sections', activeSection: 'basic', fieldErrors: { phone: 'invalid_format' } });
+    expect(sessionReducer(confirming, { type: 'CONFIRM_SUCCEEDED', response: sampleCreateResumeResponse(), detail: null, readError: null, epoch: confirming.epoch - 1 })).toBe(confirming);
+  });
+});
+
+describe('F. confirmed update (F-03)', () => {
+  const diffOpen = () => run(savedPending(), { type: 'DIFF_OPENED' });
+
+  it('opening the diff card builds the diff without a request, shows no "updated", and needs a candidate', () => {
+    const s = diffOpen();
+    expect(s.diff?.changed.map((c) => [c.field, c.clears])).toEqual([['job_title', false], ['expected_salary', true]]);
+    expect(s).toMatchObject({ busy: null, notice: 'already_saved' });
+    const plain = open(sampleSessionDetail('saved'));
+    expect(sessionReducer(plain, { type: 'DIFF_OPENED' })).toBe(plain);
+    expect(run(s, { type: 'DIFF_CLOSED' }).diff).toBeNull();
+  });
+
+  it('the update request needs an open diff; success shows "updated" and the new record', () => {
+    const updating = run(diffOpen(), { type: 'UPDATE_REQUESTED' });
+    expect(updating.busy).toBe('update');
+    expect(sessionReducer(savedPending(), { type: 'UPDATE_REQUESTED' }).busy).toBeNull();
+    const s = run(updating, { type: 'UPDATE_SUCCEEDED', response: { resume_id: 'r', updated_at: 't' }, detail: sampleSessionDetail('applied'), readError: null, epoch: updating.epoch });
+    expect(s).toMatchObject({ busy: null, diff: null, notice: 'updated', saved: { update_state: 'applied' } });
+  });
+
+  it.each([apiError('save_failed'), apiError('internal_error'), timeoutError(), ApiError.network(), ApiError.unknown()])(
+    '%s keeps the diff card and never shows "updated"',
+    (error) => {
+      const updating = run(diffOpen(), { type: 'UPDATE_REQUESTED' });
+      const s = run(updating, { type: 'UPDATE_FAILED', error, epoch: updating.epoch });
+      expect(s).toMatchObject({ busy: null, notice: 'already_saved', error: { scope: 'update' } });
+      expect(s.diff).not.toBeNull();
+    },
+  );
+
+  it('update_not_available reads first; "applied" counts as updated, "pending" does not', () => {
+    const updating = run(diffOpen(), { type: 'UPDATE_REQUESTED' });
+    const reading = run(updating, { type: 'UPDATE_FAILED', error: apiError('update_not_available'), epoch: updating.epoch });
+    expect(reading).toMatchObject({ busy: 'read', readPurpose: 'verify_update' });
+    const applied = run(reading, { type: 'UPDATE_VERIFIED', detail: sampleSessionDetail('applied'), epoch: reading.epoch });
+    expect(applied).toMatchObject({ notice: 'updated', diff: null });
+    const pending = run(reading, { type: 'UPDATE_VERIFIED', detail: sampleSessionDetail('pending'), epoch: reading.epoch });
+    expect(pending.notice).not.toBe('updated');
+    expect(pending.diff).not.toBeNull();
+  });
+
+  it('after a timeout the user can re-read to verify', () => {
+    const updating = run(diffOpen(), { type: 'UPDATE_REQUESTED' });
+    const unknown = run(updating, { type: 'UPDATE_FAILED', error: timeoutError(), epoch: updating.epoch });
+    const reading = run(unknown, { type: 'UPDATE_VERIFY_REQUESTED' });
+    expect(reading).toMatchObject({ busy: 'read', readPurpose: 'verify_update' });
+    expect(run(reading, { type: 'UPDATE_VERIFIED', detail: sampleSessionDetail('applied'), epoch: reading.epoch }).notice).toBe('updated');
+  });
+});
+
+describe('G. delete and new chat', () => {
+  it('delete asks first; deleting the current session empties the view, another one leaves it', () => {
+    const base = open(sampleSessionDetail('reviewing'));
+    const asked = run(base, { type: 'DELETE_REQUESTED', id: 'other', status: 'saved' });
+    expect(asked).toMatchObject({ dialog: 'delete', dialogTarget: { kind: 'delete', id: 'other', status: 'saved' } });
+    const deleting = run(asked, { type: 'DELETE_CONFIRMED' });
+    expect(deleting.busy).toBe('delete');
+    expect(run(deleting, { type: 'DELETE_SUCCEEDED', id: 'other', epoch: deleting.epoch })).toMatchObject({ phase: 'reviewing', busy: null });
+    const current = run(base, { type: 'DELETE_REQUESTED', id: base.sessionId!, status: 'reviewing' }, { type: 'DELETE_CONFIRMED' });
+    expect(run(current, { type: 'DELETE_SUCCEEDED', id: base.sessionId!, epoch: current.epoch })).toMatchObject({ phase: 'empty', sessionId: null, epoch: base.epoch + 1 });
+  });
+
+  it('a failed delete keeps the view and shows the error', () => {
+    const deleting = run(open(sampleSessionDetail('saved')), { type: 'DELETE_REQUESTED', id: 'x', status: 'saved' }, { type: 'DELETE_CONFIRMED' });
+    expect(run(deleting, { type: 'DELETE_FAILED', error: apiError('internal_error'), epoch: deleting.epoch })).toMatchObject({ phase: 'saved', busy: null, error: { scope: 'delete' } });
+  });
+
+  it('new chat clears the view without deleting; unsubmitted edits ask first', () => {
+    const base = open(sampleSessionDetail('reviewing'));
+    expect(run(base, { type: 'NEW_CHAT_REQUESTED' })).toMatchObject({ phase: 'empty', sessionId: null, draft: null, messages: [] });
+    const edited = run(base, { type: 'FIELD_EDITED', update: { job_title: '改' } }, { type: 'NEW_CHAT_REQUESTED' });
+    expect(edited).toMatchObject({ phase: 'reviewing', dialog: 'leave' });
+    expect(run(edited, { type: 'LEAVE_CONFIRMED' })).toMatchObject({ phase: 'empty', dialog: null });
+  });
+
+  it('the saved view keeps no resume content outside saved.resume', () => {
+    const s = savedPending();
+    const copy = JSON.stringify({ ...s, saved: null, messages: [] });
+    expect(copy).not.toContain('13800138000');
+    expect(copy).not.toContain('test.user@example.com');
   });
 });

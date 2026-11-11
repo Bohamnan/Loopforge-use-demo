@@ -1,6 +1,6 @@
-// Mirror of OpenAPI 0.1.1 error schemas (see ResumeModel.ts for the maintenance rule).
+// Mirror of OpenAPI 0.2.0 error schemas (see ResumeModel.ts for the maintenance rule).
 
-/** ErrorCode: the 13 business codes returned by the backend. */
+/** ErrorCode: the 19 business codes returned by the backend. */
 export const ERROR_CODES = [
   'file_missing',
   'file_empty',
@@ -10,9 +10,15 @@ export const ERROR_CODES = [
   'parse_failed',
   'parse_unavailable',
   'parse_timeout',
-  'draft_not_found',
+  'session_not_found',
+  'session_read_only',
   'validation_failed',
   'confirmation_required',
+  'chat_failed',
+  'suggestion_unavailable',
+  'update_not_available',
+  'resume_not_found',
+  'file_not_available',
   'save_failed',
   'internal_error',
 ] as const;

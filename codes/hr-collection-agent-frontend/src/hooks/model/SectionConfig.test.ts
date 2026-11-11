@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { RESUME_FIELD_KEYS } from '../../types/ResumeModel';
-import { SECTIONS, SECTION_KEYS, getSection, sectionKeyOfField } from './SectionConfig';
+import { RESUME_FIELD_KEYS, SUGGESTION_FIELDS } from '../../types/ResumeModel';
+import { SECTIONS, SECTION_KEYS, getSection, labelOfField, sectionKeyOfField } from './SectionConfig';
 
 describe('SectionConfig', () => {
   it('has 11 sections in the designed order', () => {
@@ -88,5 +88,13 @@ describe('SectionConfig', () => {
     expect(sectionKeyOfField('phone')).toBe('basic');
     expect(sectionKeyOfField('current_city')).toBe('personal');
     expect(sectionKeyOfField('educations')).toBe('education');
+  });
+});
+
+describe('labelOfField', () => {
+  it('labels all 19 suggestion fields and rejects fields outside the whitelist', () => {
+    for (const key of SUGGESTION_FIELDS) expect(labelOfField(key)).not.toBe('');
+    expect(labelOfField('job_title')).toBe('意向岗位');
+    expect(() => labelOfField('educations')).toThrow();
   });
 });
