@@ -183,7 +183,7 @@
 
 ---
 
-### Task 1.5：core：SQLite 辅助与两库初始化　↺ v2
+### Task 1.5：core：SQLite 辅助与两库初始化　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `core/db.py`、`tests/core/test_db.py`。

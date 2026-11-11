@@ -1,6 +1,6 @@
 """SQLite helpers: connection factory, two-database initialisation, write transactions.
 
-DDL mirrors backend-docs/HR_PR-1/02_schema/sql_ddl_resume.md (schema version 1).
+DDL mirrors backend-docs/HR_PR-1/02_schema/sql_ddl_resume.md (drafts.db version 2, resumes.db version 1).
 """
 
 import sqlite3
@@ -8,27 +8,73 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+DRAFTS_SCHEMA_VERSION = 2
+RESUMES_SCHEMA_VERSION = 1
 MIN_SQLITE_VERSION = (3, 35, 0)  # DELETE/UPDATE ... RETURNING is used by the repositories
 DEFAULT_BUSY_TIMEOUT_MS = 5000
 
-DRAFTS_DDL = """
-CREATE TABLE IF NOT EXISTS drafts (
+SESSIONS_DDL = """
+CREATE TABLE IF NOT EXISTS sessions (
     id                TEXT    NOT NULL PRIMARY KEY,
-    token_hash        TEXT    NOT NULL,
-    file_path         TEXT    NOT NULL,
+    browser_hash      TEXT    NOT NULL,
+    status            TEXT    NOT NULL DEFAULT 'reviewing'
+                      CHECK (status IN ('reviewing', 'saved')),
+    file_path         TEXT,
     original_filename TEXT    NOT NULL,
     content_type      TEXT    NOT NULL
                       CHECK (content_type IN ('application/pdf', 'image/jpeg', 'image/png')),
     file_size         INTEGER NOT NULL
                       CHECK (file_size > 0 AND file_size <= 10485760),
-    fields_json       TEXT    NOT NULL,
+    fields_json       TEXT    NOT NULL CHECK (json_valid(fields_json)),
+    resume_id         TEXT,
+    update_state      TEXT    NOT NULL DEFAULT 'none'
+                      CHECK (update_state IN ('none', 'pending', 'applied')),
     created_at        TEXT    NOT NULL,
     updated_at        TEXT    NOT NULL,
-    last_active_at    TEXT    NOT NULL
+    last_active_at    TEXT    NOT NULL,
+    CHECK (
+        (status = 'reviewing' AND resume_id IS NULL AND update_state = 'none'
+            AND file_path IS NOT NULL)
+        OR
+        (status = 'saved' AND resume_id IS NOT NULL
+            AND (update_state <> 'pending' OR file_path IS NOT NULL))
+    )
 );
-CREATE UNIQUE INDEX IF NOT EXISTS uq_drafts_token_hash ON drafts (token_hash);
-CREATE INDEX        IF NOT EXISTS idx_drafts_last_active ON drafts (last_active_at);
+CREATE INDEX IF NOT EXISTS idx_sessions_browser_active
+    ON sessions (browser_hash, last_active_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sessions_resume ON sessions (resume_id);
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id          TEXT    NOT NULL PRIMARY KEY,
+    session_id  TEXT    NOT NULL REFERENCES sessions (id) ON DELETE CASCADE,
+    seq         INTEGER NOT NULL CHECK (seq >= 1),
+    role        TEXT    NOT NULL CHECK (role IN ('user', 'assistant')),
+    content     TEXT    NOT NULL CHECK (length(content) > 0),
+    created_at  TEXT    NOT NULL,
+    updated_at  TEXT    NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_chat_messages_session_seq ON chat_messages (session_id, seq);
+CREATE TABLE IF NOT EXISTS chat_suggestions (
+    id            TEXT    NOT NULL PRIMARY KEY,
+    session_id    TEXT    NOT NULL REFERENCES sessions (id) ON DELETE CASCADE,
+    message_id    TEXT    NOT NULL REFERENCES chat_messages (id) ON DELETE CASCADE,
+    seq           INTEGER NOT NULL CHECK (seq >= 1),
+    field         TEXT    NOT NULL
+                  CHECK (field IN ('name','job_title','expected_city','expected_salary',
+                                   'available_time','phone','email','homepage','gender',
+                                   'birth_month','political_status','current_city','work_years',
+                                   'highest_education','self_evaluation','strengths','skills',
+                                   'certificates_honors','languages')),
+    new_value_json TEXT   NOT NULL CHECK (json_valid(new_value_json)),
+    applicable    INTEGER NOT NULL CHECK (applicable IN (0, 1)),
+    reason        TEXT    CHECK (reason IN ('required','invalid_format','invalid_type','too_long')),
+    status        TEXT    NOT NULL DEFAULT 'pending'
+                  CHECK (status IN ('pending', 'applied', 'cancelled')),
+    created_at    TEXT    NOT NULL,
+    updated_at    TEXT    NOT NULL,
+    CHECK ((applicable = 1 AND reason IS NULL) OR (applicable = 0 AND reason IS NOT NULL))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_chat_suggestions_msg_seq ON chat_suggestions (message_id, seq);
+CREATE INDEX IF NOT EXISTS idx_chat_suggestions_session ON chat_suggestions (session_id);
 """
 
 RESUMES_DDL = """
@@ -141,25 +187,36 @@ def _check_sqlite_version() -> None:
         raise RuntimeError("SQLite >= 3.35 is required (RETURNING support)")
 
 
-def _init(path: Path, ddl: str) -> None:
+def _statements(ddl: str) -> list[str]:
+    """Split a DDL script into statements (the scripts contain no literal semicolons)."""
+    return [part.strip() for part in ddl.split(";") if part.strip()]
+
+
+def _init(path: Path, ddl: str, version: int, *, drop_before_upgrade: tuple[str, ...] = ()) -> None:
+    """Create or upgrade one database inside a single transaction (DDL is transactional)."""
     _check_sqlite_version()
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = connect(path)
     try:
-        version = conn.execute("PRAGMA user_version").fetchone()[0]
-        if version > SCHEMA_VERSION:
-            raise RuntimeError(f"database schema version {version} is newer than supported")
-        conn.executescript(ddl)
-        conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+        with transaction(conn):
+            current = conn.execute("PRAGMA user_version").fetchone()[0]
+            if current > version:
+                raise RuntimeError(f"database schema version {current} is newer than supported")
+            if current < version:
+                for table in drop_before_upgrade:  # v1 drafts are discarded, not migrated
+                    conn.execute(f"DROP TABLE IF EXISTS {table}")  # noqa: S608 - constant names
+            for statement in _statements(ddl):
+                conn.execute(statement)
+            conn.execute(f"PRAGMA user_version = {version}")
     finally:
         conn.close()
 
 
 def init_drafts_db(path: Path) -> None:
-    """Create the drafts database if needed (idempotent)."""
-    _init(path, DRAFTS_DDL)
+    """Create or upgrade the sessions/chat database to version 2 (idempotent)."""
+    _init(path, SESSIONS_DDL, DRAFTS_SCHEMA_VERSION, drop_before_upgrade=("drafts",))
 
 
 def init_resumes_db(path: Path) -> None:
     """Create the resumes database and sub-tables if needed (idempotent)."""
-    _init(path, RESUMES_DDL)
+    _init(path, RESUMES_DDL, RESUMES_SCHEMA_VERSION)
