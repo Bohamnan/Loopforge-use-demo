@@ -221,7 +221,7 @@
 
 ---
 
-### Task 1.7：api 基础：应用工厂、中间件、异常处理、Cookie、依赖装配　↺ v2
+### Task 1.7：api 基础：应用工厂、中间件、异常处理、Cookie、依赖装配　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `api/cookies.py`、`api/deps.py`、`api/error_handlers.py`、`main.py`（版本 0.2.0；路由随各接口任务注册）、`tests/api/conftest.py`、`tests/api/test_cookies_deps.py`、`tests/api/test_error_handling.py`。

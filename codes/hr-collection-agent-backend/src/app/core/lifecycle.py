@@ -36,6 +36,7 @@ from app.services.cleanup_service import CleanupService
 from app.services.reconcile_service import ReconcileService
 
 STOP_JOIN_TIMEOUT_SECONDS = 5.0
+DEFAULT_CLEANUP_INTERVAL_SECONDS = 3600.0  # transitional: lifecycle is rewritten by task 2.7
 
 
 class Lifecycle:
@@ -51,9 +52,7 @@ class Lifecycle:
         self._settings = settings
         self._clock = clock
         self._interval = (
-            float(settings.cleanup_interval_seconds)
-            if interval_seconds is None
-            else interval_seconds
+            DEFAULT_CLEANUP_INTERVAL_SECONDS if interval_seconds is None else interval_seconds
         )
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None

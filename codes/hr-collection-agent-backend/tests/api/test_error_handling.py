@@ -11,8 +11,8 @@ def test_app_error_body_and_status(client: TestClient) -> None:
     r = client.get("/t/app-error")
     assert r.status_code == 404
     body = r.json()
-    assert body["code"] == "draft_not_found"
-    assert body["message"] == "没有可恢复的草稿，请重新上传简历。"
+    assert body["code"] == "session_not_found"
+    assert body["message"] == "该会话不存在或已被删除。"
     assert re.fullmatch(r"req_[0-9a-f]{16}", body["request_id"])
     assert "details" not in body
 
@@ -38,7 +38,7 @@ def test_pydantic_validation_maps_to_validation_failed_without_input(
     client: TestClient,
 ) -> None:
     payload = {"fields": {"nick": "ZZ-secret", "name": "a" * 101, "skills": "ZZ-secret"}}
-    r = client.patch("/t/model", json=payload)
+    r = client.patch("/api/v1/sessions/s1/fields", json=payload)
     assert r.status_code == 422
     body = r.json()
     assert body["code"] == "validation_failed"
@@ -49,47 +49,56 @@ def test_pydantic_validation_maps_to_validation_failed_without_input(
 
 
 def test_missing_fields_key(client: TestClient) -> None:
-    r = client.patch("/t/model", json={})
+    r = client.patch("/api/v1/sessions/s1/fields", json={})
     assert r.status_code == 422
     assert r.json()["details"] == [{"field": "fields", "reason": "required"}]
 
 
 def test_invalid_json_body(client: TestClient) -> None:
     r = client.patch(
-        "/t/model", content=b"{not json ZZ", headers={"content-type": "application/json"}
+        "/api/v1/sessions/s1/fields",
+        content=b"{not json ZZ",
+        headers={"content-type": "application/json"},
     )
     assert r.status_code == 422
     assert r.json()["code"] == "validation_failed"
     assert "ZZ" not in r.text
 
 
-def test_confirmed_missing_is_confirmation_required(client: TestClient) -> None:
-    for body in ({}, None):
-        r = (
-            client.post("/api/v1/resumes", json=body)
-            if body is not None
-            else client.post("/api/v1/resumes")
-        )
-        assert r.status_code == 422
-        assert r.json()["code"] == "confirmation_required"
-        assert "details" not in r.json()
+CONFIRM_URL = "/api/v1/sessions/s1/resume"
 
 
-def test_confirmed_wrong_type_is_confirmation_required(client: TestClient) -> None:
-    r = client.post("/api/v1/resumes", json={"confirmed": "ZZ-yes-maybe"})
-    assert r.status_code == 422 and r.json()["code"] == "confirmation_required"
-    assert "ZZ" not in r.text
+@pytest.mark.parametrize(("method", "key"), [("post", "confirmed"), ("put", "confirm_update")])
+def test_missing_or_non_boolean_confirmation_is_confirmation_required(
+    client: TestClient, method: str, key: str
+) -> None:
+    for body in ({}, {key: "ZZ-yes-maybe"}):
+        r = getattr(client, method)(CONFIRM_URL, json=body)
+        assert r.status_code == 422 and r.json()["code"] == "confirmation_required"
+        assert "details" not in r.json() and "ZZ" not in r.text
+
+
+def test_message_content_problems_are_validation_failed_with_field_name_only(
+    client: TestClient,
+) -> None:
+    url = "/api/v1/sessions/s1/messages"
+    long = client.post(url, json={"content": "ZZ-secret" * 400})
+    assert long.status_code == 422 and long.json()["code"] == "validation_failed"
+    assert long.json()["details"] == [{"field": "content", "reason": "too_long"}]
+    assert "ZZ-secret" not in long.text
+    empty = client.post(url, json={"content": ""})
+    assert empty.json()["details"] == [{"field": "content", "reason": "required"}]
 
 
 def test_upload_without_file_is_file_missing(client: TestClient) -> None:
-    assert client.post("/api/v1/resume-drafts").json()["code"] == "file_missing"
-    r = client.post("/api/v1/resume-drafts", data={"other": "x"})
+    assert client.post("/api/v1/sessions").json()["code"] == "file_missing"
+    r = client.post("/api/v1/sessions", data={"other": "x"})
     assert r.status_code == 400 and r.json()["code"] == "file_missing"
 
 
 def test_malformed_multipart_is_file_missing(client: TestClient) -> None:
     r = client.post(
-        "/api/v1/resume-drafts",
+        "/api/v1/sessions",
         content=b"garbage",
         headers={"content-type": "multipart/form-data; boundary=xyz"},
     )
@@ -123,7 +132,7 @@ def test_unknown_route_uses_unified_error_body(client: TestClient) -> None:
 def test_error_logs_contain_no_request_content(
     client: TestClient, caplog: pytest.LogCaptureFixture
 ) -> None:
-    client.patch("/t/model", json={"fields": {"name": "ZZ-secret" * 50}})
+    client.patch("/api/v1/sessions/s1/fields", json={"fields": {"name": "ZZ-secret" * 50}})
     logs = "\n".join(rec.getMessage() for rec in caplog.records)
     assert "ZZ-secret" not in logs
     assert "validation_failed" in logs

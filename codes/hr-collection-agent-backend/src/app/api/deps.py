@@ -1,21 +1,14 @@
-"""Dependency providers: settings, cookie token and service wiring (no global state)."""
+"""Dependency providers: settings, browser identifier and client wiring (no global state)."""
 
+import re
 import threading
 
-from fastapi import Cookie, Depends, Request
+from fastapi import Cookie, Request
 
 from app.api.cookies import COOKIE_NAME
 from app.clients.deepseek_client import DeepSeekClient
 from app.clients.resume_parser_client import ResumeParserClient
-from app.core.clock import Clock
 from app.core.config import Settings
-from app.core.ids import IdGenerator
-from app.repositories.archive_file_store import ArchiveFileStore
-from app.repositories.draft_file_store import DraftFileStore
-from app.repositories.draft_repository import DraftRepository
-from app.repositories.resume_repository import ResumeRepository
-from app.services.draft_service import DraftService
-from app.services.resume_service import ResumeService
 
 _PARSER_LOCK = threading.Lock()
 
@@ -25,14 +18,20 @@ def get_settings(request: Request) -> Settings:
     return request.app.state.settings
 
 
-def get_draft_token(
-    draft_token: str | None = Cookie(default=None, alias=COOKIE_NAME),
-) -> str | None:
-    """Raw draft token from the cookie; ``None`` when absent or empty.
+_BROWSER_ID_RE = re.compile(r"[A-Za-z0-9_-]{43}")  # shape of secrets.token_urlsafe(32)
 
-    Services raise ``DraftNotFoundError`` for a missing token (single exit point).
+
+def get_browser_id(
+    browser_id: str | None = Cookie(default=None, alias=COOKIE_NAME),
+) -> str | None:
+    """Raw browser identifier from the cookie; ``None`` when absent or malformed.
+
+    A malformed value is treated as "no identifier" so a client cannot pick a weak one. Hashing
+    happens once at the service entry; lower layers only see the hash.
     """
-    return draft_token or None
+    if browser_id is not None and _BROWSER_ID_RE.fullmatch(browser_id):
+        return browser_id
+    return None
 
 
 def get_parser(request: Request) -> ResumeParserClient:
@@ -43,36 +42,3 @@ def get_parser(request: Request) -> ResumeParserClient:
             if state.parser_client is None:
                 state.parser_client = DeepSeekClient(state.settings)
     return state.parser_client
-
-
-def get_draft_service(
-    request: Request,
-    settings: Settings = Depends(get_settings),
-    parser: ResumeParserClient = Depends(get_parser),
-) -> DraftService:
-    """Per-request service; the stores are cheap, state lives in files and SQLite."""
-    clock: Clock = request.app.state.clock
-    ids: IdGenerator = request.app.state.ids
-    return DraftService(
-        repo=DraftRepository(settings.data_dir / "drafts.db"),
-        files=DraftFileStore(settings.data_dir),
-        parser=parser,
-        clock=clock,
-        ids=ids,
-        ttl_days=settings.draft_ttl_days,
-    )
-
-
-def get_resume_service(
-    request: Request, settings: Settings = Depends(get_settings)
-) -> ResumeService:
-    """Per-request service for confirm-save; the only wiring of the formal database."""
-    return ResumeService(
-        drafts=DraftRepository(settings.data_dir / "drafts.db"),
-        draft_files=DraftFileStore(settings.data_dir),
-        resumes=ResumeRepository(settings.data_dir / "resumes.db"),
-        archive=ArchiveFileStore(settings.file_dir),
-        clock=request.app.state.clock,
-        ids=request.app.state.ids,
-        ttl_days=settings.draft_ttl_days,
-    )
