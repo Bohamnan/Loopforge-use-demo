@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { EMAIL_PATTERN, EXPERIENCE_ITEM_LIMIT, FIELD_MAX_LENGTH, PHONE_PATTERN } from '../hooks/model/FieldRules';
 import { getSection } from '../hooks/model/SectionConfig';
+import { CHAT_ROLES, SUGGESTION_REASONS, SUGGESTION_STATUSES } from './Conversation';
 import { ERROR_CODES, ERROR_REASONS } from './Errors';
-import { FIELD_STATUSES, OPENAPI_VERSION, RESUME_FIELD_KEYS } from './ResumeModel';
+import { SESSION_STATUSES, UPDATE_STATES } from './Session';
+import { FIELD_STATUSES, OPENAPI_VERSION, RESUME_FIELD_KEYS, SUGGESTION_FIELDS } from './ResumeModel';
 
 // Drift check: compares the hand-written mirror (types, FieldRules) with the real backend contract file.
 // The contract lives in the same repository; if it is not there (a checkout of the frontend alone), the checks are skipped.
@@ -50,6 +52,21 @@ describe.skipIf(!present)('hand-written types and rules match openapi.yaml (F-02
     expect(enumOf(schema('FieldStatus'))).toEqual([...FIELD_STATUSES]);
     expect(enumOf(schema('ErrorCode'))).toEqual([...ERROR_CODES]);
     expect(enumOf(schema('ErrorDetail').slice(schema('ErrorDetail').indexOf('reason:')))).toEqual([...ERROR_REASONS]);
+  });
+
+  it('has the same v2 enums', () => {
+    expect(enumOf(schema('SessionStatus'))).toEqual([...SESSION_STATUSES]);
+    expect(enumOf(schema('UpdateState'))).toEqual([...UPDATE_STATES]);
+    expect(enumOf(schema('SuggestionField'))).toEqual([...SUGGESTION_FIELDS]);
+    expect(enumOf(schema('SuggestionReason'))).toEqual([...SUGGESTION_REASONS]);
+    expect(enumOf(schema('SuggestionStatus'))).toEqual([...SUGGESTION_STATUSES]);
+    expect(enumOf(schema('ChatRole'))).toEqual([...CHAT_ROLES]);
+  });
+
+  it('has the same 22 keys in ResumeValues', () => {
+    const block = schema('ResumeValues');
+    const required = block.slice(block.indexOf('required:'), block.indexOf('properties:'));
+    expect(Array.from(required.matchAll(/^\s+-\s+(\w+)\s*$/gm)).map((m) => m[1])).toEqual([...RESUME_FIELD_KEYS]);
   });
 
   it('has the same 22 resume fields in the same order', () => {

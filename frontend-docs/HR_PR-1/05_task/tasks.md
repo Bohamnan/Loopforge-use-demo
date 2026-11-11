@@ -128,8 +128,8 @@
 
 #### 子任务
 
-- [ ] 4 个类型文件与文件头版本注释
-- [ ] 契约镜像测试
+- [x] 4 个类型文件与文件头版本注释
+- [x] 契约镜像测试
 
 ### Task 1.4：api 封装核心（ApiClient / ApiError / ResponseShapes） ⟳ v2 重开
 - **关联：** REQ-FE-06.1、06.3、06.4、01.4、01.6、05.1；design.md §3.2、§6（ApiClient / ResumeDraftApi / ResumeApi）、§7.2、DD-02/05/06/10；O-12、F-05
