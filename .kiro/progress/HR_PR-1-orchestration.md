@@ -35,6 +35,7 @@
 5. 复用：`orca orchestration send --to dispatch:<最新 dispatch> --subject ... --body "$(cat /tmp/x.md)"`。回执只有 `messageId` 也表示已送达，**不要重发**。
 6. 收到 worker_done：`git merge --no-ff <分支>` 到 feature；`_progress.md` 几乎每次都有相邻行冲突（SV-06），按"各取本侧行"解决。代码阶段在主工作区自己复跑：backend `uv sync --frozen`、compileall、pytest、ruff；frontend `npm ci`、lint、test、build。
 7. spec 固定包含：先 `git merge --no-ff feature`；只改本 Workbench 在 `_progress.md` 的行与一行贡献记录；不 amend、不 push（仓库无远端，SV-07）；发现缺口用 ask，不自行扩展；停在 skill 规定的门控。
+9. 多个 worker 共用 `/tmp`，同名临时脚本会互相覆盖（backend 第 2 批报告 `/tmp/mark.py` 被覆盖）：spec 要求 worker 用 `mktemp -d` 的私有目录；主 agent 自己的 spec 文件名也带前缀。
 8. 主 agent 自己的教训：脚本修改与 `git commit` 不要用 `;` 串在一起（断言失败仍会提交）；不对自己的提交 `--amend`。
 
 ## 三、v2 当前进度与下一步
