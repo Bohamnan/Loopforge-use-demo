@@ -41,3 +41,18 @@ def list_sessions(
     if browser_id is not None:
         cookies.renew(response, browser_id, settings)
     return result
+
+
+@router.get("/{session_id}", response_model=SessionDetail, operation_id="getSession")
+def get_session(
+    session_id: str,
+    response: Response,
+    browser_id: str | None = Depends(get_browser_id),
+    service: SessionService = Depends(get_session_service),
+    settings: Settings = Depends(get_settings),
+) -> SessionDetail:
+    """Read a session (reviewing, saved or pending); changes nothing but renews the cookie."""
+    detail = service.get(session_id, browser_id)
+    if browser_id is not None:  # always true here: the service raises otherwise
+        cookies.renew(response, browser_id, settings)
+    return detail

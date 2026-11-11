@@ -357,11 +357,11 @@
 
 ---
 
-### Task 2.2：接口：读取会话（三种形态）　↺ v2
+### Task 2.2：接口：读取会话（三种形态）　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `services/session_service.py`（get）、`api/routes/sessions.py`（`GET /sessions/{id}`）、`tests/services/test_session_service_get.py`、`tests/api/test_sessions_get.py`。
-- **内容：** 三种形态：`reviewing`（`fields_json` + 对话消息 / 建议）、`saved`（内容读 `ResumeReader`，`fields_json='{}'`，带 `original_file` 信息）、`pending`（冻结 `fields_json` + `update_candidate`）；每次读取刷新 `last_active_at` 并续期 Cookie；不存在 / 非本人统一 `session_not_found`。
+- **内容：** 三种形态：`reviewing`（`fields_json` + 对话消息 / 建议）、`saved`（内容读 `ResumeReader`，`fields_json='{}'`，带 `original_file` 信息）、`pending`（冻结 `fields_json` + `update_candidate`）；读取不刷新 `last_active_at`（TQ-v2-05，以 design 为准），仅续期 Cookie；不存在 / 非本人统一 `session_not_found`。
 - **验收：** 三形态各一例，响应通过 0.2.0 对应 schema；saved 会话的内容来自 `resumes`；404 不区分原因且不含简历内容。
 - **HIGH_RISK：** 否。
 - **v2 预估：** 3h（v1 3h）　**v2 前置依赖：** 2.1、1.10

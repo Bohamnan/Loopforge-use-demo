@@ -127,3 +127,13 @@ def test_deleting_the_session_removes_chat_data(repo: ChatRepository, db_path: P
     conn = connect(db_path)
     for table in ("chat_messages", "chat_suggestions"):
         assert conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0  # noqa: S608
+
+
+def test_suggestions_of_session_follow_message_time_not_id(repo: ChatRepository) -> None:
+    """SUGGEST-1: ids are random UUIDs, so the order must come from time and seq."""
+    with repo.transaction() as tx:
+        tx.append_message(SID, "zz-first", "assistant", "first", T0)
+        tx.add_suggestions(SID, "zz-first", [sug(1), sug(2)], T0)
+        tx.append_message(SID, "aa-second", "assistant", "second", T1)
+        tx.add_suggestions(SID, "aa-second", [sug(3)], T1)
+    assert [s.id for s in repo.suggestions_of_session(SID)] == ["sg1", "sg2", "sg3"]

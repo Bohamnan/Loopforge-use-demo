@@ -168,8 +168,8 @@ class ChatRepository:
     def suggestions_of_session(self, session_id: str) -> list[SuggestionRecord]:
         with closing(connect(self._db_path)) as conn:
             rows = conn.execute(
-                f"SELECT {_SUG_COLUMNS} FROM chat_suggestions WHERE session_id = ? "  # noqa: S608
-                "ORDER BY message_id, seq",
+                "SELECT s.* FROM chat_suggestions s JOIN chat_messages m ON m.id = s.message_id "
+                "WHERE s.session_id = ? ORDER BY m.created_at, m.seq, s.seq",
                 (session_id,),
             ).fetchall()
         return [_suggestion(r) for r in rows]
