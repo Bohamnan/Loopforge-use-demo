@@ -267,7 +267,7 @@
 
 ---
 
-### Task 1.9：repositories：草稿库与草稿文件存储　↺ v2
+### Task 1.9：repositories：草稿库与草稿文件存储　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `repositories/session_repository.py`（原 `draft_repository.py`，改名）、`tests/repositories/test_session_repository.py`（原 `test_draft_repository.py`）；`DraftFileStore` 与其测试不变。
