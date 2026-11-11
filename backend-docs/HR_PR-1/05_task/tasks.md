@@ -563,7 +563,7 @@
 
 > 仅放跨任务的契约/端到端测试与质量实测；单元测试已在各任务内完成，不在此重复。
 
-### Task 3.1：契约测试（对照冻结的 OpenAPI 0.2.0）　↺ v2
+### Task 3.1：契约测试（对照冻结的 OpenAPI 0.2.0）　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `tests/contract/test_openapi_conformance.py`、`tests/openapi_support.py`（整体改写，复用 v1 的辅助）。
@@ -586,7 +586,7 @@
 
 ---
 
-### Task 3.2：端到端、日志脱敏与归属隔离测试　↺ v2
+### Task 3.2：端到端、日志脱敏与归属隔离测试　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `tests/e2e/test_end_to_end.py`（缩减改写）、`tests/e2e/test_redlines.py`（新，B-03 与归属隔离的统一断言）。
@@ -609,7 +609,7 @@
 
 ---
 
-### Task 3.3：质量指标实测与交付自检　↺ v2
+### Task 3.3：质量指标实测与交付自检　✅ v2 已完成（注：CRAP>10 三函数与 dryer 4 组为未达标项，DL 2026-11-11 裁决登记为跟踪项，非全部达标）
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** 无新增代码；输出自审结论草稿。
@@ -630,7 +630,7 @@
 - [ ] CRAP / dryer / ruff 结果汇总
 - [ ] 输出自审结论草稿，供 feature-developer 交付时使用
 
-### Task 3.4：`scripts/self_test_live.py` 改造（仅供 11a 使用）　🆕 v2
+### Task 3.4：`scripts/self_test_live.py` 改造（仅供 11a 使用）　✅ v2 已完成
 - **关联：** D§9.6；D-09（真实 DeepSeek 只在 11a 自测演练中调用）；`scripts/self_test_live.py`（含对 `draft_token`、`Max-Age=604800`、`cleanup_done` 启动日志顺序的断言）
 - **涉及文件：** `scripts/self_test_live.py`（`scripts/spike_deepseek.py` 不变）
 - **内容：** 按 0.2.0 改造：Cookie 改为 `browser_id`（`Max-Age=34560000`）、路径改为 `/api/v1/sessions...`、去掉 `cleanup_done` 与 7 天续期断言，启动日志只断言“对账 → 孤儿清扫”；新增一次真实对话步骤与确认更新步骤（只记 OK/NG 与计数，不记个人值）。**脚本不被 pytest 收集、不进 CI、9a 阶段不运行真实模型**；9a 只做 `uv run python -m py_compile scripts/self_test_live.py` 与 `ruff check`；真实运行由 11a（dev-self-test）在 DL 经本机环境变量提供凭证后执行。

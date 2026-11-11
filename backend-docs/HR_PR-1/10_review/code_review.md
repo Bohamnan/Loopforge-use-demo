@@ -1005,3 +1005,69 @@
 ### 六、建议
 - 各 HIGH_RISK 任务 2.4、2.5、2.9、2.10、2.11、2.12 均有代码与测试证据，建议标 ✅；2.1–2.3、2.6–2.8、2.13（非 HIGH_RISK）tasks.md 已标完成，与代码一致。
 - 未验证项：真实 DeepSeek 调用、OpenAPI 契约自动比对（3.1）、端到端（3.2）。
+
+---
+
+## v2 第三批审查（backend 阶段 3：3.1 契约、3.2 端到端与红线、3.3 质量实测、3.4 自测脚本）
+
+- Review 模式：Ticket-aware Review；持久化：是（本节）
+- 日期：2026-11-11；Reviewer：Yin Yang（dev-lead，审查 agent 代行）；被审查 Workbench：backend
+- 范围：阶段 3 的 backend 变更（`git diff 2cf7ef3 HEAD -- codes/hr-collection-agent-backend`，`src/` 无改动）：`tests/contract/test_openapi_conformance.py`（重写）、`tests/openapi_support.py`、`tests/e2e/{conftest,support,test_end_to_end,test_redlines}.py`、`scripts/self_test_live.py`。已先合并 `feature`（merge f43f1d7）。
+- 依据：OpenAPI 0.2.0（冻结）、design v2.0、tasks v2.0 的 3.1–3.4、仓库 `AGENTS.md`（v2）。
+- 结论：**PASS_WITH_SUGGESTIONS**（0 BLOCK / 0 QUESTION / 4 SUGGEST）。3.1、3.2、3.4 均无阻断；3.3 的数字经复算可信，未实测项未被称为达标。
+
+### 一、复跑结果
+
+| 命令 / 度量 | 结果 |
+|---|---|
+| `pytest`（全量，含 contract / e2e） | 976 通过，退出码 0 |
+| `pytest --cov=app --cov-branch`（语句） | 98%（2846 / 2897） |
+| 分支覆盖：`services` + `repositories` + `clients` + `core` | 464 / 488 = **95.1%**（由 coverage JSON 逐文件汇总复算，与 3.3 声明一致） |
+| 分支覆盖：`api` | 34 / 44 = 77.3%（不在 3.3 的目标范围内，仅作提示） |
+| `ruff check .`、`ruff format --check .` | 通过 |
+| 未运行 | `scripts/self_test_live.py`（按 AGENTS，只在 11a 凭证就绪时运行）；未调用真实 DeepSeek；未做变异测试（backend 本批只做 B-03 一处验证，见 3.2） |
+
+### 二、3.1 契约测试
+
+- **真实响应比对**：13 个操作的 54 个 `(路径, 方法, 状态码)` 三元组，逐一由 `test_every_documented_triple_is_produced_by_a_scenario` 核对为与场景集合相等；每个场景都发出真实请求并断言 `response.status_code == scenario.status`，状态码不是测试者自填的结论。19 个错误码全部由真实响应产生（`test_every_documented_error_code_is_produced`），且 `ErrorCode` 枚举与契约枚举相等。
+- **响应体**：2xx 与错误体都用契约中该状态码的 schema 校验（`validate_against`，`$ref` 指回冻结的 `components`）；错误码还要求出现在该状态码的 examples 或描述中。下载 200 校验 `Content-Type` 属于契约的三种媒体类型、`nosniff` 与 `attachment` 头。
+- **Cookie**：只有契约标注 `Set-Cookie` 的状态才发送；发送时校验名称、43 位值形态、`HttpOnly`、`SameSite=Lax`、`Path=/`、`Max-Age=34560000`（从契约描述中解析）、无 `Secure`。
+- **取舍**：`app.openapi()` 只比对成功状态，错误状态通过真实响应比对。这一取舍合理。FastAPI 生成的文档不声明统一错误处理器产生的 4xx/5xx，比对文档中的错误状态只能得到空集；真实响应比对同时覆盖错误码与错误体。路径、方法、`operationId` 集合与成功状态集合仍直接比对文档（`test_paths_methods_and_operation_ids...`、`test_success_statuses...`）。
+- **恒真检查**：未发现恒真断言。每条断言都依赖真实请求或冻结文件。`documented_codes` 同时收集 examples 与描述中出现的码，描述匹配可能放宽判定，但断言要求真实 `body.code` 等于场景码，并且该码在契约中有据，因此不是空检查。
+- **约束**：长度、条数、正则与未知字段都在边界值（通过）与超界（422 `too_long` / `required` / `invalid_format` / `unknown_field`）两侧用真实请求检验；超界响应不回显值。
+- **冗余**：66 个 real-response 场景覆盖 54 个三元组，多出的 12 个是同一状态码下不同分支（如 `getSession` 的 reviewing / saved / pending，`createSession` 的 4xx 原因）。未发现重复用例。
+
+### 三、3.2 端到端与红线
+
+- **B-03 脱敏**（`test_logs_and_error_bodies_never_carry_personal_data`）：捕获 DEBUG 级全部日志、stdout、stderr，检查合成姓名、手机、邮箱、原始文件名、用户消息、模型回复、建议值、无效手机号、模型错误体、解析输出、浏览器标识明文与哈希共 12 个标记；错误体同样检查。**变异验证**：在复制的 backend 中于 `ChatService.send` 增加对话原文日志，该用例失败并报出 `ZZ-CHAT-MESSAGE-MARK` 所在行，证明断言非空转。变异副本已删除，仓库未改动。
+- **归属隔离**（`test_another_browser_gets_one_404_and_changes_nothing`）：覆盖全部 8 个按会话 id 的接口与 1 个畸形 id，断言 404 `session_not_found`、响应无 `set-cookie`、快照不变（`sessions`、`chat_messages`、`chat_suggestions`、`resumes`、归档文件、临时文件），并确认所有者仍可读取。
+- **数据库层**：`resumes` 行数、归档文件名与行内 `file_path` 一致、文件字节等于上传内容（`test_end_to_end`）；浏览器标识只以哈希形式入库，且 `drafts.db` 原始字节中不含明文（`test_browser_identifier_is_stored_only_as_a_hash`）。
+- **B-01**：`.env.example` 的非空敏感键必须为占位符；仓库 `src`、`tests`、`scripts` 扫描无 `sk-` 形字符串。
+- **缺口（非阻断）**：B-03 用例覆盖成功、模型失败（502）与解析失败三条路径，超时路径未单独覆盖；超时与模型失败共用同一映射分支，不作为阻断项。
+
+### 四、3.3 质量指标
+
+- 覆盖率来源为 pytest-cov 实测，本次复算得到的数字与 3.3 声明一致（上表）。核心分支 ≥ 85% 的目标在四层口径下已满足。
+- CRAP > 10 的三个函数与 dryer 的 4 组重复，本次未重新测量。按 DL 裁决它们为跟踪项，报告中也未声称达标。
+- 测试与业务代码比例：本次按原始行数统计 `tests/` 9,895 行、`src/` 5,543 行，约 1.79:1；3.3 报告的口径是 2.44:1。两者差异来自计数口径，报告中未写明口径。阶段 3 新增测试 1,487 行，业务代码 0 行。比例已由 DL 裁决接受，此处只提示口径。
+
+### 五、3.4 自测脚本
+
+- **旧契约引用**：`draft_token`、`resume-drafts`、`604800`、`cleanup_done` 在脚本中均为 0 处命中。Cookie 为 `browser_id`、`Max-Age=34560000`，路径为 `/api/v1/sessions`，启动顺序断言为 `reconcile_done` → `orphan_sweep_done` → `Application startup complete`。
+- **凭证**：脚本本身不打开 `.env`。文档头部的用法要求在 shell 中 `set -a; . ./.env`，把凭证注入环境；脚本只通过 `os.environ` 读取 `DEEPSEEK_API_KEY` 作为泄漏扫描的对照值，不打印。
+- **输出**：结果文件与控制台只含用例编号、OK / NG、计数、字节数与字段级 OK / NG，不含个人值。泄漏检查只输出命中的索引。
+- **SUGGEST**：`TC-RES-008-HP-07` 把服务日志中第一条 `model_call` 原始行写入结果备注（`RESULTS` 与控制台）。该行字段在白名单内，但结果文件会长期保存这一行。建议只写事件名或计数。
+
+### 六、SUGGEST（跟踪项，不阻断，不要求新增测试）
+
+- **S-1（3.4）**：见第五节。`TC-RES-008-HP-07` 的备注不写日志原行，改为事件名与计数。
+- **S-2（tasks.md 3.3）**：3.3 标为 ✅，而 CRAP > 10 与 dryer 4 组仍是跟踪项。建议在任务行注明“未达标项已登记为跟踪项”，避免被读作全部达标。
+- **S-3（3.3 报告）**：测试与业务比例口径（原始行数 1.79:1，报告 2.44:1）建议在报告中写明计数方法。
+- **S-4（3.2）**：B-03 用例未单独覆盖超时路径（见第三节缺口）。可在后续整理中补一条断言，不要求新增。
+
+### 七、未验证项
+
+- `scripts/self_test_live.py` 的真实运行（11a，需 DL 提供凭证）。
+- 真实 DeepSeek 的解析精度与对话时延（3b，保留项）。
+- CRAP、dryer、mutator 本批未重测。
+- 多 worker 或生产部署形态（不在 POC 范围内）。
