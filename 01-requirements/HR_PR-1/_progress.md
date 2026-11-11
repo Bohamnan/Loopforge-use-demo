@@ -44,7 +44,7 @@
 | 阶段 | Skill | 执行者 | 状态 | 完成时间 | 产出文件路径 |
 |------|-------|-------|------|---------|------------|
 | 需求启动（Workbench 检测+业务澄清+派活） | requirement-kickoff | Dev Lead | ✅ | 2026-11-10 | `01-requirements/HR_PR-1/` |
-| 解决方案设计 HLD（大型新需求） | solution-designer | Dev Lead | ✅ v2 已批准（ADR-007/008/009） | 2026-11-11 | `01-requirements/HR_PR-1/solution-design.md` |
+| 解决方案设计 HLD（大型新需求） | solution-designer | Dev Lead | ✅ v2 已批准（门控 1、门控 2；ADR-007/008/009） | 2026-11-11 | `01-requirements/HR_PR-1/solution-design.md` |
 | 仓库约定初稿与确认（仅新项目 Workbench） | solution-designer（Step 7） | Dev Lead | ✅ 已确认；未推送（代码目录尚未初始化 Git） | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
 | Workbench 影响分析（各 Workbench 并行） | impact-analyzer | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：backend ✅ / frontend ✅ | 2026-11-10 | `backend-docs/HR_PR-1/00_impact_analysis.md`；`frontend-docs/HR_PR-1/00_impact_analysis.md` |
 | 跨 Workbench 一致性 review（仅跨 Workbench 需求） | cross-workbench-reviewer | Dev Lead | ⚠️ 待重审（v2）；v1 已裁决（C-03、P-01、P-02 被 v2 推翻） | 2026-11-10 | `01-requirements/HR_PR-1/cross-workbench-review.md` |
@@ -73,6 +73,10 @@
 | 所有 Workbench 影响分析完成 | impact-analyzer | ✅ | backend、frontend 均已 ✅ | 2026-11-10 |
 | 跨 Workbench 一致性确认 | cross-workbench-reviewer | ✅ | Dev Lead 已完成全部裁决 | 2026-11-10 |
 | 第二轮技术 Q&A 裁决 | requirements-analyst | ✅ | DL 确认全部为填空型、无范围变更 | 2026-11-10 |
+| v2 需求变更分类确认 | requirement-change-router | ✅ | DL 确认 Type C 及受影响产物 | 2026-11-11 |
+| v2 需求修订确认（门控 1） | solution-designer | ✅ | v2 无技术约束引起的需求修订（补确认，SV-02） | 2026-11-11 |
+| v2 HLD 整体审批（门控 2） | solution-designer | ✅ | HLD v2、ADR-007/008/009 批准 | 2026-11-11 |
+| v2 影响分析 review | impact-analyzer | ⏸ | backend 924a75b、frontend 0ee2330（补正中）待 DL review | — |
 
 ---
 
@@ -90,6 +94,7 @@
 | 2026-11-10 | Yin Yang（Dev Lead） | cross-workbench-reviewer | 完成五维比对与待核实问题合并（C-01..C-15）；DL 裁决：PDF 已实测支持维持 ADR-001；幂等键=姓名+手机号+邮箱；其余采纳建议 |
 | 2026-11-11 | Yin Yang（Dev Lead） | prd-writer | PRD v2 确认：#3 补对话修改，新增 #5 问答、#6 历史会话、#7 已归档简历 |
 | 2026-11-11 | Yin Yang（Dev Lead） | solution-designer | HLD v2 批准；ADR-007/008/009 ACCEPTED；ADR-003/006 修订确认；v1 旧草稿不迁移；后续沿用 Orca worker 分派前后端 |
+| 2026-11-11 | Yin Yang（Dev Lead） | solution-designer | 补门控 1：DL 确认 v2 无技术约束引起的需求修订；DL 授权编排同步所需的本地提交（不推送） |
 | 2026-11-11 | Yin Yang（Dev Lead） | requirement-change-router | DL 试用后提出需求变更 v2（Type C，DL 确认）：对话修改与问答、历史会话、已归档简历查看；受影响阶段标 ⚠️，登记重跑清单（v2） |
 
 ---
@@ -185,17 +190,23 @@
 | 优先级 | Skill | 执行者 | 前置条件 | 操作说明 | 完成 |
 |--------|-------|-------|---------|---------|:---:|
 | 0 | requirement-kickoff | — | — | 不重跑：Workbench 仍为 backend、frontend，无新增派活 | — |
-| 1 | prd-writer | BA/Dev Lead | 无 | `prd.md` 增量新增用户故事：对话修改与问答、历史会话、查看已归档简历；表头加变更履历 | ✅ 2026-11-11 DL 确认（v1 快照 `_history/prd.v1.md`） |
-| 2 | solution-designer | Dev Lead | PRD ✅ | `solution-design.md` 增量更新（先快照 `_history/solution-design.v1.md`）；新增 ADR-007（对话修改与问答，替代 ADR-006 的"不解析自由文本"部分，ADR-006 标 SUPERSEDED/部分保留分区编辑）、ADR-008（会话持久化与浏览器标识）；ADR-003 补修订 | ✅ 2026-11-11 DL 批准 HLD v2；ADR-007/008/009 ACCEPTED；ADR-003/006 修订确认；v1 旧草稿不迁移 |
-| 3 | impact-analyzer | backend、frontend 工程师 | HLD ✅ | 两侧 `00_impact_analysis.md` 针对现有代码重新推导（覆盖 + 履历表头） | ☐ |
+| 1 | （人工）BA/Dev Lead 更新 PRD | Dev Lead | 无 | `prd.md` 增量新增用户故事 #5–#7、补充 #3/#4，表头加变更履历。**说明**：原登记为 prd-writer，但 prd-writer 的「票号冲突」Guardrail 禁止覆盖已有 PRD，不适用于变更；router 输入表亦约定 PRD 由 BA 更新。已登记 skill 问题 SV-01 | ✅ 2026-11-11 DL 确认（v1 快照 `_history/prd.v1.md`） |
+| 2 | solution-designer | Dev Lead | PRD ✅ | `solution-design.md` 增量更新（先快照 `_history/solution-design.v1.md`）；新增 ADR-007（对话修改与问答，替代 ADR-006 的"不解析自由文本"部分，ADR-006 标 SUPERSEDED/部分保留分区编辑）、ADR-008（会话持久化与浏览器标识）；ADR-003 补修订 | ✅ 门控 1（需求修订确认）2026-11-11 DL 补确认：v2 无技术约束引起的需求修订（SV-02）；门控 2：2026-11-11 DL 批准 HLD v2；ADR-007/008/009 ACCEPTED；ADR-003/006 修订确认；v1 旧草稿不迁移 |
+| 3a | impact-analyzer | backend 工程师 | HLD ✅ | `backend-docs/HR_PR-1/00_impact_analysis.md` 覆盖重写（delta 文档）+ 履历表头 | ☐ |
+| 3b | impact-analyzer | frontend 工程师 | HLD ✅ | `frontend-docs/HR_PR-1/00_impact_analysis.md` 覆盖重写（delta 文档）+ 履历表头 | ☐ |
 | 4 | cross-workbench-reviewer | Dev Lead | 影响分析 ✅ | 在 `cross-workbench-review.md` 追加 v2 节：新接口契约、会话/浏览器标识 Cookie、修改建议结构、错误码；C-03、P-01、P-02 标注被 v2 替代 | ☐ |
 | 5 | requirements-analyst | Dev Lead/BA | 跨 Workbench Review ✅ | 两侧 `requirements.md` 增量更新（先快照 `_history/`），追溯矩阵覆盖新用户故事 | ☐ |
-| 6 | architecture-advisor（Schema+接口） | backend 工程师；frontend 工程师 | requirements ✅ | `sql_ddl_resume.md` 新增会话/消息/浏览器标识表并调整"确认后删除草稿"；`openapi.yaml` 0.1.1 → 0.2.0（会话列表、发送消息、应用修改建议、归档列表/详情/文件下载）；frontend `interface_spec_resume.md` 同步 | ☐ |
-| 7 | architecture-advisor（技术设计） | 两侧工程师 | 接口冻结 ✅ | 两侧 `design.md` 增量更新（先快照）：对话提示词与输出结构、注入防护、日志白名单；前端输入框、会话栏、归档页 | ☐ |
-| 8 | architecture-advisor（任务拆分 + Step 5） | 两侧工程师/Dev Lead | 技术设计 ✅ | 两侧 `tasks.md` 追加 v2 任务（写测试预算：POC ≈ 1:1）；两侧仓库 `AGENTS.md` 更新红线、日志字段、运行说明 | ☐ |
-| 9 | feature-developer | 两侧工程师 | 任务清单 ✅ | 在现有代码上增量实现 | ☐ |
+| 6a | architecture-advisor（Schema+接口） | backend 工程师 | requirements ✅ | `sql_ddl_resume.md` 新增会话/消息/浏览器标识存储并调整确认后草稿处理；`openapi.yaml` 0.1.1 → 0.2.0（会话、消息、建议应用、归档查看） | ☐ |
+| 6b | architecture-advisor（接口消费） | frontend 工程师 | 6a OpenAPI 冻结 ✅ | `interface_spec_resume.md` 同步 0.2.0 | ☐ |
+| 7a | architecture-advisor（技术设计） | backend 工程师 | 接口冻结 ✅ | `backend-docs/HR_PR-1/04_design/design.md` 增量更新（先快照 `_history/`）：对话提示词与输出结构、注入防护、日志白名单、会话与删除 | ☐ |
+| 7b | architecture-advisor（技术设计） | frontend 工程师 | 接口冻结 ✅ | `frontend-docs/HR_PR-1/04_design/design.md` 增量更新（先快照 `_history/`）：输入框、对话流与修改卡片、会话栏、归档页 | ☐ |
+| 8a | architecture-advisor（任务拆分 + Step 5） | backend 工程师/Dev Lead | 7a ✅ | backend `tasks.md` 追加 v2 任务（测试预算 POC ≈ 1:1）；backend `AGENTS.md` 更新红线、日志字段、运行说明（取消 TTL 配置） | ☐ |
+| 8b | architecture-advisor（任务拆分 + Step 5） | frontend 工程师/Dev Lead | 7b ✅ | frontend `tasks.md` 追加 v2 任务（测试预算 POC ≈ 1:1）；frontend `AGENTS.md` 更新 | ☐ |
+| 9a | feature-developer | backend 工程师 | 8a ✅ | 在现有代码上增量实现 | ☐ |
+| 9b | feature-developer | frontend 工程师 | 8b ✅ | 在现有代码上增量实现 | ☐ |
 | 10 | code-reviewer | 审查 agent | 代码 ✅ | 只审 v2 变更面；红线点重点审 | ☐ |
-| 11 | dev-self-test | 两侧工程师 | 审查 ✅ | v2 新增用例 + v1 自测回归映射（复用已有，不重写）；含真实 DeepSeek 的端到端演练 | ☐ |
+| 11a | dev-self-test | backend 工程师 | 10 ✅ | v2 新增用例 + v1 自测回归映射（复用已有，不重写）；含真实 DeepSeek 演练 | ☐ |
+| 11b | dev-self-test | frontend 工程师 | 10 ✅ | v2 新增用例 + v1 自测回归映射（复用已有，不重写）；浏览器实测 | ☐ |
 | 12 | DL 最终 Review | Dev Lead | 自测 ✅ | 浏览器实际体验验证三项能力 | ☐ |
 
 不受此次变更影响（无需重跑）：
