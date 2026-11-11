@@ -17,12 +17,15 @@ this script never reads or prints it):
   directories and the process are removed at the end.
 - Personal values are compared in memory only. The result file and the console contain case
   ids, OK/NG flags, counts and sizes, never personal values.
+- Contract: OpenAPI 0.2.0. The browser identifier cookie is ``browser_id`` (Max-Age=34560000);
+  every session call goes through ``/api/v1/sessions``.
 """
 
 import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import signal
 import sqlite3
@@ -36,9 +39,10 @@ from pathlib import Path
 import httpx
 
 BASE = "http://127.0.0.1:8000"
-UPLOAD = f"{BASE}/api/v1/resume-drafts"
-CURRENT = f"{UPLOAD}/current"
+SESSIONS = f"{BASE}/api/v1/sessions"
 RESUMES = f"{BASE}/api/v1/resumes"
+COOKIE_TAIL = "; HttpOnly; SameSite=Lax; Path=/; Max-Age=34560000"
+CHAT_TEXT = "请用一句话概括这份简历的工作年限"  # synthetic instruction, no personal data
 BACKEND = Path(__file__).resolve().parents[1]
 RESULTS: dict[str, dict] = {}
 
@@ -107,7 +111,7 @@ def sql(work: Path, db: str, query: str, params: tuple = ()) -> list:
 
 def port_free() -> bool:
     try:
-        httpx.get(BASE + "/api/v1/resume-drafts/current", timeout=2, trust_env=False)
+        httpx.get(SESSIONS, timeout=2, trust_env=False)
     except httpx.TransportError:
         return True
     return False
@@ -141,12 +145,18 @@ def compare_truth(fields: dict, truth: dict) -> dict[str, bool]:
     }  # fmt: skip
 
 
+def cookie_value(set_cookie: str) -> str:
+    """The browser identifier from a Set-Cookie header. Kept in memory, never printed."""
+    return set_cookie.split(";", 1)[0].partition("=")[2]
+
+
 def run(args: argparse.Namespace) -> None:
     sample = Path(args.sample).read_bytes()
     truth = json.loads(Path(args.truth).read_text(encoding="utf-8"))
     work = Path(tempfile.mkdtemp(prefix="hr_selftest_live_"))
     server = Server(work)
     http = httpx.Client(timeout=90, trust_env=False)  # never route resume data through a proxy
+    browser_ids: list[str] = []
     try:
         # ---- 008-HP-01: real process start-up ------------------------------------------------
         server.start()
@@ -155,28 +165,29 @@ def run(args: argparse.Namespace) -> None:
             log.find(k)
             for k in (
                 "reconcile_done",
-                "cleanup_done",
+                "orphan_sweep_done",
                 "Application startup complete",
-                "running on",
             )
         ]
-        listening = httpx.get(CURRENT, timeout=5, trust_env=False).status_code == 404
+        listening = httpx.get(SESSIONS, timeout=5, trust_env=False).status_code == 200
         record("TC-RES-008-HP-01", all(i >= 0 for i in order) and order == sorted(order) and listening
                and (work / "data" / "drafts.db").exists() and (work / "data" / "resumes.db").exists()
                and (work / "data" / "drafts").is_dir() and (work / "file").is_dir(),
-               "start-up log order reconcile->cleanup->startup complete->listening; dirs and dbs exist")  # fmt: skip
+               "start-up log order reconcile -> orphan sweep -> startup complete; listening; dirs and dbs exist")  # fmt: skip
 
         # ---- 008-EH-01: error codes on the real process --------------------------------------
+        empty_list = http.get(SESSIONS)
         checks = {
-            "no_file": http.post(UPLOAD, files={"x": ("a.txt", b"1")}).status_code == 400,
-            "exe": http.post(UPLOAD, files={"file": ("a.exe", b"MZ00", "application/octet-stream")}).status_code == 415,
-            "empty": http.post(UPLOAD, files={"file": ("a.pdf", b"", "application/pdf")}).status_code == 400,
-            "mismatch": http.post(UPLOAD, files={"file": ("a.pdf", sample, "application/pdf")}).status_code == 400,
-            "too_large": http.post(UPLOAD, files={"file": ("a.pdf", b"%PDF-" + b"0" * 10485760, "application/pdf")}).status_code == 413,
-            "no_cookie_get": http.get(CURRENT).status_code == 404,
-            "no_cookie_confirm": http.post(RESUMES, json={"confirmed": True}).status_code == 404,
+            "no_file": http.post(SESSIONS, files={"x": ("a.txt", b"1")}).status_code == 400,
+            "exe": http.post(SESSIONS, files={"file": ("a.exe", b"MZ00", "application/octet-stream")}).status_code == 415,
+            "empty": http.post(SESSIONS, files={"file": ("a.pdf", b"", "application/pdf")}).status_code == 400,
+            "mismatch": http.post(SESSIONS, files={"file": ("a.pdf", sample, "application/pdf")}).status_code == 400,
+            "too_large": http.post(SESSIONS, files={"file": ("a.pdf", b"%PDF-" + b"0" * 10485760, "application/pdf")}).status_code == 413,
+            "list_without_cookie": empty_list.status_code == 200 and empty_list.json()["items"] == [] and "set-cookie" not in empty_list.headers,
+            "get_without_cookie": http.get(f"{SESSIONS}/{uuid.uuid4()}").status_code == 404,
+            "confirm_without_cookie": http.post(f"{SESSIONS}/{uuid.uuid4()}/resume", json={"confirmed": True}).status_code == 404,
         }  # fmt: skip
-        record("TC-RES-008-EH-01", all(checks.values()) and not http.cookies and sql(work, "drafts.db", "SELECT count(*) FROM drafts") == [(0,)],
+        record("TC-RES-008-EH-01", all(checks.values()) and not http.cookies and sql(work, "drafts.db", "SELECT count(*) FROM sessions") == [(0,)],
                "failed checks: " + (",".join(k for k, v in checks.items() if not v) or "none"))  # fmt: skip
 
         # ---- 008-BL-01: 1 MB request budget with the real sample -----------------------------
@@ -189,21 +200,22 @@ def run(args: argparse.Namespace) -> None:
 
         # ---- 008-HP-02: upload the real sample -----------------------------------------------
         started = time.monotonic()
-        resp = http.post(UPLOAD, files={"file": ("sample.png", sample, "image/png")})
+        resp = http.post(SESSIONS, files={"file": ("sample.png", sample, "image/png")})
         first_attempts = [resp.status_code]
-        if (
-            resp.status_code >= 500
-        ):  # upstream model hiccup: one explicit test-level retry (the service never retries)
-            resp = http.post(UPLOAD, files={"file": ("sample.png", sample, "image/png")})
+        if resp.status_code >= 500:  # upstream model hiccup: one explicit test-level retry
+            resp = http.post(SESSIONS, files={"file": ("sample.png", sample, "image/png")})
             first_attempts.append(resp.status_code)
         elapsed = time.monotonic() - started
         body = resp.json() if resp.status_code == 201 else {}
         cookie = resp.headers.get("set-cookie", "")
+        if cookie:
+            browser_ids.append(cookie_value(cookie))
         keys = {"name", "job_title", "expected_city", "expected_salary", "available_time", "phone", "email", "homepage", "gender", "birth_month", "political_status", "current_city", "work_years", "highest_education", "strengths", "work_experiences", "project_experiences", "educations", "skills", "certificates_honors", "languages", "self_evaluation"}  # fmt: skip
         fields = body.get("fields", {})
+        sid = body.get("session_id", "")
         statuses = {n["status"] for n in fields.values()}
         record("TC-RES-008-HP-02", resp.status_code == 201 and set(fields) == keys and statuses <= {"recognized", "uncertain", "missing"}
-               and cookie.startswith("draft_token=") and cookie.endswith("; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800")
+               and cookie.startswith("browser_id=") and cookie.endswith(COOKIE_TAIL)
                and elapsed < 75,
                f"HTTP attempts={first_attempts}, {elapsed:.1f}s total, statuses={sorted(statuses)}")  # fmt: skip
         if resp.status_code != 201:
@@ -220,13 +232,13 @@ def run(args: argparse.Namespace) -> None:
         )
 
         # ---- 008-HP-04: GET equals the upload response ---------------------------------------
-        got = http.get(CURRENT)
-        record("TC-RES-008-HP-04", got.status_code == 200 and got.json()["fields"] == fields and got.json()["draft_id"] == body["draft_id"],
+        got = http.get(f"{SESSIONS}/{sid}")
+        record("TC-RES-008-HP-04", got.status_code == 200 and got.json()["fields"] == fields and got.json()["session_id"] == sid,
                f"HTTP {got.status_code}")  # fmt: skip
 
         # ---- 008-HP-05: PATCH (confirm the core three with the true values) ------------------
         patch = http.patch(
-            CURRENT,
+            f"{SESSIONS}/{sid}/fields",
             json={
                 "fields": {
                     "name": truth["name"],
@@ -242,15 +254,20 @@ def run(args: argparse.Namespace) -> None:
                and all(pf[k] == fields[k] for k in untouched) and pf["homepage"]["value"] is None,
                f"HTTP {patch.status_code}; 4 fields confirmed, {len(untouched)} untouched fields unchanged")  # fmt: skip
 
+        # ---- 008-CH-01: one real conversation turn (no suggestion is applied) ----------------
+        chat = http.post(f"{SESSIONS}/{sid}/messages", json={"content": CHAT_TEXT})
+        if chat.status_code >= 500:  # one explicit test-level retry; the service never retries
+            chat = http.post(f"{SESSIONS}/{sid}/messages", json={"content": CHAT_TEXT})
+        reply = chat.json().get("assistant_message", {}) if chat.status_code == 201 else {}
+        suggestions = reply.get("suggestions", [])
+        record("TC-RES-008-CH-01", chat.status_code == 201 and bool(reply.get("content", "").strip()),
+               f"HTTP {chat.status_code}; reply chars={len(reply.get('content', ''))}; suggestions={len(suggestions)}, applicable={sum(1 for s in suggestions if s['applicable'])}")  # fmt: skip
+
         # ---- 008-HP-06: confirm and verify DB/file consistency -------------------------------
-        conf = http.post(RESUMES, json={"confirmed": True})
+        conf = http.post(f"{SESSIONS}/{sid}/resume", json={"confirmed": True})
         cb = conf.json() if conf.status_code == 201 else {}
         rid = cb.get("resume_id", "")
-        rows = sql(
-            work,
-            "resumes.db",
-            "SELECT file_path, content_type, file_size, original_filename, name_key, length(phone), length(email) FROM resumes",
-        )
+        rows = sql(work, "resumes.db", "SELECT file_path, content_type, file_size FROM resumes")
         stored = sorted(p.name for p in (work / "file").iterdir())
         file_ok = (
             bool(rid)
@@ -261,22 +278,24 @@ def run(args: argparse.Namespace) -> None:
         counts = {
             "resumes": sql(work, "resumes.db", "SELECT count(*) FROM resumes")[0][0],
             "work": sql(work, "resumes.db", "SELECT count(*) FROM resume_work_experiences")[0][0],
-            "projects": sql(work, "resumes.db", "SELECT count(*) FROM resume_project_experiences")[
-                0
-            ][0],
+            "projects": sql(work, "resumes.db", "SELECT count(*) FROM resume_project_experiences")[0][0],
             "educations": sql(work, "resumes.db", "SELECT count(*) FROM resume_educations")[0][0],
-            "drafts": sql(work, "drafts.db", "SELECT count(*) FROM drafts")[0][0],
+            "saved_sessions": sql(work, "drafts.db", "SELECT count(*) FROM sessions WHERE status = 'saved'")[0][0],
             "draft_files": len(list((work / "data" / "drafts").iterdir())),
-        }
+        }  # fmt: skip
         identity = sql(work, "resumes.db", "SELECT name, phone, email FROM resumes")
         id_ok = bool(identity) and identity[0] == (truth["name"], truth["phone"], truth["email"])
+        kept_cookie = cookie_value(conf.headers.get("set-cookie", "")) == browser_ids[
+            0
+        ] and conf.headers.get("set-cookie", "").endswith(COOKIE_TAIL)
         record("TC-RES-008-HP-06", conf.status_code == 201 and cb.get("already_saved") is False and file_ok and id_ok
-               and rows[0][:3] == (f"{rid}.png", "image/png", len(sample)) and counts["resumes"] == 1 and counts["drafts"] == 0 and counts["draft_files"] == 0
-               and conf.headers.get("set-cookie", "").endswith("Max-Age=0"),
-               f"HTTP {conf.status_code}; counts={counts}; file==sample(sha256)={file_ok}; identity columns==truth={id_ok}")  # fmt: skip
+               and rows == [(f"{rid}.png", "image/png", len(sample))] and counts["resumes"] == 1 and counts["saved_sessions"] == 1 and counts["draft_files"] == 0
+               and kept_cookie,
+               f"HTTP {conf.status_code}; counts={counts}; file==sample(sha256)={file_ok}; identity columns==truth={id_ok}; cookie kept={kept_cookie}")  # fmt: skip
 
         # ---- 008-EH-02: restart with planted orphans -> real reconciliation ------------------
         first_exit = server.stop()
+        before = sorted(p.name for p in (work / "file").iterdir())
         orphan_tmp = work / "file" / f".{uuid.uuid4()}.png.tmp"
         orphan_final = work / "file" / f"{uuid.uuid4()}.png"
         orphan_tmp.write_bytes(b"x")
@@ -284,39 +303,53 @@ def run(args: argparse.Namespace) -> None:
         server.start()
         log2 = server.text()
         after = sorted(p.name for p in (work / "file").iterdir())
-        record("TC-RES-008-EH-02", first_exit == 0 and after == [f"{rid}.png"] and "reconcile_done" in log2
+        record("TC-RES-008-EH-02", first_exit == 0 and after == before and "reconcile_done" in log2
                and sql(work, "resumes.db", "SELECT count(*) FROM resumes") == [(1,)],
-               f"exit code of first stop={first_exit}; after restart file/ holds only the record's file={after == [f'{rid}.png']}")  # fmt: skip
+               f"exit code of first stop={first_exit}; planted orphans removed={after == before}; record file kept={len(after) == 1}")  # fmt: skip
 
         # ---- 008-HP-07: second upload of the same person -> already_saved --------------------
-        http.cookies.clear()
-        again = http.post(UPLOAD, files={"file": ("sample.png", sample, "image/png")})
+        again = http.post(SESSIONS, files={"file": ("sample.png", sample, "image/png")})
         upload_attempts = [again.status_code]
         model_calls = [
             ln for ln in server.text().splitlines() if '"model_call"' in ln
-        ]  # numbers/codes only
-        if (
-            again.status_code != 201
-        ):  # one explicit test-level retry; the service itself never retries
-            again = http.post(UPLOAD, files={"file": ("sample.png", sample, "image/png")})
+        ]  # codes only
+        if again.status_code != 201:  # one explicit test-level retry; the service never retries
+            again = http.post(SESSIONS, files={"file": ("sample.png", sample, "image/png")})
             upload_attempts.append(again.status_code)
-        http.patch(
-            CURRENT,
-            json={
-                "fields": {"name": truth["name"], "phone": truth["phone"], "email": truth["email"]}
-            },
-        )
-        dup = http.post(RESUMES, json={"confirmed": True})
+        sid2 = again.json().get("session_id", "")
+        dup = http.post(f"{SESSIONS}/{sid2}/resume", json={"confirmed": True})
         record("TC-RES-008-HP-07", again.status_code == 201 and dup.status_code == 200 and dup.json().get("already_saved") is True
                and dup.json().get("resume_id") == rid and sql(work, "resumes.db", "SELECT count(*) FROM resumes") == [(1,)]
                and sorted(p.name for p in (work / "file").iterdir()) == [f"{rid}.png"]
-               and sql(work, "drafts.db", "SELECT count(*) FROM drafts") == [(0,)] and not list((work / "data" / "drafts").iterdir()),
+               and sql(work, "drafts.db", "SELECT update_state FROM sessions WHERE id = ?", (sid2,)) == [("pending",)]
+               and not list((work / "data" / "drafts").iterdir()),
                f"upload attempts={upload_attempts}, confirm HTTP {dup.status_code}; one record, one file; first model_call log: {model_calls[-1] if model_calls else None}")  # fmt: skip
+
+        # ---- 008-HP-08: confirmed update overwrites the record with the candidate ------------
+        update = http.put(f"{SESSIONS}/{sid2}/resume", json={"confirm_update": True})
+        archived = sorted(p.name for p in (work / "file").iterdir())
+        names_ok = (
+            len(archived) == 1
+            and re.fullmatch(rf"{re.escape(rid)}-[0-9a-f]{{8}}\.png", archived[0]) is not None
+        )
+        content_ok = names_ok and (work / "file" / archived[0]).read_bytes() == sample
+        applied = sql(work, "drafts.db", "SELECT update_state FROM sessions WHERE id = ?", (sid2,))
+        record("TC-RES-008-HP-08", update.status_code == 200 and update.json().get("resume_id") == rid
+               and sql(work, "resumes.db", "SELECT count(*) FROM resumes") == [(1,)]
+               and names_ok and content_ok and applied == [("applied",)]
+               and sql(work, "resumes.db", "SELECT file_path FROM resumes") == [(archived[0],)],
+               f"HTTP {update.status_code}; one record; one versioned file={names_ok}; content==sample={content_ok}; update_state=applied={applied == [('applied',)]}")  # fmt: skip
 
         # ---- 008-SE-01: logs hold no personal data, no token, no key -------------------------
         second_exit = server.stop()
         logs = server.log_all.read_text(errors="replace") + server.text()
-        secrets = list(truth["must_not_appear_in_logs"]) + ["sample.png", "draft_token=", "Bearer"]
+        secrets = list(truth["must_not_appear_in_logs"]) + [
+            "sample.png",
+            "browser_id=",
+            "Bearer",
+            CHAT_TEXT,
+        ]
+        secrets += [value for value in browser_ids if value]  # in memory only, never printed
         key_name = "DEEPSEEK_API_KEY"
         if os.environ.get(key_name):
             secrets.append(os.environ[key_name])
@@ -336,7 +369,7 @@ def run(args: argparse.Namespace) -> None:
 
         # ---- 008-SE-02: graceful shutdown and no residue -------------------------------------
         tail = server.log_all.read_text(errors="replace")
-        record("TC-RES-008-SE-02", second_exit == 0 and first_exit == 0 and "Application shutdown complete" in tail and "scheduler_stop_timeout" not in tail and port_free(),
+        record("TC-RES-008-SE-02", second_exit == 0 and first_exit == 0 and "Application shutdown complete" in tail and port_free(),
                f"exit codes={first_exit},{second_exit}; shutdown complete logged; port 8000 released")  # fmt: skip
     finally:
         server.stop()
