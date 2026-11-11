@@ -56,7 +56,7 @@
 | 代码实现 | feature-developer | 各 Workbench 工程师 | ⚠️ 待重审（v2）；frontend v2 阶段 2 ✅、3.2 ✅，3.1 待审查（HIGH_RISK）；v1：backend 21/21（含 2.3a，pytest 1001、覆盖率 99%、CRAP 最大 9.0）/ ✅ frontend 15/15（vitest 650、lint 0、build 通过） | — | `codes/hr-collection-agent-backend/`、`codes/hr-collection-agent-frontend/` |
 | 代码审查 | code-reviewer | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：backend 第一至第十批 ✅（含 2.4/2.5 HIGH_RISK）；frontend 第一至第十一批 ✅（0 BLOCK） | — | `backend-docs/HR_PR-1/10_review/code_review.md`；`frontend-docs/HR_PR-1/10_review/code_review.md` |
 | QA 测试用例（需求确认后，可与开发并行） | qa-test-case | QA（role=qa 的独立 worker） | ✅ v2 用例 86 条（v2 AC 67/67），两个 QA 门控 DL 确认；v1 不补做（DL 2026-11-11）；接口类用例路径待 OpenAPI 0.2.0 冻结后补 | 2026-11-11 | `01-requirements/HR_PR-1/qa/qa_test_cases.md`；`01-requirements/HR_PR-1/qa/qa_data_requirements.md` |
-| 开发自测用例 | dev-self-test | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：DL 2026-11-11 实测确认功能正常（变更源于体验与预期不符，非缺陷）：backend 123 条全通过（AC 37/37）；frontend 108 条 0 失败 0 未执行（实测 51 + 引用单测 52 + 静态/构建 5，AC 33/33） | 2026-11-10 | `backend-docs/HR_PR-1/06_test/dev_self_test_resume.md`；`frontend-docs/HR_PR-1/06_test/dev_self_test_resume.md` |
+| 开发自测用例 | dev-self-test | 各 Workbench 工程师 | ⏸ backend v2 等待开发确认（11a：170 条，引用单测 154 / 实测 14 / 跟踪 2；真实演练 14/14 OK）；frontend ⚠ 待重审（v2）；v1：DL 2026-11-11 实测确认功能正常（变更源于体验与预期不符，非缺陷）：backend 123 条全通过（AC 37/37）；frontend 108 条 0 失败 0 未执行（实测 51 + 引用单测 52 + 静态/构建 5，AC 33/33） | 2026-11-10 | `backend-docs/HR_PR-1/06_test/dev_self_test_resume.md`；`frontend-docs/HR_PR-1/06_test/dev_self_test_resume.md` |
 | QA 用例执行（开发自测通过后、交付 Review 前） | qa-test-case 产出的用例，手工执行 | QA/Dev Lead | ☐ v2 执行，见重跑清单 11q | — | `01-requirements/HR_PR-1/qa/qa_test_report.md` |
 | 造数脚本 | test-data-script-generator | 各 Workbench 工程师/QA | — | — | — |
 
@@ -146,6 +146,7 @@
 | 2026-11-11 | Yin Yang（frontend） | architecture-advisor | 完成 frontend Step 2.2（接口消费规范 v0.3，同步 OpenAPI 0.2.0：13 个操作、22 条错误码映射、DD-12..DD-22），停在合并门控待评审；6b 未勾；仓库无远端，未推送（SV-07） |
 | 2026-11-11 | Yin Yang（backend） | architecture-advisor | 完成 backend v2 Step 3 技术设计（design.md v0.4，v1 快照 `_history/design.v1.md`），停在技术设计确认关卡；未新起草 ADR；仓库无远端，未推送（SV-07） |
 | 2026-11-11 | Yin Yang（frontend） | architecture-advisor | 完成 frontend Step 3 技术设计 v2（design.md v2.0：新增 TD-16..TD-31，追溯 54/54，X-10 脚本核查结论，3 条待 DL 澄清 Q-TD-01..03），停在技术设计确认关卡；7b 未勾；仓库无远端，未推送（SV-07） |
+| 2026-11-11 | Yin Yang（backend） | dev-self-test | 11a 开发自测：第 0 步合并 feature（无冲突）；自测脚本改为脚本内生成合成样品（e5e7e74）；自测文档增量更新为 v2（170 条，新增 pytest 0，AC 60 条有用例、2 条部分覆盖）；真实 deepseek-flash 演练第 2 次 14/14 OK、3 次调用 token 3,752/2,128（第 1 次 13/14，脚本断言缺陷已修正）；未推送；停在门控，等待开发确认 |
 
 ---
 
