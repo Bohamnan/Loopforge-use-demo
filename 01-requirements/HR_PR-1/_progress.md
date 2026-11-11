@@ -103,6 +103,7 @@
 | 2026-11-11 | Yin Yang（Dev Lead） | cross-workbench-reviewer | v2 审视 11 项裁决：10 项采纳建议；X-06 选 B 并追加"再次确认后更新已有记录"，登记为 v2.1（方案 A） |
 | 2026-11-11 | Yin Yang（Dev Lead） | requirement-change-router | DL 试用后提出需求变更 v2（Type C，DL 确认）：对话修改与问答、历史会话、已归档简历查看；受影响阶段标 ⚠️，登记重跑清单（v2） |
 | 2026-11-11 | Yin Yang（frontend） | impact-analyzer | 完成 frontend v2 影响分析（delta 覆盖，提交 1476ce6，含行号引用与验证回路自检）；登记 10 条待澄清问题；Step 4 补做；仓库无远端，未推送（SV-07） |
+| 2026-11-11 | Yin Yang（backend） | impact-analyzer | 追加 backend v2.1 影响分析小节（4f02d13，第十一节）：新增待澄清 Q-backend-07..10；仓库无远端，未推送（SV-07） |
 
 ---
 
@@ -228,7 +229,7 @@
 |--------|-------|-------|---------|---------|:---:|
 | 1' | （人工）DL 更新 PRD | Dev Lead | 无 | PRD 履历 v2.1；#4 补 3 条、#6 补 1 条、#7 补注 | ✅ 2026-11-11 DL 选定方案 A |
 | 2' | solution-designer | Dev Lead | 1' ✅ | HLD 履历 v2.1；§3 第 5 步、§4 新增契约行、§5 Backend；ADR-004 修订 | ✅ 2026-11-11 门控 1（无技术约束引起的需求修订）、门控 2（HLD v2.1、ADR-004 修订）DL 确认 |
-| 3a' | impact-analyzer | backend 工程师 | 2' ✅ | 在 v2 影响分析中追加 v2.1 小节（只写更新路径：确认更新、文件替换与补偿、对账影响、受影响测试），不重写全文 | ☐ |
+| 3a' | impact-analyzer | backend 工程师 | 2' ✅ | 在 v2 影响分析中追加 v2.1 小节（只写更新路径：确认更新、文件替换与补偿、对账影响、受影响测试），不重写全文 | ☑ 4f02d13（2026-11-11） |
 | 3b' | impact-analyzer | frontend 工程师 | 2' ✅ | 在 v2 影响分析中追加 v2.1 小节（只写差异展示与"确认更新"卡片、已保存过视图），不重写全文 | ☐ |
 | 4' | cross-workbench-reviewer | Dev Lead | 3a'/3b' ✅ | v2 审视节追加 v2.1 比对；之后签署 v2 确认 | ☐ |
 
