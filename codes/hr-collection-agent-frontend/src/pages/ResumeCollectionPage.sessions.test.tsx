@@ -57,7 +57,8 @@ describe('switching and leaving (REQ-FE-05.3, 05.4)', () => {
     await screen.findByRole('heading', { name: /基本信息/ });
     expect(item('简历 · 甲')).toHaveAttribute('aria-current', 'true');
     await userEvent.click(item('简历 · 乙'));
-    await waitFor(() => expect(screen.queryByRole('heading', { name: /基本信息/ })).not.toBeInTheDocument());
+    expect(await screen.findByTestId('saved-result')).toBeInTheDocument();
+    expect(screen.queryByLabelText('姓名')).not.toBeInTheDocument();
     expect(backend.requests.filter((r) => r !== LIST).every((r) => r.startsWith('GET '))).toBe(true);
   });
 

@@ -1,6 +1,6 @@
 import { Tag } from 'antd';
 import type { ReactNode } from 'react';
-import { currentValue, orderedFieldKeys } from '../hooks/model/SectionView';
+import { currentValue, orderedFieldKeys, type StatuslessFields } from '../hooks/model/SectionView';
 import type { FieldConfig, ObjectItemConfig, SectionConfig } from '../hooks/model/SectionConfig';
 import type { ResumeFields, ResumeFieldsUpdate } from '../types/ResumeModel';
 import FieldStatusTag from './FieldStatusTag';
@@ -70,26 +70,28 @@ export function ValueView({ field, value, emptyText = DEFAULT_EMPTY }: ValueView
   }
 }
 
-interface ReadOnlySectionProps {
+interface CommonProps {
   section: SectionConfig;
-  fields: ResumeFields;
   /** Unsubmitted edits; shown instead of the saved values. */
   buffer: ResumeFieldsUpdate;
-  /** false (saved / archived content): no status tags and no attention highlight; statuses are not read. */
-  showStatus?: boolean;
   /** Text for an empty value; defaults to "（未提供）". */
   emptyText?: string;
 }
 
+/** Reviewed fields with statuses, or (showStatus=false: saved / archived content) values only - no tags, no highlight. */
+type ReadOnlySectionProps = CommonProps & ({ fields: ResumeFields; showStatus?: true } | { fields: StatuslessFields; showStatus: false });
+
 /** Read-only rendering of one section: label, value and status for every field, attention fields first. */
-export default function ReadOnlySection({ section, fields, buffer, showStatus = true, emptyText }: ReadOnlySectionProps) {
+export default function ReadOnlySection(props: ReadOnlySectionProps) {
+  const { section, fields, buffer, emptyText } = props;
+  const statusFields = props.showStatus === false ? null : props.fields;
   const byKey = new Map(section.fields.map((f) => [f.key, f]));
   const singleSameLabel = section.fields.length === 1 && section.fields[0]?.label === section.title;
   return (
     <div className="section-fields">
-      {(showStatus ? orderedFieldKeys(section, fields) : section.fields.map((f) => f.key)).map((key) => {
+      {(statusFields ? orderedFieldKeys(section, statusFields) : section.fields.map((f) => f.key)).map((key) => {
         const field = byKey.get(key) as FieldConfig;
-        const status = showStatus ? fields[key].status : null;
+        const status = statusFields ? statusFields[key].status : null;
         const attention = status === 'missing' || status === 'uncertain';
         return (
           <div key={key} data-field={key} className={`field-row${attention ? ' field-attention' : ''}`}>

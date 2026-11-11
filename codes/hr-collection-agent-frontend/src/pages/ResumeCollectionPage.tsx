@@ -1,4 +1,4 @@
-import { Button, Spin } from 'antd';
+import { Spin } from 'antd';
 import { useRef, useState } from 'react';
 import AppShell from '../components/AppShell';
 import ChatThread from '../components/ChatThread';
@@ -13,7 +13,7 @@ import NoticeBanner from '../components/NoticeBanner';
 import SessionList from '../components/SessionList';
 import QuickReplyChips from '../components/QuickReplyChips';
 import ReviewSummary from '../components/ReviewSummary';
-import SavedResultCard from '../components/SavedResultCard';
+import SavedSessionView from '../components/SavedSessionView';
 import SectionCard from '../components/SectionCard';
 import UploadProgressNotice from '../components/UploadProgressNotice';
 import WelcomePanel from '../components/WelcomePanel';
@@ -102,6 +102,10 @@ export default function ResumeCollectionPage() {
     />
   );
 
+  const readOnlyMessages = (
+    <MessageList messages={state.messages} renderCard={(message) => <SuggestionCard suggestions={message.suggestions} actionable={false} />} />
+  );
+
   const pending =
     uploading && state.pendingFile ? (
       <>
@@ -174,18 +178,15 @@ export default function ResumeCollectionPage() {
       break;
     case 'saved':
       content = (
-        <>
-          <SavedResultCard
-            kind={state.notice === 'already_saved' ? 'already_saved' : 'saved'}
-            summary={state.savedSummary}
-            onUploadNext={requestNewChat}
-          />
-          {state.saved === null ? (
-            <Button onClick={rereadSession} disabled={busy}>
-              重新读取
-            </Button>
-          ) : null}
-        </>
+        <SavedSessionView
+          kind={state.notice === 'already_saved' ? 'already_saved' : 'saved'}
+          saved={state.saved}
+          summary={state.savedSummary}
+          messages={readOnlyMessages}
+          busy={busy}
+          onUploadNext={requestNewChat}
+          onReread={rereadSession}
+        />
       );
       break;
     default:

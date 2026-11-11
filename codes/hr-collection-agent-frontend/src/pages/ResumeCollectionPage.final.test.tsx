@@ -102,7 +102,7 @@ describe('F-03: "已保存" only after a confirmed save (HIGH_RISK, deterministi
     await waitFor(() => expect(successShown()).toBe(true));
     expect(backend.saveAnswered).toBe(true);
     expect(posts(backend).map((p) => p.body)).toEqual([{ confirmed: true }]);
-    expect(within(main()).getByText('测试用户甲')).toBeInTheDocument();
+    expect(within(screen.getByTestId('saved-result')).getByText('测试用户甲')).toBeInTheDocument();
     expect(within(main()).queryByText(/resume_id|记录编号/)).not.toBeInTheDocument();
     expect(backend.count(GET_SESSION)).toBe(2); // opened + re-read after the save
   });

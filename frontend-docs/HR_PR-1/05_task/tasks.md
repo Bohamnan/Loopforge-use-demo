@@ -425,7 +425,7 @@
 - [x] `ChangeRows`、`SuggestionCard`
 - [x] 应用 / 取消及 `editBuffer` 清理
 
-### Task 2.12：已保存会话视图（REQ-FE-04.4、04.5、05.3） 🆕 v2 新增
+### Task 2.12：已保存会话视图（REQ-FE-04.4、04.5、05.3） ✅
 - **关联：** design §3.4（SavedSessionView）、TD-11/18/22；REQ-FE-04.4、04.5、05.3
 - **涉及文件：** `SavedSessionView.tsx`、`ResumeCollectionPage.tsx`（`saved` 分支改渲染）、`MessageList.tsx`（只读模式）及测试。
 - **内容：** 组合 `FileCard` → `SavedResultCard` → 只读分区（`showStatus=false`、`emptyText='未填写'`，`valuesAsFields` 适配）→ `update_state=applied` 时静态一行“已按本次内容更新” → 只读 `MessageList`（建议卡无按钮）；重读失败（`saved=null`）时只显示结果卡 + “重新读取”。重新打开 `applied` 会话**不**触发“已更新”提示（TD-24）。
@@ -434,8 +434,8 @@
 
 #### 子任务
 
-- [ ] `SavedSessionView`
-- [ ] 重读失败回退
+- [x] `SavedSessionView`
+- [x] 重读失败回退
 
 ### Task 2.13：已保存过后的确认更新（REQ-FE-09，HIGH_RISK：F-03 “已更新” + 差异必列清空字段） 🆕 v2 新增
 - **关联：** design §3.4（UpdateDiffCard）、§5.5、TD-23/24；REQ-FE-09.1–09.5；Y-01、Y-02
