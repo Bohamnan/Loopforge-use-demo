@@ -311,7 +311,7 @@
 - [ ] `ArchiveFileStore`
 - [ ] 对应单元测试
 
-### Task 1.11：repositories：ChatRepository　🆕 v2
+### Task 1.11：repositories：ChatRepository　✅ v2 已完成
 - **关联：** REQ-BE-07；D§3.5（`ChatRepository`）、D§5.2a；S§2（`chat_messages`、`chat_suggestions`）
 - **涉及文件：** `repositories/chat_repository.py`、`tests/repositories/test_chat_repository.py`
 - **内容：** 消息与建议读写（同事务内取 `max(seq)+1`）；`recent_messages(session_id, n)`；`suggestions_of_message`；`mark_suggestions(message_id, status)`（条件 `pending AND applicable=1`，以 `rowcount` 表达是否生效）。仅做存储，不做业务判断。

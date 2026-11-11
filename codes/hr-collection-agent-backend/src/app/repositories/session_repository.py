@@ -50,6 +50,11 @@ class SessionTransaction:
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
 
+    @property
+    def connection(self) -> sqlite3.Connection:
+        """The open transaction's connection, so ChatRepository can join the same transaction."""
+        return self._conn
+
     def get(self, session_id: str, browser_hash: str) -> SessionRecord | None:
         row = self._conn.execute(
             f"SELECT {_COLUMNS} FROM sessions WHERE {_OWNED}",  # noqa: S608
