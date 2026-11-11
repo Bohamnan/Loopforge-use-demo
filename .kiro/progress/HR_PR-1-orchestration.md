@@ -48,7 +48,10 @@
 | 7b frontend 技术设计（`design.md` v2.0，34ff8f7） | ✅ DL 确认 |
 | 8a/8b 任务拆分 + `AGENTS.md` 更新 | ✅ DL 确认（tasks.md v2.0；AGENTS.md 已确认；同意删除 backend `tests/selftest/`） |
 | 9a/9b 编码 | 🔄 第 3 批（阶段 3）已合并（daf882d），审查中 `ctx_300e190ecf86`（review-batch1，backend+frontend 一并）；第 2 批两侧均 ✅（backend 25bbe7b、frontend 772ffc1）。第 1 批（阶段 1）✅ 审查通过（be3f7be）；第 2 批（阶段 2，含第一批 9 条 SUGGEST）进行中：backend 已审查通过（a5ec07e，25bbe7b）；frontend 已合并（8c43072，主工作区复验 lint 0、vitest 611 通过 1 todo、build 通过），审查中 `ctx_7eb1a67cf4fe`（review-batch1）。每阶段一批审查，共 ≤ 3 批 |
-| 10 审查（每批）→ 11a/11b 自测 → 11q QA 执行（AT/E2E/UAT）→ 12 DL 最终 Review | 未开始 |
+| 10 审查（每批）✅（第 1–3 批；第 3 批 827e23e） | ✅ |
+| 11a/11b 自测 | 🔄 进行中：backend `ctx_a95674a4523f`（含真实 DeepSeek 演练，DL 已授权，仅合成数据）、frontend `ctx_618289ba4557`（需真实后端/浏览器的用例标“待 11q”） |
+| 11q QA 执行（AT/E2E/UAT）→ 12 DL 最终 Review | 未开始。**11a/11b 交付并确认后，必须提醒 DL 进入 11q（DL 2026-11-11 要求）**；11q 的 5 条 UAT 由 DL 亲自执行 |
+| 待决 | frontend 第 3 批 S-1（F-02 未监听 `document.cookie` getter，变异存活）：DL 尚未决定补 / 只跟踪 |
 
 ## 四、DL 的长期决定（易忘）
 
