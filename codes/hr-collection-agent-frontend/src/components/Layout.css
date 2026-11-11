@@ -375,8 +375,11 @@ body {
 }
 
 /* Narrow screens: "new chat" sits in the title bar */
+
 .app-header-action {
   margin-left: auto;
+  display: flex;
+  gap: 8px;
 }
 
 /* Phone width (360–599px): give editable values the whole row (integration drill SUGGEST-2). */
@@ -399,4 +402,170 @@ body {
   .composer-hint {
     display: none;
   }
+}
+
+/* Session list (side bar / drawer) */
+.session-list ul {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+.session-item {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.session-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.session-main[aria-current='true'] {
+  border-color: var(--primary, #126af3);
+}
+.session-main:disabled,
+.session-delete:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.session-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.session-time,
+.session-empty {
+  color: var(--muted, #65717b);
+  font-size: 12px;
+}
+.session-delete {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0 8px;
+}
+
+/* Chat */
+.composer-text {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.composer-count {
+  color: var(--muted, #65717b);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.composer-count-over {
+  color: var(--danger, #dd0028);
+}
+.message-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.message {
+  max-width: 80%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: #fff;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.message-user {
+  align-self: flex-end;
+  background: #e8f1ff;
+}
+.message-assistant {
+  align-self: flex-start;
+}
+.message-time {
+  display: block;
+  color: var(--muted, #65717b);
+  font-size: 12px;
+}
+.suggestion-card {
+  align-self: flex-start;
+  max-width: 90%;
+  margin-top: 4px;
+  padding: 8px 12px;
+  border: 1px solid var(--border, #d5dce2);
+  border-radius: 12px;
+  background: #fff;
+}
+.suggestion-title {
+  font-weight: 600;
+}
+.suggestion-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.change-rows {
+  margin: 4px 0;
+}
+.change-row {
+  display: flex;
+  gap: 8px;
+  padding: 2px 0;
+}
+.change-row dt {
+  width: 80px;
+  flex: none;
+  color: var(--muted, #65717b);
+}
+.change-row dd {
+  margin: 0;
+}
+.change-row-highlight {
+  background: #fff4e5;
+}
+.change-old {
+  text-decoration: line-through;
+  color: var(--muted, #65717b);
+}
+.change-note {
+  margin-left: 8px;
+  color: var(--warn, #b26a00);
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+.update-diff-card {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--border, #d5dce2);
+  border-radius: 12px;
+  background: #fff;
+}
+.archive-page {
+  padding: 16px;
+  overflow: auto;
+}
+.link-button {
+  padding: 0;
+  color: var(--primary, #126af3);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.app-nav {
+  margin-left: 16px;
 }

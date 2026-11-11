@@ -50,6 +50,11 @@ describe('isSessionDetail (status, update_state and fields / resume / update_can
     expect(isSessionDetail(sampleSessionDetail(kind))).toBe(true);
   });
 
+  it('accepts a conversation of several messages (each array item is checked on its own)', () => {
+    const { user_message, assistant_message } = sampleSendMessageResponse();
+    expect(isSessionDetail({ ...sampleSessionDetail('reviewing'), messages: [user_message, assistant_message, user_message] })).toBe(true);
+  });
+
   it.each([
     ['not an object', null],
     ['reviewing without fields', { ...sampleSessionDetail('reviewing'), fields: null }],

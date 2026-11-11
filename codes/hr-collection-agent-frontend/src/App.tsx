@@ -1,5 +1,7 @@
-import { ConfigProvider, type ThemeConfig } from 'antd';
+import { ConfigProvider, Segmented, type ThemeConfig } from 'antd';
+import { useState } from 'react';
 import ErrorBoundary from './components/ErrorBoundary';
+import ArchivePage from './pages/ArchivePage';
 import ResumeCollectionPage from './pages/ResumeCollectionPage';
 
 /** Ant Design theme tokens taken from the prototype palette (global-info/prototype/style.css, TD-14). */
@@ -19,11 +21,30 @@ export const appTheme: ThemeConfig = {
   },
 };
 
+type View = 'chat' | 'archive';
+
+/** Both pages stay mounted; the hidden one keeps its state (current session, edits, typed text) - TD-25, no router. */
 export default function App() {
+  const [view, setView] = useState<View>('chat');
+  const nav = (
+    <Segmented<View>
+      value={view}
+      onChange={setView}
+      options={[
+        { label: '对话', value: 'chat' },
+        { label: '已归档简历', value: 'archive' },
+      ]}
+    />
+  );
   return (
     <ConfigProvider theme={appTheme} button={{ autoInsertSpace: false }}>
       <ErrorBoundary>
-        <ResumeCollectionPage />
+        <div hidden={view !== 'chat'}>
+          <ResumeCollectionPage visible={view === 'chat'} nav={nav} />
+        </div>
+        <div hidden={view !== 'archive'}>
+          <ArchivePage active={view === 'archive'} nav={nav} />
+        </div>
       </ErrorBoundary>
     </ConfigProvider>
   );

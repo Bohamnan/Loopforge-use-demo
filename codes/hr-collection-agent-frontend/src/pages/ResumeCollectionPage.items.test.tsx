@@ -3,39 +3,31 @@ import userEvent from '@testing-library/user-event';
 import { ConfigProvider } from 'antd';
 import { StrictMode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { applyPatch, errorResponse, jsonResponse, sampleDraft, stubFetch } from '../test/ApiMocks';
-import type { DraftResponse } from '../types/Draft';
+import { errorResponse, stubFetch } from '../test/ApiMocks';
+import { SECTIONS_READY, fieldsResponse, sampleDraft, sessionStub, uploadResume, type FieldsPatch } from '../test/PageHarness';
 import ResumeCollectionPage from './ResumeCollectionPage';
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-type Patch = { fields: Record<string, unknown> };
+type Patch = FieldsPatch;
 
-function backend(draft: DraftResponse, onPatch?: (body: Patch) => Response) {
-  let current = draft;
-  return stubFetch((_url, init) => {
-    if (init.method === 'GET') return jsonResponse(200, current);
-    const body = JSON.parse(init.body as string) as Patch;
-    if (onPatch) return onPatch(body);
-    current = applyPatch(current, body.fields);
-    return jsonResponse(200, current);
-  });
-}
+const backend = sessionStub;
 const patches = (mock: ReturnType<typeof stubFetch>) => mock.mock.calls.filter(([, init]) => init.method === 'PATCH');
 const body = (mock: ReturnType<typeof stubFetch>, n = 0) => JSON.parse(patches(mock)[n]![1].body as string) as Patch;
 
 async function openSection(title: string, draft = sampleDraft(), onPatch?: (b: Patch) => Response) {
   const mock = backend(draft, onPatch);
-  render(
+  const { container } = render(
     <StrictMode>
       <ConfigProvider theme={{ token: { motion: false } }}>
         <ResumeCollectionPage />
       </ConfigProvider>
     </StrictMode>,
   );
-  await screen.findByText('已为你恢复未完成的简历');
+  await uploadResume(container);
+  await SECTIONS_READY();
   const heading = screen.getByRole('heading', { name: new RegExp(title) });
   const section = heading.closest('section') as HTMLElement;
   if (!section.hasAttribute('aria-current')) {
@@ -129,13 +121,14 @@ describe('experience lists (REQ-FE-03.3)', () => {
 
   it('locks the editor while the section is being saved', async () => {
     let release: (r: Response) => void = () => undefined;
-    const mock = stubFetch((_u, init) => (init.method === 'GET' ? jsonResponse(200, sampleDraft()) : (new Promise<Response>((r) => (release = r)) as unknown as Response)));
-    render(
+    const mock = sessionStub(sampleDraft(), () => new Promise<Response>((r) => (release = r)) as unknown as Response);
+    const { container } = render(
       <ConfigProvider theme={{ token: { motion: false } }}>
         <ResumeCollectionPage />
       </ConfigProvider>,
     );
-    await screen.findByText('已为你恢复未完成的简历');
+    await uploadResume(container);
+    await SECTIONS_READY();
     const heading = screen.getByRole('heading', { name: /工作经历/ });
     await userEvent.click(within(heading.closest('section') as HTMLElement).getByRole('button', { name: /修\s?改/ }));
     await userEvent.click(confirmButton());
@@ -143,6 +136,6 @@ describe('experience lists (REQ-FE-03.3)', () => {
     expect(within(sec).getByLabelText('公司名称')).toBeDisabled();
     expect(within(sec).getByRole('button', { name: /添加一条/ })).toBeDisabled();
     expect(patches(mock)).toHaveLength(1);
-    release(jsonResponse(200, sampleDraft()));
+    release(fieldsResponse(sampleDraft().fields));
   });
 });

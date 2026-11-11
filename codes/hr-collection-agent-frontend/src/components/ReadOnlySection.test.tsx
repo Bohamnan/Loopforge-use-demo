@@ -63,4 +63,13 @@ describe('ReadOnlySection', () => {
     expect(within(row).getByText('未提交修改')).toBeInTheDocument();
     expect(within(row).getByText('待确认')).toBeInTheDocument();
   });
+
+  it('showStatus=false hides status tags and highlight, keeps the fixed order and shows emptyText', () => {
+    render(<ReadOnlySection section={getSection('basic')} fields={sampleFields()} buffer={{}} showStatus={false} emptyText="未填写" />);
+    const keys = Array.from(document.querySelectorAll('[data-field]')).map((el) => el.getAttribute('data-field'));
+    expect(keys).toEqual(['name', 'phone', 'email', 'homepage']);
+    expect(document.querySelector('.field-attention')).toBeNull();
+    expect(screen.queryByText(/待补充|待确认|已确认|不确定/)).not.toBeInTheDocument();
+    expect(within(document.querySelector('[data-field="homepage"]') as HTMLElement).getByText('未填写')).toBeInTheDocument();
+  });
 });

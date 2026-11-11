@@ -5,7 +5,13 @@ import type { SessionDetail } from '../../types/Session';
 // (design TD-19, G2-04). Pure functions. F-03: anything that cannot be read as "saved" / "updated" falls back to
 // "not confirmed" - success is never the default.
 
-/** The user message and its assistant reply that the lost request created, or null when it did not reach the server. */
+/**
+ * The user message and its assistant reply that the lost request created, or null when it did not reach the server.
+ * Texts are compared after trimming both sides (SUGGEST-2): OpenAPI SendMessageRequest only says that an all-blank
+ * text is rejected and does not say whether the stored text is trimmed, so the match must hold either way - a missed
+ * match would resend the message and store it twice, while a trimmed comparison cannot hide a lost request because
+ * the two tail messages must also be new (ids unknown before sending).
+ */
 export function matchSentMessage(
   messages: readonly ChatMessage[],
   knownIds: readonly string[],
@@ -14,7 +20,7 @@ export function matchSentMessage(
   const assistant = messages.at(-1);
   const user = messages.at(-2);
   if (!assistant || !user) return null;
-  if (user.role !== 'user' || assistant.role !== 'assistant' || user.content !== text) return null;
+  if (user.role !== 'user' || assistant.role !== 'assistant' || user.content.trim() !== text.trim()) return null;
   if (knownIds.includes(user.message_id) || knownIds.includes(assistant.message_id)) return null;
   return { user, assistant };
 }

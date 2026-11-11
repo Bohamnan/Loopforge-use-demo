@@ -160,8 +160,14 @@ export function buildSectionUpdate(
   return { update: update as ResumeFieldsUpdate, errors };
 }
 
+/**
+ * Saved values (no statuses) shaped like ResumeFields for read-only rendering (TD-22). It has no `status`, so it can
+ * never be passed where ResumeFields is expected (PATCH bodies, coreReady, unconfirmedCount...) - SUGGEST-3.
+ */
+export type StatuslessFields = { readonly [K in ResumeFieldKey]: { readonly value: ResumeFields[K]['value'] } };
+
 /** The value to display for a field: an unsubmitted edit if there is one, otherwise the saved draft value. */
-export function currentValue(fields: ResumeFields, buffer: ResumeFieldsUpdate, key: ResumeFieldKey): unknown {
+export function currentValue(fields: ResumeFields | StatuslessFields, buffer: ResumeFieldsUpdate, key: ResumeFieldKey): unknown {
   return key in buffer ? (buffer as Record<string, unknown>)[key] : fields[key].value;
 }
 
@@ -203,12 +209,9 @@ export function canConfirmSection(section: SectionConfig, fields: ResumeFields, 
   return state.block === null && !(state.status === 'confirmed' && !state.dirty);
 }
 
-/**
- * Adapts saved values (no statuses) to ResumeFields for read-only rendering (TD-22).
- * The status is a placeholder and must never be shown or sent; callers render with showStatus=false.
- */
-export function valuesAsFields(values: ResumeValues): ResumeFields {
-  const fields: Record<string, { value: unknown; status: FieldStatus }> = {};
-  for (const key of RESUME_FIELD_KEYS) fields[key] = { value: values[key], status: 'confirmed' };
-  return fields as unknown as ResumeFields;
+/** Adapts saved values to the status-less field shape rendered by ReadOnlySection with showStatus=false (TD-22). */
+export function valuesAsFields(values: ResumeValues): StatuslessFields {
+  const fields: Record<string, { value: unknown }> = {};
+  for (const key of RESUME_FIELD_KEYS) fields[key] = { value: values[key] };
+  return fields as StatuslessFields;
 }

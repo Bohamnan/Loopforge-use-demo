@@ -299,5 +299,8 @@ describe('valuesAsFields', () => {
     expect(Object.keys(fields)).toEqual([...RESUME_FIELD_KEYS]);
     expect(fields.name.value).toBe(values.name);
     expect(fields.work_experiences.value).toEqual(values.work_experiences);
+    expect('status' in fields.name).toBe(false); // no placeholder status (SUGGEST-3)
+    // @ts-expect-error status-less values are not ResumeFields and cannot reach status-based rules
+    unconfirmedCount(fields);
   });
 });
