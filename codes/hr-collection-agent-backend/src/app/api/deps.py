@@ -15,6 +15,7 @@ from app.repositories.chat_repository import ChatRepository
 from app.repositories.draft_file_store import DraftFileStore
 from app.repositories.resume_repository import ResumeRepository
 from app.repositories.session_repository import SessionRepository
+from app.services.archive_query_service import ArchiveQueryService
 from app.services.chat_service import ChatService
 from app.services.resume_service import ResumeService
 from app.services.session_service import SessionService
@@ -71,6 +72,15 @@ def get_resume_service(request: Request) -> ResumeService:
         ArchiveFileStore(state.settings.file_dir),
         state.clock,
         state.ids,
+    )
+
+
+def get_archive_query_service(request: Request) -> ArchiveQueryService:
+    """Read-only archive access: the reader view of the resumes store and the file store."""
+    state = request.app.state
+    return ArchiveQueryService(
+        ResumeRepository(state.settings.data_dir / "resumes.db"),
+        ArchiveFileStore(state.settings.file_dir),
     )
 
 

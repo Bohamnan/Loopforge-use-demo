@@ -4,7 +4,7 @@ from fastapi import FastAPI
 
 from app.api.error_handlers import register_error_handlers
 from app.api.middleware import RequestIdMiddleware
-from app.api.routes import chat, session_resume, sessions
+from app.api.routes import archive, chat, session_resume, sessions
 from app.clients.resume_chat_client import ResumeChatClient
 from app.clients.resume_parser_client import ResumeParserClient
 from app.core.clock import Clock, SystemClock
@@ -50,4 +50,5 @@ def create_app(
     app.include_router(sessions.router)
     app.include_router(session_resume.router)
     app.include_router(chat.router)
+    app.include_router(archive.router)
     return app

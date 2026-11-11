@@ -550,7 +550,7 @@
 
 ---
 
-### Task 2.13：接口：归档只读（列表 / 详情 / 文件下载）　🆕 v2
+### Task 2.13：接口：归档只读（列表 / 详情 / 文件下载）　✅ v2 已完成
 - **关联：** REQ-BE-08；D§3.6（`ArchiveQueryService`）、D§5.7；A `GET /resumes`、`/resumes/{id}`、`/resumes/{id}/file`；ADR-009
 - **涉及文件：** `services/archive_query_service.py`、`api/routes/archive.py`、`api/deps.py`、`tests/services/test_archive_query_service.py`、`tests/api/test_archive.py`
 - **内容：** 列表（按首次保存时间倒序，`ResumeSummary`）、详情（`ResumeValues` + `file_available`）、文件流式下载（经 `ArchiveFileStore.open_final`，安全响应头 `Content-Disposition`、`X-Content-Type-Options` 等按 `api_design_resume.md`）；全程只依赖 `ResumeReader` 与只读文件接口；不存在 → `resume_not_found`，记录在而文件缺失 → `file_not_available`。
