@@ -49,7 +49,7 @@
 | Workbench 影响分析（各 Workbench 并行） | impact-analyzer | 各 Workbench 工程师 | ✅ v2 DL review 通过（2026-11-11）：backend 924a75b（6 条待澄清）；frontend 0ee2330 + 1476ce6（10 条待澄清） | 2026-11-11 | `backend-docs/HR_PR-1/00_impact_analysis.md`；`frontend-docs/HR_PR-1/00_impact_analysis.md` |
 | 跨 Workbench 一致性 review（仅跨 Workbench 需求） | cross-workbench-reviewer | Dev Lead | ✅ v2/v2.1 已裁决（X-01..X-10a、Y-01、Y-02）；v1 裁决中 C-03、C-06、C-07、C-11、D-01、D-04、D-05、O-01、O-03、O-12 被替代 | 2026-11-11 | `01-requirements/HR_PR-1/cross-workbench-review.md` |
 | 需求汇总（第二轮技术 Q&A + requirements.md） | requirements-analyst | Dev Lead/BA | ✅ v2：质量关卡 1 通过（23 条全部填空型）；两侧 requirements.md 增量更新并经 DL 确认（v1 快照 `_history/requirements.v1.md`）；glossary 已按 X-10a 写入 | 2026-11-11 | `backend-docs/HR_PR-1/01_requirements/requirements.md`；`frontend-docs/HR_PR-1/01_requirements/requirements.md` |
-| 架构设计（Schema+接口） | architecture-advisor | 各 Workbench 工程师 | ⚠ v2 进行中：backend ✅（Schema v0.2.0、OpenAPI 0.2.0 冻结，2026-11-11）；frontend 🔄 6b；v1：backend（OpenAPI 0.1.0 冻结，0.1.1 待修订 G-01/G-02）/ frontend（Step 2.2 评审通过） | 2026-11-10 | `backend-docs/HR_PR-1/02_schema/`、`03_api/`；`frontend-docs/HR_PR-1/03_api/interface_spec_resume.md` |
+| 架构设计（Schema+接口） | architecture-advisor | 各 Workbench 工程师 | ⚠ v2 进行中：backend ✅（Schema v0.2.0、OpenAPI 0.2.0 冻结，2026-11-11）；frontend ⏸ 待评审（6b 接口消费规范 v0.3 已同步 OpenAPI 0.2.0，Q-IF-01..03 待 DL）；v1：backend（OpenAPI 0.1.0 冻结，0.1.1 待修订 G-01/G-02）/ frontend（Step 2.2 评审通过） | 2026-11-10 | `backend-docs/HR_PR-1/02_schema/`、`03_api/`；`frontend-docs/HR_PR-1/03_api/interface_spec_resume.md` |
 | 技术设计 | architecture-advisor | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：backend ✅ / frontend ✅（ADR-006 将被替代） | 2026-11-10 | `backend-docs/HR_PR-1/04_design/design.md`；`frontend-docs/HR_PR-1/04_design/design.md` |
 | 任务拆分 | architecture-advisor | 各 Workbench 工程师 | ⚠️ 待重审（v2）；v1：backend（20 任务 / 91h）/ frontend（15 任务 / 79h） | 2026-11-10 | `backend-docs/HR_PR-1/05_task/tasks.md`；`frontend-docs/HR_PR-1/05_task/tasks.md` |
 | 仓库约定补全与复核（仅新项目 Workbench） | architecture-advisor（Step 5） | 各 Workbench 工程师/Dev Lead | ⚠️ 待重审（v2）；v1：backend / frontend 已确认 | 2026-11-10 | backend、frontend 仓库 `AGENTS.md` |
@@ -126,6 +126,7 @@
 | 2026-11-11 | Yin Yang（QA） | qa-test-case | 按 5q 待澄清答复（DL 授权采纳建议）更新用例：对话类以模型桩为准、AT-20/NEG-04/AT-41/AT-46 调整、新增 AT-55，共 86 条；补 11q 执行范围；仓库无远端，未推送 |
 | 2026-11-11 | Yin Yang（QA） | qa-test-case | 接口类用例补调用路径与期望错误码（OpenAPI 0.2.0 冻结，仅 AT-52、NEG-02/03/04/07/08/09、PERM-02、REG-08），不改意图、不增减用例；仓库无远端，未推送 |
 | 2026-11-11 | Yin Yang（backend） | architecture-advisor | 完成 backend v2 Step 2.1+2.2（Schema v0.2.0、OpenAPI 0.2.0 草稿、api_design 同步，提交 21e0e4f），停在 Schema+接口评审合并门控；设计决策 34 条（Schema 12 + 接口 22）；仓库无远端，未推送（SV-07） |
+| 2026-11-11 | Yin Yang（frontend） | architecture-advisor | 完成 frontend Step 2.2（接口消费规范 v0.3，同步 OpenAPI 0.2.0：13 个操作、22 条错误码映射、DD-12..DD-22），停在合并门控待评审；6b 未勾；仓库无远端，未推送（SV-07） |
 
 ---
 
