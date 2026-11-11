@@ -215,7 +215,7 @@ App (ConfigProvider, ErrorBoundary, view)
 │  │     │     FileCard · ReviewSummary · SectionCard ×11 · MessageList(MessageBubble · SuggestionCard · pending · ThinkingNotice)
 │  │     ├─ [phase=reviewing, view=final] FinalReviewCard · MessageList
 │  │     └─ [phase=saved] SavedSessionView
-│  │           FileCard · SavedResultCard · ReadOnlySection ×9(分类) · MessageList(只读) · UpdateDiffCard
+│  │           FileCard · SavedResultCard · ReadOnlySection ×11(分区) · MessageList(只读) · UpdateDiffCard
 │  ├─ ComposerBar (上传 + 文本输入 + QuickReplyChips)
 │  └─ ConfirmDialog (leave / unconfirmed / unsubmitted_edits / delete)
 └─ ArchivePage (hidden when view=chat)
@@ -581,7 +581,7 @@ sequenceDiagram
 | SessionList | 受控列表；每项主按钮选择会话（`aria-current` 标当前），次按钮删除（`aria-label="删除会话 {name}"`）；状态用"文字 + 颜色"；时间 `formatDateTime`；`loading` 骨架、`error` 显示 `ErrorAlert` + "重试"、空列表显示"暂无历史会话"；`disabled`（`busy≠null`）时不响应 | REQ-FE-05.2、05.5 |
 | AppShell | `useNarrowScreen()` 为 true 时：侧栏不渲染，顶栏显示"会话"按钮（打开 `Drawer`，内含 `sidebar` 插槽）与"＋ 新对话"；选择会话后关闭 Drawer；`nav` 渲染在顶栏标题旁 | REQ-FE-05.2 |
 | ConfirmDialog 文案 <!-- 变更 v2 --> | `leave`："有未提交的修改，继续将放弃这些修改。是否继续？"；`delete`（校对中）："删除后，这份简历的信息与已上传文件将一并删除，且无法恢复。"；`delete`（已保存）："只删除这个会话的对话记录；已归档的简历和原始文件会保留，仍可在“已归档简历”中查看。"；`unconfirmed`、`unsubmitted_edits` 同 v1 | REQ-FE-05.4、05.5 |
-| ArchiveList / ArchiveDetail / saveBlob | 列表 `Table`（`rowKey=resume_id`，不显示 id）：姓名、手机号、邮箱、求职意向（`null` 显示"未填写"）、`formatDateTime(saved_at)`；空态"暂无记录"；详情 `Drawer`：9 分类只读（同上）、文件名、保存时间、最近更新（`updated_at≠saved_at` 时）；"打开原始文件"按钮：`file_available=false` 时禁用并提示"原始文件暂不可用"；点击后 `useArchive.openFile` → `saveBlob(blob, genericName)`（临时 `<a download>`、`click()`、`URL.revokeObjectURL`）；手机号 / 邮箱仅渲染，不进日志、标题、URL | REQ-FE-08；TD-27 |
+| ArchiveList / ArchiveDetail / saveBlob | 列表 `Table`（`rowKey=resume_id`，不显示 id）：姓名、手机号、邮箱、求职意向（`null` 显示"未填写"）、`formatDateTime(saved_at)`；空态"暂无记录"；详情 `Drawer`：11 分区只读（同上）、文件名、保存时间、最近更新（`updated_at≠saved_at` 时）；"打开原始文件"按钮：`file_available=false` 时禁用并提示"原始文件暂不可用"；点击后 `useArchive.openFile` → `saveBlob(blob, genericName)`（临时 `<a download>`、`click()`、`URL.revokeObjectURL`）；手机号 / 邮箱仅渲染，不进日志、标题、URL | REQ-FE-08；TD-27 |
 | App | `useState<'chat'\|'archive'>`；`<div hidden={view!=='chat'}>` 与 `<div hidden={view!=='archive'}>` 同时包裹两页；`nav = <Segmented options=[对话, 已归档简历] />`；`ResumeCollectionPage` 收 `visible`，`ArchivePage` 收 `active` | REQ-FE-08.1；TD-25 |
 | FinalReviewCard 文案 <!-- 变更 v2 --> | v1 `:60` 的"如果提示草稿不存在，说明可能已经保存"改为"可以再试一次，系统会先核对该会话的保存状态"；其余不变 | REQ-FE-04.6 |
 

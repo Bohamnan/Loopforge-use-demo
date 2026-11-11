@@ -330,7 +330,7 @@
 
 - **v2 状态：** 保持 ✅。`ObjectListEditor` 不变；`ResumeCollectionPage.items.test.tsx` 仅换夹具（2.1 完成）。
 
-### Task 2.6：最终确认与保存结果（REQ-FE-04，HIGH_RISK：约束 F-03，会话版） ⟳ v2 重开
+### Task 2.6：最终确认与保存结果（REQ-FE-04，HIGH_RISK：约束 F-03，会话版） ⟳ v2 重开 ✅（v2 第二批审查 PASS_WITH_SUGGESTIONS，DL 2026-11-11 确认）
 - **关联：** REQ-FE-04.1–04.8；design.md §3.4（FinalReviewCard、SavedResultCard、ConfirmDialog）、§5.1、§5.3（最终确认相关行）、§6、§7.1、§9.2、TD-04/11；B-04、F-03、C-05、C-10、C-11、D-01、D-03、D-04、O-08、O-10、P-09、Q-DL-03
 - **内容：** `FinalReviewCard`（11 区全文只读、未确认字段数提示、“确认提交”仅在核心三项齐全、合法且为 `confirmed` 时可点，否则说明原因；“我还要修改”；失败时卡内 `ErrorAlert`，按钮可直接重试）、`SavedResultCard`（`already_saved=false`：“已保存”+ 姓名 / 原始文件名 / 保存时间 +“上传下一份”；`already_saved=true`：仅“该简历已保存过”，不展示任何记录内容；均不显示 `resume_id` / 记录编号）、`ConfirmDialog`（启用“存在未确认字段”和“存在未提交编辑”两类）；`useResumeSession` 增加 `goFinal`、`backToSections`、`confirmResume`、`resetAfterSaved`；成功后只保留 `savedSummary`，清空草稿与缓冲；`draft_not_found` → 空态 + “可能已保存，请重新上传核实”；422 返回对应分区。
 - **测试：** 约束 F-03 重点用例：成功响应之前（进行中、超时、网络失败、5xx、`save_failed`、422、`draft_not_found`）界面任何位置都不出现“已保存”；超时 / 网络失败后按钮可立即重试且不调用任何状态查询；`already_saved` 依据字段而非 HTTP 状态（200 / 201 两种都覆盖），`true` 时不渲染任何已有记录内容；成功后内存中无手机号 / 邮箱等简历内容，仅姓名 / 文件名 / 保存时间；核心三项未就绪时确认按钮禁用；仍有未确认字段时先弹提示，取消不发请求，继续后发送；存在未提交编辑时被拦截；进行中防重复点击；`recognized` 字段在最终视图中不显示为已确认；数据验证：断言 `POST /resumes` 请求体恰为 `{confirmed: true}` 且只发送一次。
@@ -341,6 +341,7 @@
 - **涉及文件：** `useResumeSession.ts`（`confirmResume(sessionId)`、保存后重读会话、`verifyByConfirm`）、`SavedResultCard.tsx`（`saved`/`already_saved` 两形态；`updated` 在 2.13）、`FinalReviewCard.tsx`（仅文案，design §6）、`ResumeCollectionPage.final.test.tsx`、`SavedResultCard.test.tsx`、`FinalReviewCard.test.tsx`。`draft_not_found → 空态 + 可能已保存` 整条路径删除。
 - **内容：** `POST /sessions/{id}/resume`，体恒为 `{confirmed:true}`；成功后**会话保留**并转只读（重读会话，内容来自正式库，TD-11 v2）；超时 / 网络失败 / `unknown_error` / `session_read_only`（409）→ 先 `GET` 会话再决定（`Verify.decideAfterConfirmRead`，TD-19，G2-04）；`already_saved` 依据响应字段而非 HTTP 状态；不显示 `resume_id`；422 回对应分区。
 - **验收（F-03 确定性用例，沿用 v1 用例集并迁移）：** 成功响应之前（进行中、超时、网络失败、5xx、`save_failed`、422、409 未核对为已保存、形状不符的 2xx）任何位置都不出现“已保存”；仅 POST 2xx 且形状通过，或重读到 `status=saved` 才出现；`already_saved=true` 出现“该简历已保存过”，**不出现“已保存”/“已更新”**；核对路径：超时后重读命中已保存 → 显示已保存且不再重发 POST，未命中 → 保持校对中并可重试；`POST` 请求体恰为 `{confirmed:true}` 且每次点击只发一次；核心三项未就绪按钮禁用。
+- **v1 验收替代确认（DL 2026-11-11，审查 Q-2）：** 上文 v1 “测试”中以下三条已被 v2 替代，以 v2 增量为准：①超时后“不调用状态查询”→先重读会话再决定（TD-19 / G2-04）；②成功后“内存中无手机号 / 邮箱”→重读正式库，会话转只读展示（TD-11 v2）；③`already_saved` “不渲染任何已有记录内容”→由已保存视图只读展示（X-06）。
 - **前置依赖：** Task 2.3、Task 1.8、Task 1.7。 **HIGH_RISK：** 是（F-03）。 **预估：** 7h。
 
 #### 子任务
@@ -399,7 +400,7 @@
 - [x] `AppShell` 插槽与窄屏 `Drawer`
 - [x] 删除、离开确认与 `reload` 接线
 
-### Task 2.10：对话输入与消息列表（REQ-FE-07.1–07.3，HIGH_RISK：B-03 / F-03 / F-02） 🆕 v2 新增
+### Task 2.10：对话输入与消息列表（REQ-FE-07.1–07.3，HIGH_RISK：B-03 / F-03 / F-02） 🆕 v2 新增 ✅（v2 第二批审查 PASS_WITH_SUGGESTIONS，DL 2026-11-11 确认）
 - **关联：** design §3.4（ComposerBar、MessageList、MessageBubble、ThinkingNotice）、§5.4、TD-10/15/19/20；REQ-FE-07.1–07.3；ADR-007
 - **涉及文件：** `ComposerBar.tsx`（文本输入、发送、字数、IME 守卫、只读态）、`MessageList.tsx`、`MessageBubble.tsx`、`ThinkingNotice.tsx`、`useResumeSession.ts`（`sendMessage`/`retryMessage`/`discardPendingMessage`）、`ResumeCollectionPage.tsx` 接线及测试。约 7 个文件。
 - **内容：** `Input.TextArea` `autoComplete="off"`；Enter 发送、Shift+Enter 换行，`isComposing`/composition 期间 Enter 不发送；trim 空或 >2000 禁发（不截断）；发送即 `pendingMessage`，**成功才清空输入框**；失败或结果未知后输入框只读，气泡提供“重试 / 放弃”（放弃 = 原文回填）；超时 / 网络失败 → 先重读会话，`Verify.matchSentMessage` 命中则视为成功、未命中则可重试；`chat_failed` 展示 `message`；消息以**纯文本**渲染（不解析 Markdown / HTML）；`phase=empty` 提示先上传，`phase=saved` 禁用并提示。
@@ -437,7 +438,7 @@
 - [x] `SavedSessionView`
 - [x] 重读失败回退
 
-### Task 2.13：已保存过后的确认更新（REQ-FE-09，HIGH_RISK：F-03 “已更新” + 差异必列清空字段） 🆕 v2 新增
+### Task 2.13：已保存过后的确认更新（REQ-FE-09，HIGH_RISK：F-03 “已更新” + 差异必列清空字段） 🆕 v2 新增 ✅（v2 第二批审查 PASS_WITH_SUGGESTIONS，DL 2026-11-11 确认）
 - **关联：** design §3.4（UpdateDiffCard）、§5.5、TD-23/24；REQ-FE-09.1–09.5；Y-01、Y-02
 - **涉及文件：** `UpdateDiffCard.tsx`、`SavedResultCard.tsx`（`updated` 形态）、`useResumeSession.ts`（`openUpdateDiff`/`closeUpdateDiff`/`confirmUpdate`、`verifyByUpdate`）、`ResumeCollectionPage.tsx`（快捷回复“按本次内容更新”，不经模型）及测试。
 - **内容：** 快捷回复进入差异卡（`buildUpdateDiff`）；卡内文件新旧名称、有差异字段（`clears` 行高亮并标“将被清空”）、其余 N 项相同；“确认更新”→ `PUT …/resume`，体恒为 `{confirm_update:true}`；**“已更新”仅在 PUT 2xx 且形状通过，或核对路径读到 `update_state=applied` 时出现**；`save_failed` 追加“已有简历未改变”；超时 / 网络失败 → 重试 / 重新读取核对；对话文字不发起 `PUT`。
