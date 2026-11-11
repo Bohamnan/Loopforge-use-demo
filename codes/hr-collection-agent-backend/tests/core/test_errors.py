@@ -17,9 +17,15 @@ EXPECTED = {
     e.ParseFailedError: ("parse_failed", 502),
     e.ParseUnavailableError: ("parse_unavailable", 503),
     e.ParseTimeoutError: ("parse_timeout", 504),
-    e.DraftNotFoundError: ("draft_not_found", 404),
+    e.SessionNotFoundError: ("session_not_found", 404),
+    e.SessionReadOnlyError: ("session_read_only", 409),
     e.ValidationFailedError: ("validation_failed", 422),
     e.ConfirmationRequiredError: ("confirmation_required", 422),
+    e.ChatFailedError: ("chat_failed", 502),
+    e.SuggestionUnavailableError: ("suggestion_unavailable", 409),
+    e.UpdateNotAvailableError: ("update_not_available", 409),
+    e.ResumeNotFoundError: ("resume_not_found", 404),
+    e.FileNotAvailableError: ("file_not_available", 404),
     e.SaveFailedError: ("save_failed", 500),
     e.InternalError: ("internal_error", 500),
 }
@@ -33,8 +39,8 @@ def test_code_and_status(cls: type[AppError], expected: tuple[str, int]) -> None
     assert err.message
 
 
-def test_all_13_codes_covered() -> None:
-    assert len(ErrorCode) == 13
+def test_all_19_codes_covered() -> None:
+    assert len(ErrorCode) == 19
     assert {c.value for c in ErrorCode} == {v[0] for v in EXPECTED.values()}
 
 
@@ -56,7 +62,7 @@ def test_issue_reasons_match_contract() -> None:
 def test_message_does_not_embed_user_data() -> None:
     # The constructors accept no free-form message, so user data cannot leak in.
     with pytest.raises(TypeError):
-        e.DraftNotFoundError("ZZ-user-data")  # type: ignore[call-arg]
+        e.SessionNotFoundError("ZZ-user-data")  # type: ignore[call-arg]
     assert "ZZ" not in e.ParseFailedError().message
 
 

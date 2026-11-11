@@ -135,7 +135,7 @@
 
 ---
 
-### Task 1.3：core：错误模型与安全日志　↺ v2
+### Task 1.3：core：错误模型与安全日志　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `core/errors.py`、`core/logging.py`、`tests/core/test_errors.py`、`tests/core/test_logging.py`。
