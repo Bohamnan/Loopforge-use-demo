@@ -124,6 +124,7 @@
 | 2026-11-11 | Yin Yang（frontend） | impact-analyzer | 完成 frontend v2.1 影响分析小节（提交 5582374）：已保存过视图、差异与确认更新卡片、F-03；新增待澄清 4 条；仓库无远端，未推送（SV-07） |
 | 2026-11-11 | Yin Yang（QA） | qa-test-case | 生成 v2/v2.1 QA 用例 85 条（AT 54 / E2E 5 / NEG 9 / PERM 4 / REG 8 / UAT 5），v2 AC 覆盖 66/66，数据需求 21 项（需开发配合 9 项）；只生成不执行；仓库无远端，未推送 |
 | 2026-11-11 | Yin Yang（QA） | qa-test-case | 按 5q 待澄清答复（DL 授权采纳建议）更新用例：对话类以模型桩为准、AT-20/NEG-04/AT-41/AT-46 调整、新增 AT-55，共 86 条；补 11q 执行范围；仓库无远端，未推送 |
+| 2026-11-11 | Yin Yang（QA） | qa-test-case | 接口类用例补调用路径与期望错误码（OpenAPI 0.2.0 冻结，仅 AT-52、NEG-02/03/04/07/08/09、PERM-02、REG-08），不改意图、不增减用例；仓库无远端，未推送 |
 | 2026-11-11 | Yin Yang（backend） | architecture-advisor | 完成 backend v2 Step 2.1+2.2（Schema v0.2.0、OpenAPI 0.2.0 草稿、api_design 同步，提交 21e0e4f），停在 Schema+接口评审合并门控；设计决策 34 条（Schema 12 + 接口 22）；仓库无远端，未推送（SV-07） |
 
 ---
