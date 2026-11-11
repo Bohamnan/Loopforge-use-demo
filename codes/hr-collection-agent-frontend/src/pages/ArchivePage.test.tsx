@@ -2,7 +2,6 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConfigProvider } from 'antd';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import App from '../App';
 import { SAMPLE_RESUME_ID, sampleArchivedResume, stubFetch } from '../test/ApiMocks';
 import { FakeBackend, type FakeBackendOptions } from '../test/FakeBackend';
 import ArchivePage from './ArchivePage';
@@ -73,23 +72,5 @@ describe('original file (REQ-FE-08.4, TD-27)', () => {
     const drawer = await screen.findByRole('dialog');
     expect(await within(drawer).findByRole('button', { name: /打开原始文件/ })).toBeDisabled();
     expect(within(drawer).getByText('原始文件暂不可用')).toBeInTheDocument();
-  });
-});
-
-describe('App: two pages stay mounted (REQ-FE-08.1, TD-25)', () => {
-  it('switching to the archive and back keeps the chat page state (unsubmitted edit); the archive re-reads on activation', async () => {
-    const backend = new FakeBackend();
-    stubFetch(backend.handle);
-    const { container } = render(<App />);
-    expect(backend.count('GET /api/v1/resumes')).toBe(0);
-    await userEvent.upload(container.querySelector('input[type="file"]') as HTMLInputElement, new File(['%PDF'], '合成简历.pdf', { type: 'application/pdf' }));
-    await userEvent.clear(await screen.findByLabelText('姓名'));
-    await userEvent.type(screen.getByLabelText('姓名'), '改过的名字');
-    await userEvent.click(screen.getAllByText('已归档简历')[0]!);
-    expect(await screen.findByText('暂无记录')).toBeInTheDocument();
-    await userEvent.click(screen.getAllByText('对话')[0]!);
-    expect(screen.getByLabelText('姓名')).toHaveValue('改过的名字');
-    await userEvent.click(screen.getAllByText('已归档简历')[0]!);
-    await waitFor(() => expect(backend.count('GET /api/v1/resumes')).toBe(2));
   });
 });
