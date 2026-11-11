@@ -695,3 +695,76 @@
 - `npm run build` 的真实编译日志（本批只跑了 `tsc`，构建日志未核对）。
 - 与真实后端的联调与契约漂移检查（`ContractDrift` 用例只比对仓库内的 OpenAPI 文件，已在全量 vitest 中通过）。
 - 变异测试（本批未预算）。
+
+---
+
+## v2 第三批审查（frontend 阶段 3：3.1 集成验证与红线、3.2 脚本退役）
+
+- Review 模式：Ticket-aware Review；持久化：是（本节）
+- 日期：2026-11-11；Reviewer：Yin Yang（dev-lead，审查 agent 代行）；被审查 Workbench：frontend
+- 范围：阶段 3 的 frontend 变更（`git diff 772ffc1 HEAD -- codes/hr-collection-agent-frontend`，`src/` 无业务代码改动）：`src/pages/ResumeCollectionPage.integration.test.tsx`（由占位改为主流程与红线集成，+168 行）、`src/App.test.tsx`（33 行改动）、`src/pages/ArchivePage.test.tsx`（−19）、删除 `scripts/drill_resume.py`、`scripts/selftest_resume.py`（−693 行）、`AGENTS.md`（引用清理）、`frontend-docs/HR_PR-1/06_test/traceability_v2.md`（新增）。已先合并 `feature`（merge f43f1d7）。
+- 依据：design v2.0 §8、§9.2，tasks v2.0 的 3.1、3.2，仓库 `AGENTS.md`（v2）。
+- HIGH_RISK：3.1（F-02 / F-03 / B-03）。
+- 结论：**PASS_WITH_SUGGESTIONS**（0 BLOCK / 0 QUESTION / 5 SUGGEST）。**3.1 建议标 ✅**；3.2 建议标 ✅。
+
+### 一、复跑结果
+
+| 命令 | 结果 |
+|---|---|
+| `npx vitest run`（全量） | 67 个文件、613 个用例全部通过（3.1 的集成文件已从 `it.todo` 变为真实用例） |
+| `npx tsc --noEmit` | 0 错误 |
+| `npx eslint . --max-warnings 0` | 通过 |
+| 未做 | 未跑 `npm run build`（只跑了 `tsc`，构建日志未核对）；未做真实浏览器实测 |
+
+### 二、3.1 确定性红线
+
+**F-02（不在浏览器本地存储）**：`ResumeCollectionPage.integration.test.tsx` 在每个用例前安装 spy：`Storage.prototype.setItem`、`Storage.prototype.getItem`、`indexedDB.open`（经 `vi.stubGlobal`）、`document.cookie` 的 setter，并替换 `URL.createObjectURL` / `revokeObjectURL`。主流程结束后断言 setItem、getItem、indexedDB、cookie 写入均为 0 次，且 `revokeObjectURL` 以下载的 blob URL 被调用。
+
+**F-03（成功前不出现“已保存”，对话不触发保存或更新）**：
+- `ResumeCollectionPage.chat.test.tsx`「F-03: chatting 确认提交 only shows the reply」：对话文字“确认提交”后，只出现回复文本；`/resume` 请求列表为空；界面不出现“已保存/已更新”。
+- 主流程集成用例：第二次上传后对话“确认提交，按本次内容更新”，断言保存与更新请求计数不变；第二次保存得到 `already_saved`，只出现“该简历已保存过”；PUT 只在点击“确认更新”后发出一次，体为 `{confirm_update: true}`，之后才出现“已按本次内容更新”。
+- `final.test.tsx` 与 `update.test.tsx` 中的确定性用例（在途闸门、超时、网络失败、`save_failed`、形状不符的 2xx）已在第二批审查中确认，本批未变。
+
+**B-03（日志、标题、下载名不含内容）**：集成用例把全部 `console.*` 调用序列化后与 `document.title` 拼接，断言不含哨兵甲（用户原文）、哨兵乙（助手回复）、哨兵文件名；下载名断言为通用名 `原始简历.pdf`。`chat.test.tsx` 的 B-03 用例覆盖成功、`chat_failed` 与未知结果三条路径。
+
+**变异验证**（均在工作区内临时修改、运行相关测试、立即还原，还原后 `git diff --quiet` 通过，无改动残留）：
+
+| 变异 | 位置 | 结果 |
+|---|---|---|
+| M1：把对话原文写入 `console.warn` | `src/api/ConversationApi.ts` `sendMessage` | 杀死：`chat.test` 的 B-03 用例与集成主流程用例失败 |
+| M2：关闭 2xx 形状校验（`validate` 不生效） | `src/api/ApiClient.ts` | 杀死：6 个用例失败（ResumeApi、ApiClient、final、update、upload） |
+| M3：`clears` 恒为 false（差异卡不标“将被清空”） | `src/hooks/model/UpdateDiff.ts` | 杀死：UpdateDiff 与 update 页面用例失败（3 个） |
+| M4：删除 blob URL 释放 | `src/components/ArchiveDetail.tsx` `saveBlob` | 杀死：ArchivePage 与集成主流程用例失败 |
+| M5：在组件中读取 `document.cookie` | `src/components/ComposerBar.tsx` | **存活**：12 个用例全部通过（见 S-1） |
+
+**追溯矩阵**：`frontend-docs/HR_PR-1/06_test/traceability_v2.md` 列出 54 条验收标准，每条标准对应的测试引用共 107 处。逐一在 `src/**/*.test.*` 中核对，全部能找到对应用例（部分引用的文字与用例名略有差异，例如带引号、省略号或中文括注，但指向的用例真实存在；如 `FieldRules.test.ts` 的 `phone (G-02, ...)`、`SavedResultCard.test.tsx` 的 `shows "已保存" with exactly the name...`）。引用的 24 个测试文件全部存在。
+
+**3.1 结论**：F-02、F-03、B-03 的断言是确定性的，除 M5 外的 4 类变异均被杀死；追溯矩阵与测试源一致。建议标 ✅。
+
+### 三、3.2 脚本退役
+
+- `codes/hr-collection-agent-frontend/scripts/` 目录已不存在；`drill_resume.py`、`selftest_resume.py` 已删除。
+- 在 `codes/hr-collection-agent-frontend`（排除 `node_modules`、`dist`）内检索 `drill_resume`、`selftest_resume` 为 0 处命中；`codes/hr-collection-agent-backend` 内同样为 0 处命中。
+- `AGENTS.md` 中“脚本退役”说明已改写为 v2 口径，不再指向旧脚本。
+- `backend-docs`、`frontend-docs` 中的历史记录保留旧脚本名，按 DL 决定不作为问题。
+
+### 四、通用检查
+
+- **范围扩散**：阶段 3 的 frontend 变更没有业务代码改动（`src` 下非测试文件无改动），只改了测试、脚本、文档和 `AGENTS.md`。未发现扩散。
+- **红线**：B-03、F-02、F-03 见第二节；会话归属、差异必列清空字段与 F-01 在第二批审查时已确认，本批未变动相关代码。
+- **测试冗余**：集成文件是单一用例，覆盖主流程；它与 `final`、`update`、`chat` 中的确定性用例有重叠，但目的不同（端到端顺序与跨页面状态），不构成冗余。`App.test.tsx`（+33 行）与 `ArchivePage.test.tsx`（−19 行）的改动是为了切换视图和去掉已退役的断言，未见重复。
+- **测试与业务比例**：按原始行数，本批 `src/` 非测试代码 5,313 行、测试代码 6,404 行，约 1.21:1。阶段 3 本身没有新增业务代码，比例口径与 DL 的 0.91:1 不同，此处只提示口径，不构成问题。
+
+### 五、SUGGEST（跟踪项，不阻断，不要求新增测试）
+
+- **S-1（F-02，M5 存活）**：集成用例只监听 `document.cookie` 的 setter，没有监听 getter。组件读取 `document.cookie` 不会被发现。`browser_id` 为 HttpOnly，读取结果恒为空，因此实际风险低；但 3.1 的表述写的是“`document.cookie` 调用次数为 0”，当前断言只覆盖写入。建议在 `Object.defineProperty` 中给 getter 加 spy，并在 `afterEach` 中校验调用次数为 0。
+- **S-2（文档）**：`traceability_v2.md` 中部分引用的用例名与源码字符串不完全一致（带引号、省略号、中文括注）。建议改成源码中的原文，便于按名搜索。不影响结论。
+- **S-3（延续第二批 S-4）**：`ArchiveDetail.tsx` 的 `saveBlob` 在 `link.click()` 后立即 `URL.revokeObjectURL`。部分浏览器可能在下载开始前使 URL 失效。仍未做真实浏览器验证，建议延后释放。
+- **S-4（延续第二批 S-1）**：`UPDATE_SUCCEEDED` 在重读失败时保留旧的 `pending` 候选，“按本次内容更新”快捷回复仍然可见，而“重新读取”按钮只在 `saved` 为空时出现。本批没有修改该路径。
+- **S-5（延续第二批 S-2）**：design §3.4 把 `ChatThread` 列为“不变”，但它已为焦点键的 `#` 后缀去除逻辑做了改动。建议同步设计文档。
+
+### 六、未验证项
+
+- `npm run build`（构建日志的真实编译动作）未核对；本批只跑了 `tsc --noEmit`。
+- 真实浏览器中的下载、窄屏与焦点行为（S-3）。
+- 与真实 backend 的联调（11b，保留项）。
