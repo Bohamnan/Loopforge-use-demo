@@ -3,7 +3,7 @@
 | 项 | 内容 |
 |---|---|
 | 当前级别 | L3（新项目、跨前后端、外部模型对接） |
-| 状态 | ✅ 编排完成，等待 DL 最终 Review。DL 决定不做 dev-self-test、造数脚本及三个识别细节（职位内部标记、技能连接词、主要客户字段）。临时样品与截图已删除，所有 worker 已释放 |
+| 状态 | ⏸ 等待 DL 确认两份开发自测文档；frontend 自测 108 条 0 失败已合并（vitest 650 连续两次全绿）；/tmp/hr_sample 已删；下一步：造数脚本（L2 最小版本）→ DL 最终 Review |
 | 最后更新 | 2026-11-10，feature `505d02d` |
 | 权威进度 | `01-requirements/HR_PR-1/_progress.md`（流程表、贡献记录、末尾「暂停恢复清单」） |
 
@@ -69,3 +69,16 @@
 2. 重新启动审查 agent（Task `task_2e0f759e789f`），重新下发第六批审查。
 3. 重新启动 frontend worker（Task `task_83570e762162`），从任务 3.1 继续，先检查 FakeBackend.ts；完成后合并那 4 个跟踪项提交。
 4. 第六批审查结论和第四节的待决项一起交给 DL；确认后重新启动 backend worker，下发 2.4。
+
+## 七、本轮结束时的状态与恢复清单（2026-11-10 暂停）
+
+**已完成并合并到 feature**：backend 21/21、frontend 15/15 任务；backend 十批、frontend 十一批审查全部通过；联调与真实样品验证通过；backend 开发自测完成（`backend-docs/HR_PR-1/06_test/dev_self_test_resume.md`，123 条全通过，AC 37/37，1141 passed）；frontend 开发自测设计完成、部分执行（`frontend-docs/HR_PR-1/06_test/dev_self_test_resume.md`）。
+
+**worker**：backend `ctx_06b9a17ca92d`、frontend `ctx_57fceb7f5147`、审查 `ctx_779355a3c1cb` 已释放；backend/frontend 自测 worker 终端保留空闲（按"可能复用的不关"）。服务进程已全部关闭，8000 端口空闲，/tmp/hr_sample 已删（原件仍在 `global-info/简历样品.png`，未入库，已在 .git/info/exclude）。
+
+**恢复步骤**：
+1. frontend 补做未执行的 31 条：360/390/768 窄屏与 <44px 按钮定位、SUGGEST-1 实机复测、刷新恢复/重复保存/覆盖确认/新对话/未提交拦截/格式大小错误/后端不可用，以及 005-IA-03 复测（不确定）。注意：frontend 的 worker 两次因模型流超时停止，需缩小范围、分段提交；与 backend 不能同时占用 8000 端口。
+2. 处理 frontend 集成测试的偶发超时：`ResumeCollectionPage.integration.test.tsx` 两条用例单个耗时约 5 秒，接近 vitest 默认 5 秒上限，全量运行时偶发失败（单跑 14/14 通过，其余 649 通过）；建议给该文件设置更大的 testTimeout，并在 code 里修复后重跑全量。
+3. DL 确认两份自测文档 → test-data-script-generator（造数脚本）→ 复验 → DL 最终 Review。
+4. backend 自测遗留风险（见自测文档）：真实模型偶发 502/504（约 50 次调用 2 次 502、1 次 504）；多 file 部件不显式拒绝。
+5. 待 DL 决定的识别细节：职位字段带出内部部门标记、技能连接词被改写、"主要客户"无对应字段。
