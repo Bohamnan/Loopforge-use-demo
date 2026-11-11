@@ -2,85 +2,71 @@
 
 | 项 | 内容 |
 |---|---|
-| 当前级别 | v2 需求变更：整体 L2，红线功能点 L3 深度（v1 原为 L3，后降 L2） |
-| 状态 | 🔄 需求变更 v2（Type C）已路由，按 `_progress.md`「重跑清单（v2）」执行，下一步 prd-writer；v1 自测与造数收尾并入 v2 |
-| 最后更新 | 2026-11-11 |
-| 权威进度 | `01-requirements/HR_PR-1/_progress.md`（流程表、贡献记录、末尾「暂停恢复清单」） |
+| 当前级别 | v2 需求变更（Type C）：整体 L2，红线功能点（B-03 日志、B-04 建议校验、B-05 更新补偿）按 L3 深度验证 |
+| 状态 | 🔄 v2 重跑清单执行到第 8 项：8a/8b 任务拆分进行中（7a/7b 技术设计已确认） |
+| 最后更新 | 2026-11-11，feature `8afff0b` |
+| 权威进度 | `01-requirements/HR_PR-1/_progress.md`（流程表、人类门控、「需求变更记录 → 重跑清单（v2）/ v2.1 小表」、贡献记录、关键决策） |
 
-> 本文件只记录**编排的接续上下文**。业务结论以 `_progress.md` 和各审查报告为准，本文件不重复。
-
-> **QA worker（DL 2026-11-11）**：执行重跑清单 5q 时，新建一个 Orca worktree 启动 kiro-cli QA agent，该 worktree 的 `local_profile.yaml` 设 `role: qa`（qa-test-case 只允许 qa / dev-lead）。新 worktree 首次需先 Trust（见第二节第 2 条）。
+> 本文件只记录**编排的接续上下文**，供新会话或新 worker 接手。业务结论以 `_progress.md`、`cross-workbench-review.md`、各设计文档为准，这里不重复。
+> 新会话接手：先读本文件，再读 `_progress.md` 的「重跑清单（v2）」与最近 10 条贡献记录，不需要回看历史对话。
 
 ---
 
 ## 一、编排结构
 
 - **主 agent（协调者）**：Kiro，工作区 `/Users/yanyin/Desktop/Projects/格兰富/workspce-coding`，分支 `feature`，role `dev-lead`。只做合并、复验、审视、记录，不写业务代码。
-- **Orca**：repo id `bb1c2ec0-15e2-4fe2-9da4-3e030fbd0567`；Run `run_2dde01eb480f`。
-- **worker**（kiro-cli，受监督，`--keep-open`，**当前全部已关闭**）：
+- **Orca**：repo id `bb1c2ec0-15e2-4fe2-9da4-3e030fbd0567`；Run `run_5ec58456618d`。
+- **worker**（kiro-cli，`--keep-open`）：
 
-| worktree | 分支 | 路径 | local_profile role | 暂停时 HEAD |
-|---|---|---|---|---|
-| backend | feature-backend | `/Users/yanyin/orca/workspaces/workspce-coding/feature-backend` | backend | `89ea69f`（已合并） |
-| frontend | feature-frontend | `/Users/yanyin/orca/workspaces/workspce-coding/feature-frontend` | frontend | `d306368`（**4 个提交未合并**） |
-| 审查 agent | review-batch1 | `/Users/yanyin/orca/workspaces/workspce-coding/review-batch1` | dev-lead（只读审查） | `b7ce9f8` |
+| worktree | 分支 | 路径 | role | 最近 dispatch | 状态（2026-11-11） |
+|---|---|---|---|---|---|
+| backend | feature-backend | `/Users/yanyin/orca/workspaces/workspce-coding/feature-backend` | backend | `ctx_994edd9e620a` | 空闲（7a、G2 描述修订已交付） |
+| frontend | feature-frontend | `/Users/yanyin/orca/workspaces/workspce-coding/feature-frontend` | frontend | `ctx_aab03a18d492` | 空闲（7b 已交付） |
+| QA | feature-qa | `/Users/yanyin/orca/workspaces/workspce-coding/feature-qa` | qa（`code_roots: {}`，不读代码） | `ctx_e7bd268b345e` | 空闲（5q 已完成，11q 待开发自测后） |
+| 审查 agent | review-batch1 | `/Users/yanyin/orca/workspaces/workspce-coding/review-batch1` | dev-lead（只读审查） | — | v1 用过，v2 第 10 项审查时再启用（需先同步 feature） |
 
-## 二、启动 / 恢复 worker 的做法（已踩过的坑）
+## 二、启动 / 下发 worker 的做法（已踩过的坑）
 
-0. **worker 管理（DL 要求）**：还可能复用的 agent 不要关闭；只关闭重复、多余的。同一 worktree 已有空闲 agent 时用 `send --to dispatch:<id>` 复用，不要再 `worker-start` 新开。
+0. **worker 管理**：可能复用的 agent 不关闭，同 worktree 空闲时 send 复用；上下文压缩见第六节。
+1. kiro 的 trust-all 确认已全局关闭（`chat.disableTrustAllConfirmation = true`）。
+2. **新 worktree** 首次启动会卡在"Trust this workspace?"：`orca terminal create --worktree path:<路径> --command "kiro-cli chat --tui --trust-all-tools"`，`orca terminal send --terminal <h> --text "" --enter`（回车即 Trust），再 `--text "/quit" --enter`，然后 `orca terminal close`。上表四个 worktree 都已信任。
+3. 模型 auto：worktree 内 `kiro-cli settings --workspace chat.defaultModel auto`；`.kiro/settings/` 已加入 `.git/info/exclude`。
+4. 新开：`orca orchestration worker-start --spec-file <md> --task-title "<标题>" --worktree "id:bb1c2ec0-15e2-4fe2-9da4-3e030fbd0567::<路径>" --agent kiro --keep-open --json`。spec 写到 /tmp，用完删除。
+5. 复用：`orca orchestration send --to dispatch:<最新 dispatch> --subject ... --body "$(cat /tmp/x.md)"`。回执只有 `messageId` 也表示已送达，**不要重发**。
+6. 收到 worker_done：`git merge --no-ff <分支>` 到 feature；`_progress.md` 几乎每次都有相邻行冲突（SV-06），按"各取本侧行"解决。代码阶段在主工作区自己复跑：backend `uv sync --frozen`、compileall、pytest、ruff；frontend `npm ci`、lint、test、build。
+7. spec 固定包含：先 `git merge --no-ff feature`；只改本 Workbench 在 `_progress.md` 的行与一行贡献记录；不 amend、不 push（仓库无远端，SV-07）；发现缺口用 ask，不自行扩展；停在 skill 规定的门控。
+8. 主 agent 自己的教训：脚本修改与 `git commit` 不要用 `;` 串在一起（断言失败仍会提交）；不对自己的提交 `--amend`。
 
-1. kiro 的 trust-all 确认已全局关闭（`chat.disableTrustAllConfirmation = true`），不会再拦截启动。
-2. **新 worktree** 第一次启动 kiro 会卡在"Trust this workspace?"：先用 `orca terminal create --worktree <id> --command "kiro-cli chat --tui --trust-all-tools"` 打开，回车选 Trust，`/quit` 后关闭这个终端，再执行 `worker-start`。上面三个 worktree 都已信任过。
-3. 模型用 auto：在 worktree 里执行 `kiro-cli settings --workspace chat.defaultModel auto`（已设置）。生成的 `.kiro/settings/` 已加入 `.git/info/exclude`。
-4. 启动：`orca orchestration worker-start --spec-file <md> --task-title "<标题>" --worktree "id:bb1c2ec0-15e2-4fe2-9da4-3e030fbd0567::<路径>" --agent kiro --keep-open --json`。spec 写到 /tmp，用完删除。
-5. 下发后续任务：`orca orchestration send --to dispatch:<最新 dispatch> --subject ... --body "$(cat /tmp/x.md)"`。回复 worker 的提问：`orca orchestration reply --id <msg>`。
-6. 收到 worker_done 后先 `git merge --no-ff <分支>` 到 feature，再在主工作区**自己复跑**验证：
-   - backend：`uv sync --frozen`、compileall、pytest、ruff。
-   - frontend：`npm ci --registry=https://registry.npmjs.org`、lint、test、build。
-7. 常见问题：
-   - worker 偶尔没发 worker_done 就结束本轮，Orca 会发 escalation。处理：send 让它补发，或者推它继续。
-   - worker_done 有时挂到旧的 dispatch 上，导致新 dispatch 没关闭：让 worker 在正确的 dispatch 上补发。
-8. 任务说明（spec）固定包含：同步 feature、测试先行、真实验证要附用例数、每个任务单独提交、不 push 不 amend、只 add 具体路径、不改 `_progress.md`、遇到停止条件用 ask。HIGH_RISK 任务完成后**不标 ✅**，先审查，再由 DL 确认。
+## 三、v2 当前进度与下一步
 
-## 三、当前进度（暂停时）
+| 重跑清单项 | 状态 |
+|---|---|
+| 1 PRD、2 HLD（含 v2.1）、3a/3b 影响分析、4 跨 Workbench 审视、5 需求汇总、5q QA 用例（86 条） | ✅ |
+| 6a backend Schema + OpenAPI 0.2.0（冻结）、6b frontend 接口消费规范 v0.3 | ✅ |
+| 7a backend 技术设计（`design.md` v0.4，8368919） | ✅ DL 确认 |
+| 7b frontend 技术设计（`design.md` v2.0，34ff8f7） | ✅ DL 确认 |
+| 8a/8b 任务拆分 + `AGENTS.md` 更新 | 🔄 已派出（2026-11-11）；tasks.md 写测试预算（POC ≈ 1:1），停在任务清单确认门控 |
+| 9a/9b 实现 → 10 审查 → 11a/11b 自测 → 11q QA 执行（AT/E2E/UAT）→ 12 DL 最终 Review | 未开始 |
 
-| Workbench | 已完成（tasks.md ✅） | 下一步 |
-|---|---|---|
-| backend（20 个任务） | 1.1–1.10、2.1–2.3 | 第六批审查（存储加固 + 2.1–2.3，合并 `cfb87b3`）**被中断，需重新下发**；审查通过后做 2.4（HIGH_RISK：确认保存 / 幂等 ADR-004 / B-05 补偿 ADR-005）→ 2.5（HIGH_RISK：启动对账）→ 2.6 清理 → 2.7 lifespan → 3.1–3.3 |
-| frontend（15 个任务） | 1.1–1.6、2.1–2.8 | 跟踪项清理已提交 `c47bc02`、`18363a6`、`0f07f40`、`d306368`（未合并）；任务 3.1 做到一半，未提交文件 `src/test/FakeBackend.ts` 已保留 |
-| 联调 | — | backend 2.x 完成后，本机同时启动前后端，用合成简历走完整流程，并做窄屏实机验证 |
+## 四、DL 的长期决定（易忘）
 
-## 四、待 DL 决定（随第六批审查一起提交）
+- **授权采纳建议**：需澄清的问题只要不特殊，一律按 AI 建议采纳并注明"DL 授权采纳建议"；特殊 = 红线、推翻已确认决策、扩大范围。人类门控（审批、确认、签署）仍逐个提交 DL。
+- **严格按 skill 推进**：v2 的目的之一是验证这套 skill，问题登记在 `.kiro/docs/skill-validation/HR_PR-1-v2-skill问题登记.md`（SV-01..13，登记"会影响流程"的问题，不登记措辞）。
+- **票号**：v2 维持在 HR_PR-1（DL 已实测 v1 功能正常，变更源于体验），不另开 HR_PR-2。
+- **QA**：v1 不补做；v2 由 role=qa 的独立 worker 生成用例；11q 只执行 AT/E2E/UAT。
+- **防止发散**：只做 requirements v2 已有的能力；测试深度按风险分配。
+- **编排同步所需的本地提交已授权**（不推送）。
 
-- backend 2.1–2.3 的偏差：(1) PATCH 一次性合并返回 Pydantic 错误和核心字段的语义错误；(3) 模型给了值却标 missing 时，保留值并降为 uncertain；(4) 标量去首尾空白，手机号保留展示值。
-- 上传请求体缺少前置大小限制（Starlette 会先把整个请求落盘），POC 阶段是否接受。
+## 五、关键事实与约束
 
-## 五、关键事实与约束（易忘）
+- DeepSeek：只用 `deepseek-flash`，外发地址只允许 `https://api.deepseek.com`；PDF 本地转换。凭证在 `feature-backend/codes/hr-collection-agent-backend/.env`，主工作区同路径另有一份副本（600、gitignore，用于本地试用）。建议 POC 后轮换。
+- 契约：OpenAPI **0.2.0 已冻结**（`backend-docs/HR_PR-1/03_api/openapi.yaml`），改动须经 cross-workbench-review。校验：`uv run --with openapi-spec-validator==0.7.1 python -c ...`（临时环境，不改项目依赖）。
+- 依赖：公共源安装、锁定精确版本（项目例外）；新增依赖须 DL 同意。
+- 本机部署：后端只监听 127.0.0.1:8000（ADR-009 的访问边界），前端 dev proxy 指向 `http://127.0.0.1:8000`。
+- 裁决位置：`cross-workbench-review.md`（v1：C/D/O/G/F/CR；v2：X-01..X-10a、Y-01/02、O2-01..05、G2-02..04）；`requirements_plan.md`（TQ-v2-*）；ADR-001..009（project-memory）。
 
-- DeepSeek：只用 `deepseek-flash`（Settings 用 Literal 锁定）；外发地址只允许 `https://api.deepseek.com`；PDF 在本地转换（pypdfium2：有文本层就发文本，否则渲染 PNG，最多 5 页），见 ADR-001 修订 1。凭证**只存在** `feature-backend/codes/hr-collection-agent-backend/.env`（600，已 gitignore）。建议 POC 后轮换。
-- 契约：OpenAPI **0.1.1 已冻结**（`backend-docs/HR_PR-1/03_api/openapi.yaml`），改动必须经 cross-workbench-review。
-- 依赖：不用 Nexus，从公共源安装，锁定精确版本（DL 决定的项目例外）；新增依赖须先申请。
-- 代码放在本仓库 `codes/` 下，随工作台分支管理（DL 决定，按简单方式）。
-- 本机部署：SQLite 用 Python 自带（3.50.4，要求 ≥3.35）；frontend dev proxy 指向 `http://127.0.0.1:8000`（不用 localhost）。
-- 裁决记录位置：`01-requirements/HR_PR-1/cross-workbench-review.md`（C/D/O/G/F/CR 系列）、`prototype-review.md`（P 系列）、`*-docs/HR_PR-1/10_review/code_review.md`（各批审查与「Dev Lead 裁决」）、`project-memory/adrs/`（ADR-001..006）。
-- 遗留事项：`project-memory/adr_index.md` 第 32–33 行是模板自带的示例行，ADR 编号重复，待另行清理。
+## 六、上下文控制（DL 2026-11-11：尽量不关 worker，但要控制 token 成本）
 
-## 六、恢复步骤（DL 唤醒后）
-
-1. `orca orchestration worker-list --json` 核对各 worker 的状态；各 worktree 执行 `git status`。
-2. 重新启动审查 agent（Task `task_2e0f759e789f`），重新下发第六批审查。
-3. 重新启动 frontend worker（Task `task_83570e762162`），从任务 3.1 继续，先检查 FakeBackend.ts；完成后合并那 4 个跟踪项提交。
-4. 第六批审查结论和第四节的待决项一起交给 DL；确认后重新启动 backend worker，下发 2.4。
-
-## 七、本轮结束时的状态与恢复清单（2026-11-10 暂停）
-
-**已完成并合并到 feature**：backend 21/21、frontend 15/15 任务；backend 十批、frontend 十一批审查全部通过；联调与真实样品验证通过；backend 开发自测完成（`backend-docs/HR_PR-1/06_test/dev_self_test_resume.md`，123 条全通过，AC 37/37，1141 passed）；frontend 开发自测设计完成、部分执行（`frontend-docs/HR_PR-1/06_test/dev_self_test_resume.md`）。
-
-**worker**：backend `ctx_06b9a17ca92d`、frontend `ctx_57fceb7f5147`、审查 `ctx_779355a3c1cb` 已释放；backend/frontend 自测 worker 终端保留空闲（按"可能复用的不关"）。服务进程已全部关闭，8000 端口空闲，/tmp/hr_sample 已删（原件仍在 `global-info/简历样品.png`，未入库，已在 .git/info/exclude）。
-
-**恢复步骤**：
-1. frontend 补做未执行的 31 条：360/390/768 窄屏与 <44px 按钮定位、SUGGEST-1 实机复测、刷新恢复/重复保存/覆盖确认/新对话/未提交拦截/格式大小错误/后端不可用，以及 005-IA-03 复测（不确定）。注意：frontend 的 worker 两次因模型流超时停止，需缩小范围、分段提交；与 backend 不能同时占用 8000 端口。
-2. 处理 frontend 集成测试的偶发超时：`ResumeCollectionPage.integration.test.tsx` 两条用例单个耗时约 5 秒，接近 vitest 默认 5 秒上限，全量运行时偶发失败（单跑 14/14 通过，其余 649 通过）；建议给该文件设置更大的 testTimeout，并在 code 里修复后重跑全量。
-3. DL 确认两份自测文档 → test-data-script-generator（造数脚本）→ 复验 → DL 最终 Review。
-4. backend 自测遗留风险（见自测文档）：真实模型偶发 502/504（约 50 次调用 2 次 502、1 次 504）；多 file 部件不显式拒绝。
-5. 待 DL 决定的识别细节：职位字段带出内部部门标记、技能连接词被改写、"主要客户"无对应字段。
+- worker：**不关闭、继续复用**；每次交付后、worker 空闲时，主 agent 向其终端发送 `/compact`（`orca terminal send --terminal <h> --text "/compact" --enter`），压缩后会话摘要会显示在屏幕上（`orca terminal read --terminal <h> --screen`）。只在 worker 空闲（state=succeeded）时发，不在执行中发。
+- worker_done 控制在 10 行内：提交哈希、产出、门控所需结论、需澄清点。
+- 主 agent：不整篇读设计文档，复核用抽查；会话过长时由 DL 执行 `/compact`，或新开会话读本文件接手。
