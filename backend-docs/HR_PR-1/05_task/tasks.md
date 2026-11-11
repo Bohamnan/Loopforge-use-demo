@@ -290,7 +290,7 @@
 
 ---
 
-### Task 1.10：repositories：正式库与归档文件存储　↺ v2
+### Task 1.10：repositories：正式库与归档文件存储　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `repositories/resume_repository.py`、`repositories/archive_file_store.py`、`tests/repositories/test_resume_repository.py`、`tests/repositories/test_archive_file_store.py`（均为追加用例）。
