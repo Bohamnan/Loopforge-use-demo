@@ -501,6 +501,15 @@
 
 **不一致项**：0 条。**结论**：经 DL 确认后冻结 OpenAPI 0.2.0，frontend 进入 6b（接口消费规范同步）。
 
+### frontend 接口消费同步（6b，d2d3820）发现的契约问题（DL 长期授权，采纳建议）
+
+| # | 问题 | 结论 |
+|---|---|---|
+| G2-02 | `openapi.yaml` 的 `info.description` 仍写"0.2.0 草稿，待审视后冻结" | 文字修订：改为"0.2.0 已冻结（2026-11-11）"，不改契约，版本仍为 0.2.0；backend 修改 |
+| G2-03 | 命中幂等键后，`SessionDetail.original_file` 指本会话上传的文件，与 `resume.original_file`（已有记录的文件）不同，含义未写清 | 明确：`SessionDetail.original_file` = 本会话上传的文件（已保存过时即更新候选的文件）；"已保存过"视图展示 `resume.original_file`；差异卡片对比 `update_candidate.original_file` 与 `resume.original_file`。backend 只补描述文字，不改结构 |
+| G2-04 | `POST /sessions/{id}/resume` 对已保存会话返回 409（REQ-BE-04 AC8），不再幂等，与 REQ-FE-04 AC6"超时后直接重试确认"冲突 | frontend 修改：超时/网络失败后先重读会话，已保存则进入已保存视图，否则再确认；收到 `session_read_only` 同样重读并按状态渲染。REQ-FE-04 AC6 澄清为 v2.0.2；backend 不改 |
+| Q-IF-03 | 除对话与上传（75s）外其余 11 个操作沿用 30s 超时 | 接受 |
+
 ## Dev Lead 确认（v1）
 
 > 填写所有裁决项后，在此处签署确认：

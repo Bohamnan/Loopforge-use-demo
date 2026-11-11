@@ -107,6 +107,7 @@
 | 2026-11-11 | Yin Yang（Dev Lead） | solution-designer | 补门控 1：DL 确认 v2 无技术约束引起的需求修订；DL 授权编排同步所需的本地提交（不推送） |
 | 2026-11-11 | Yin Yang（backend） | impact-analyzer | 完成 backend v2 影响分析（delta 覆盖，924a75b）：新增 11 / 修改 22 / 不变 15，待澄清 6 条；仓库无远端，未推送（SV-07） |
 | 2026-11-11 | Yin Yang（Dev Lead） | impact-analyzer | DL review 通过两侧 v2 影响分析；DL 决定加入 qa-test-case（v1 漏执行，SV-11），登记为重跑清单 5q |
+| 2026-11-11 | Yin Yang（Dev Lead） | cross-workbench-reviewer | 合并 frontend 6b（d2d3820）；契约问题 G2-02..04、Q-IF-03 按 DL 授权采纳建议（G2-04 改 frontend：超时/409 后重读会话，REQ-FE-04 v2.0.2 澄清；G2-02/03 由 backend 补 openapi 描述文字，不改契约）；待 DL 确认 frontend 接口评审门控 |
 | 2026-11-11 | Yin Yang（Dev Lead） | architecture-advisor | DL 确认 backend Schema+接口评审，OpenAPI 0.2.0 冻结；派出 7a（backend 技术设计）、6b（frontend 接口消费同步）、QA 接口路径补充 |
 | 2026-11-11 | Yin Yang（Dev Lead） | cross-workbench-reviewer | 合并 backend 6a（21e0e4f、a7fedb8）；主 agent 复验 OpenAPI 0.2.0 校验通过；契约审视 0 不一致，backend 5 个待确认点（O2-01..05）按 DL 授权采纳；待 DL 确认 Schema+接口评审门控并冻结 0.2.0 |
 | 2026-11-11 | Yin Yang（Dev Lead） | qa-test-case | 合并 QA 用例更新（7ea92b3，86 条，AC 67/67）；DL 确认"QA 用例设计确认""QA UAT 场景确认"两个门控 |
