@@ -333,7 +333,7 @@
 
 > 每个任务覆盖一个功能点从 api 到存储的完整实现，完成后可用一次构建 + 测试验证。HIGH_RISK 单独成任务。
 
-### Task 2.1：接口：上传简历创建会话、会话列表　↺ v2
+### Task 2.1：接口：上传简历创建会话、会话列表　✅ v2 已完成
 
 - **v2 变更（8a，重做范围）：**
 - **涉及文件：** `services/session_service.py`（原 `draft_service.py` 的 create / 列表）、`api/routes/sessions.py`（原 `resume_drafts.py`，`POST/GET /api/v1/sessions`）、`api/deps.py`、`tests/services/test_session_service_create.py`、`tests/api/test_sessions_upload.py`（均为改名后按 0.2.0 缩减）。

@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 from app.api.error_handlers import register_error_handlers
 from app.api.middleware import RequestIdMiddleware
+from app.api.routes import sessions
 from app.clients.resume_parser_client import ResumeParserClient
 from app.core.clock import Clock, SystemClock
 from app.core.config import Settings
@@ -41,4 +42,5 @@ def create_app(
     app.state.lifecycle = lifecycle or Lifecycle(app.state.settings, app.state.clock)
     app.add_middleware(RequestIdMiddleware)
     register_error_handlers(app)
+    app.include_router(sessions.router)
     return app

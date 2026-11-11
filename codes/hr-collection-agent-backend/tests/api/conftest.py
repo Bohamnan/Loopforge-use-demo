@@ -98,10 +98,10 @@ def _app_logs(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG, logger="app")
 
 
-# ---- draft API environment: real SQLite files in a temp dir, fake model and clock -----------
+# ---- session API environment: real SQLite files in a temp dir, fake model and clock --------
 
-from app.core.db import connect, init_drafts_db  # noqa: E402
-from tests.fakes import FakeClock, FakeParserClient, make_raw_result  # noqa: E402
+from app.core.db import connect, init_drafts_db, init_resumes_db  # noqa: E402
+from tests.fakes import FakeChatClient, FakeClock, FakeParserClient, make_raw_result  # noqa: E402
 
 
 @pytest.fixture
@@ -115,19 +115,31 @@ def fake_clock() -> FakeClock:
 
 
 @pytest.fixture
-def draft_app(settings: Settings, fake_parser: FakeParserClient, fake_clock: FakeClock) -> FastAPI:
+def fake_chat() -> FakeChatClient:
+    return FakeChatClient()
+
+
+@pytest.fixture
+def session_app(
+    settings: Settings, fake_parser: FakeParserClient, fake_clock: FakeClock
+) -> FastAPI:
     init_drafts_db(settings.data_dir / "drafts.db")
+    init_resumes_db(settings.data_dir / "resumes.db")
     return create_app(settings, parser_client=fake_parser, clock=fake_clock)
 
 
 @pytest.fixture
-def draft_client(draft_app: FastAPI) -> TestClient:
-    return TestClient(draft_app, raise_server_exceptions=False)
+def session_client(session_app: FastAPI) -> TestClient:
+    return TestClient(session_app, raise_server_exceptions=False)
 
 
-def draft_rows(settings: Settings) -> list:
-    return connect(settings.data_dir / "drafts.db").execute("SELECT * FROM drafts").fetchall()
+def query(settings: Settings, sql: str, db: str = "drafts.db") -> list:
+    conn = connect(settings.data_dir / db)
+    try:
+        return [tuple(r) for r in conn.execute(sql).fetchall()]
+    finally:
+        conn.close()
 
 
-def draft_files(settings: Settings) -> set[str]:
+def session_files(settings: Settings) -> set[str]:
     return {p.name for p in (settings.data_dir / "drafts").iterdir()}

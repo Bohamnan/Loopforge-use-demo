@@ -9,6 +9,12 @@ from app.api.cookies import COOKIE_NAME
 from app.clients.deepseek_client import DeepSeekClient
 from app.clients.resume_parser_client import ResumeParserClient
 from app.core.config import Settings
+from app.repositories.archive_file_store import ArchiveFileStore
+from app.repositories.chat_repository import ChatRepository
+from app.repositories.draft_file_store import DraftFileStore
+from app.repositories.resume_repository import ResumeRepository
+from app.repositories.session_repository import SessionRepository
+from app.services.session_service import SessionService
 
 _PARSER_LOCK = threading.Lock()
 
@@ -32,6 +38,23 @@ def get_browser_id(
     if browser_id is not None and _BROWSER_ID_RE.fullmatch(browser_id):
         return browser_id
     return None
+
+
+def get_session_service(request: Request) -> SessionService:
+    """Per-request wiring over the application's settings, clock and id source."""
+    state = request.app.state
+    data_dir = state.settings.data_dir
+    archive = ArchiveFileStore(state.settings.file_dir)
+    return SessionService(
+        SessionRepository(data_dir / "drafts.db"),
+        ChatRepository(data_dir / "drafts.db"),
+        DraftFileStore(data_dir),
+        get_parser(request),
+        ResumeRepository(data_dir / "resumes.db"),
+        archive.is_available,
+        state.clock,
+        state.ids,
+    )
 
 
 def get_parser(request: Request) -> ResumeParserClient:
