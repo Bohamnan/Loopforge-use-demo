@@ -165,6 +165,7 @@ description: |
 | **违反硬约束/ACCEPTED ADR** | 命中 `architectural_constraints.md` BLOCK 级约束或 ACCEPTED ADR 冲突 | BLOCK：引用约束/ADR 证据 |
 | **高风险变更无测试证据** | 变更命中本 Workbench 高风险模式，但无对应测试或验证说明 | BLOCK（Ticket-aware）/ QUESTION（Ad-hoc，若无法看到完整测试范围） |
 | **无法判断业务正确性** | 缺少 requirements/design 等业务上下文 | 不得伪造结论；输出 QUESTION 或上下文限制说明 |
+| **审查批次超出预算** | 同一票据本 Workbench 的审查批次已达 tasks.md「测试预算」上限 | 先请人类确认是否继续审查；继续时只审 HIGH_RISK 与新增变更 |
 
 ---
 
@@ -273,6 +274,8 @@ description: |
 - 正向路径和主要边界条件是否均有测试用例
 - 逐项核对 `references/{被审查 Workbench}.md` 的「本 Workbench 测试覆盖门槛」
 - feature-developer / CI 未能运行测试时，检查是否有明确原因；基础设施失败不等于逻辑通过
+- **适度检查（防止过度）**：对照 tasks.md「测试预算」，检查测试是否超出上限、是否与已有测试重复、非 HIGH_RISK 代码是否被过度测试；发现冗余时作为 SUGGEST 建议删除或合并
+- **只有 BLOCK 可以要求新增测试**：SUGGEST / QUESTION 里的测试建议默认登记为跟踪项，不触发补测试
 
 ---
 
