@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import App, { appTheme } from './App';
@@ -53,5 +53,42 @@ describe('App', () => {
     expect(screen.getByLabelText('姓名')).toHaveValue('改过的名字');
     await userEvent.click(screen.getAllByText('已归档简历')[0]!);
     await waitFor(() => expect(backend.count('GET /api/v1/resumes')).toBe(2));
+  });
+
+  it('switches to "用户列表" without calling backend and preserves state across all three tabs (TD-25)', async () => {
+    const backend = new FakeBackend();
+    stubFetch(backend.handle);
+    const { container } = render(<App />);
+
+    // Keep-alive check on chat tab.
+    await userEvent.upload(
+      container.querySelector('input[type="file"]') as HTMLInputElement,
+      new File(['%PDF'], '合成简历.pdf', { type: 'application/pdf' }),
+    );
+    await userEvent.clear(await screen.findByLabelText('姓名'));
+    await userEvent.type(screen.getByLabelText('姓名'), '三页签测试');
+
+    const nav = screen.getByRole('navigation', { name: '页面切换' });
+    await userEvent.click(within(nav).getByText('用户列表'));
+
+    expect(await screen.findByText('陈思远')).toBeInTheDocument();
+    expect(backend.count('GET /api/v1/resumes')).toBe(0);
+
+    // Apply a keyword search in user list tab, then switch away and back.
+    const searchInput = screen.getByLabelText('关键字搜索');
+    await userEvent.type(searchInput, '张明远{enter}');
+    expect(await screen.findByText('张明远')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText('陈思远')).not.toBeInTheDocument());
+
+    await userEvent.click(within(nav).getByText('已归档简历'));
+    expect(await screen.findByText('暂无记录')).toBeInTheDocument();
+
+    await userEvent.click(within(nav).getByText('对话'));
+    expect(screen.getByLabelText('姓名')).toHaveValue('三页签测试');
+
+    await userEvent.click(within(nav).getByText('用户列表'));
+    expect(screen.getByLabelText('关键字搜索')).toHaveValue('张明远');
+    expect(screen.getByText('张明远')).toBeInTheDocument();
+    expect(screen.queryByText('陈思远')).not.toBeInTheDocument();
   });
 });
