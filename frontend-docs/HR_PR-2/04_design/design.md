@@ -141,3 +141,45 @@ flowchart TD
 | 页面与集成测试 | `UserListPage.test.tsx` | 默认渲染与分页切换、防抖/回车搜索及清空、多条件筛选与重置（页码归 1）、点击行打开 `Modal` 展示完整字段与 `未填写`、加载/空态/失败重试闭环、快速连续请求 `seq` 防乱序 |
 | 导航回归测试 | `App.test.tsx` | 新增“用户列表”页签切换，验证“对话”与“已归档简历”状态保活不丢失 |
 | 构建与规范校验 | `npm run lint` / `npm run build` / `npm test` | ESLint 0 warning、`tsc --noEmit && vite build` 成功、全量 Vitest 用例通过 |
+
+---
+
+## §10 Dev_Lead 设计评审与补充细化（2026-11-25）
+
+> 本节为 Dev_Lead 对上游设计文档（v1.0）的工程化评审与落地细化，作为下游前端开发与 QA 验收的权威补充。
+
+### 10.1 静态数据集与枚举权威规格
+
+- **预设部门枚举（4 个）**：`MOCK_DEPARTMENTS = ['研发部', '产品部', '人力资源部', '运营部'] as const`（筛选下拉“全部”值为 `'all'`）。
+- **数据集规模与分布**：`MOCK_USERS` 固定预置 **28 条** 合成脱敏记录（默认每页 10 条时对应 3 页：`10 + 10 + 8`）：
+  - 覆盖 3 种角色（`admin` / `hr` / `member`）、2 种状态（`active` / `disabled`）、4 个部门；
+  - 创建时间 `created_at` 跨度明确、各不相同，确保“按 `created_at` 倒序排列”具有唯一确定顺序；
+  - 至少包含 3 条非必填字段（`gender`、`job_title`、`location`、`last_login_at`、`remark`）为 `null` 或 `""` 的样例，用于验证详情弹框 `未填写` 占位渲染；
+  - 脱敏规则（`B-06`）：姓名采用虚构中文名，手机号采用 `138****8001` 格式，邮箱采用 `@example.com` 保留域名。
+
+### 10.2 服务与 Hook 工程接口细化
+
+1. **`MockUserApi.ts` 可测性与取消机制**：
+   - 导出 `fetchMockUsers(query: UserListQuery, options?: { delayMs?: number }): Promise<UserListResult>` 与 `fetchMockUserDetail(userId: string, options?: { delayMs?: number; forceError?: boolean }): Promise<UserRecord>`。
+   - 默认 `delayMs = 200`；单元测试可通过显式传入 `delayMs: 0` 或自定义延迟（如通过 Hook 可选参数注入 `delayMs`）实现确定性测试，避免伪定时器脆弱性。
+   - 当 `demoMode === 'error'` 或 `forceError === true` 时拒绝 Promise，抛出标准 `Error`（由 Hook 转换为 `LocalError`）。
+2. **`useUserList.ts` 生命周期与竞态细节**：
+   - **首次激活加载**：仅当 `active` 首次为 `true` 时触发初始列表加载；切出页签再切回（`TD-25`）保持现有搜索、筛选、分页和列表数据不丢失。
+   - **错误处理复用**：Hook 内部将异常转为 `LocalError`（`{ kind: 'local', message: '用户列表加载失败，请点击重试' }` / `'用户详情加载失败，请稍后重试'`），页面与弹框直接复用既有 `src/components/ErrorAlert.tsx`，不再另写重复 `Alert` 包装。
+   - **演示模式切换**：
+     - 切换 `demoMode` 为 `'loading'` 时，列表进入稳定 `loading` 态（`loading = true`，递增 `listSeq` 废弃在途请求）；
+     - 切换为 `'empty'` 或 `'error'` 时走 `fetchMockUsers` 返回空结果或错误态；
+     - 在列表错误态点击“重试”（`retryList`）时，若当前 `demoMode === 'error'`，自动复位为 `'normal'` 后重新请求。
+   - **防抖清理**：关键字防抖（250ms）需在组件卸载时 `clearTimeout`；按回车或点击搜索按钮立即触发查询并清除挂起的防抖定时器，同时将 `page` 重置为 `1`。
+   - **详情错误演示支持**：为便于演示与单测覆盖用户故事 #4 的“详情模拟请求失败与重试”，`UserDetailModal`（或 `useUserList`）支持在详情请求时响应故障开关（如 `detailShouldFail` 测试/演示开关，或当 `demoMode === 'error'` 时详情加载失败并在弹框内点击重试恢复正常）。
+
+### 10.3 组件交互与响应式约束（TD-13 / A11y）
+
+- **`UserTable.tsx`**：
+  - 表格列较多（9 列），必须配置 `scroll={{ x: 'max-content' }}`，保证 `360px` 窄屏不发生单元格重叠或溢出。
+  - `onRow` 绑定整行点击打开详情；操作列“查看详情”按钮与姓名按钮必须调用 `e.stopPropagation()`，避免单次点击重复触发两次请求。
+  - 表格空态文案区分：当存在有效搜索/筛选条件且非 `demoMode === 'empty'` 时，提示 `未找到符合条件的用户` 并提供 `清空筛选` 按钮；否则提示 `暂无用户数据` 并提供 `刷新` 按钮。
+- **`UserFilterBar.tsx`**：
+  - 布局容器 `.user-filter-bar` 采用 `display: flex; flex-wrap: wrap; gap: 12px; align-items: center;`，窄屏自动换行。
+  - 演示状态切换器（`Segmented`）标签明确，提供 `正常数据`（`normal`）、`加载中`（`loading`）、`空数据`（`empty`）、`请求失败`（`error`），不污染正常业务筛选条件。
+- **代码注释规范**：遵循 `AGENTS.md`，所有新增 `.ts` / `.tsx` 文件中的代码注释统一使用英文。
