@@ -3,6 +3,7 @@ import { useState } from 'react';
 import ErrorBoundary from './components/ErrorBoundary';
 import ArchivePage from './pages/ArchivePage';
 import ResumeCollectionPage from './pages/ResumeCollectionPage';
+import UserListPage from './pages/UserListPage';
 
 /** Ant Design theme tokens taken from the prototype palette (global-info/prototype/style.css, TD-14). */
 export const appTheme: ThemeConfig = {
@@ -21,9 +22,9 @@ export const appTheme: ThemeConfig = {
   },
 };
 
-type View = 'chat' | 'archive';
+type View = 'chat' | 'archive' | 'users';
 
-/** Both pages stay mounted; the hidden one keeps its state (current session, edits, typed text) - TD-25, no router. */
+/** All tab pages stay mounted; hidden ones keep their state (current session, edits, typed text, filters) - TD-25, no router. */
 export default function App() {
   const [view, setView] = useState<View>('chat');
   const nav = (
@@ -33,6 +34,7 @@ export default function App() {
       options={[
         { label: '对话', value: 'chat' },
         { label: '已归档简历', value: 'archive' },
+        { label: '用户列表', value: 'users' },
       ]}
     />
   );
@@ -44,6 +46,9 @@ export default function App() {
         </div>
         <div hidden={view !== 'archive'}>
           <ArchivePage active={view === 'archive'} nav={nav} />
+        </div>
+        <div hidden={view !== 'users'}>
+          <UserListPage active={view === 'users'} nav={nav} />
         </div>
       </ErrorBoundary>
     </ConfigProvider>
